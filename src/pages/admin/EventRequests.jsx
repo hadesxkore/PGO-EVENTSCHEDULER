@@ -155,7 +155,7 @@ const EventRequests = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-7xl mx-auto"
+      className="max-w-[1400px] mx-auto px-8 py-8"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-8">
@@ -163,7 +163,7 @@ const EventRequests = () => {
           <div>
             <h1
               className={cn(
-                "text-3xl font-bold",
+                "text-4xl font-bold tracking-tight",
                 isDarkMode ? "text-white" : "text-gray-900"
               )}
             >
@@ -171,7 +171,7 @@ const EventRequests = () => {
             </h1>
             <p
               className={cn(
-                "text-sm mt-1",
+                "text-lg mt-2",
                 isDarkMode ? "text-gray-400" : "text-gray-500"
               )}
             >
@@ -271,26 +271,26 @@ const EventRequests = () => {
           "rounded-xl border shadow-sm",
           isDarkMode ? "border-slate-700 bg-slate-900" : "border-gray-100 bg-white"
         )}>
-          <div className="p-6">
+          <div className="p-8">
             {/* Table Header */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
+                          <div className="mb-8">
+                              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className={cn(
-                    "text-lg font-semibold mb-1",
+                    "text-2xl font-bold mb-2",
                     isDarkMode ? "text-gray-100" : "text-gray-900"
                   )}>
                     Event Requests
                   </h3>
                   <p className={cn(
-                    "text-sm",
+                    "text-base",
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   )}>
                     Manage and review all event requests from users
                   </p>
                 </div>
                 <Badge variant="outline" className={cn(
-                  "h-8 px-3 font-medium",
+                  "h-10 px-4 text-base font-medium",
                   isDarkMode ? "border-slate-700" : "border-gray-200"
                 )}>
                   {sampleRequests.length} requests
@@ -379,12 +379,12 @@ const EventRequests = () => {
                 <TableRow className={cn(
                   isDarkMode ? "border-slate-700 hover:bg-transparent" : "border-gray-100 hover:bg-transparent"
                 )}>
-                  <TableHead className="w-[200px] py-4 font-semibold">Event Details</TableHead>
-                  <TableHead className="font-semibold">Requestor</TableHead>
-                  <TableHead className="font-semibold">Date & Time</TableHead>
-                  <TableHead className="font-semibold">Location</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="text-right font-semibold">Actions</TableHead>
+                  <TableHead className="w-[250px] py-5 text-base font-semibold">Event Details</TableHead>
+                  <TableHead className="py-5 text-base font-semibold">Requestor</TableHead>
+                  <TableHead className="py-5 text-base font-semibold">Date & Time</TableHead>
+                  <TableHead className="py-5 text-base font-semibold">Location</TableHead>
+                  <TableHead className="py-5 text-base font-semibold">Status</TableHead>
+                  <TableHead className="text-right py-5 text-base font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -404,10 +404,10 @@ const EventRequests = () => {
                         setIsViewDialogOpen(true);
                       }}
                     >
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <div>
                           <p className={cn(
-                            "font-medium mb-1",
+                            "text-base font-medium mb-2",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
                           )}>{request.title}</p>
                           <div className="flex items-center gap-2">
@@ -418,7 +418,7 @@ const EventRequests = () => {
                               {request.type}
                             </Badge>
                             <span className={cn(
-                              "text-xs",
+                              "text-sm",
                               isDarkMode ? "text-gray-400" : "text-gray-500"
                             )}>
                               {request.id}
@@ -426,19 +426,19 @@ const EventRequests = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <div>
                           <p className={cn(
                             "text-sm font-medium",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
                           )}>{request.requestor.name}</p>
                           <p className={cn(
-                            "text-xs",
+                            "text-sm",
                             isDarkMode ? "text-gray-400" : "text-gray-500"
                           )}>{request.requestor.department}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-4 w-4 text-gray-400" />
@@ -456,7 +456,7 @@ const EventRequests = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <div className="flex items-center gap-1.5">
                           <MapPin className="h-4 w-4 text-gray-400" />
                           <span className={cn(
@@ -465,7 +465,7 @@ const EventRequests = () => {
                           )}>{request.location}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <Badge
                           variant="secondary"
                           className={cn(
@@ -477,7 +477,7 @@ const EventRequests = () => {
                           {request.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-5">
                         <div className="flex items-center justify-end gap-2">
                           {request.status === 'pending' && (
                             <>
@@ -535,7 +535,7 @@ const EventRequests = () => {
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className={cn(
-          "sm:max-w-[600px]",
+          "sm:max-w-[600px] border-none shadow-lg",
           isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
           <DialogHeader>

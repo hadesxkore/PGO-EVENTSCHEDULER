@@ -1,0 +1,262 @@
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
+import { useTheme } from "../../contexts/ThemeContext";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Separator } from "../ui/separator";
+import {
+  LayoutDashboard,
+  CalendarPlus,
+  Calendar,
+  CalendarClock,
+  CalendarDays,
+  LogOut,
+  Moon,
+  Sun,
+  ChevronLeft,
+  ChevronRight,
+  User,
+} from "lucide-react";
+
+const MainLayout = ({ children, userData }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const { isDarkMode, toggleDarkMode } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleLogout = () => {
+    // Clear any stored user data/tokens
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
+    
+    // Navigate to auth page
+    navigate('/');
+    
+    // Reload the page to reset the app state
+    window.location.reload();
+  };
+
+  const sidebarItems = [
+    {
+      title: "Dashboard",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+      href: "/dashboard",
+    },
+    {
+      title: "Request Event",
+      icon: <CalendarPlus className="h-5 w-5" />,
+      href: "/request-event",
+    },
+    {
+      title: "My Events",
+      icon: <Calendar className="h-5 w-5" />,
+      href: "/my-events",
+    },
+    {
+      title: "Department Calendar",
+      icon: <CalendarClock className="h-5 w-5" />,
+      href: "/department-calendar",
+    },
+    {
+      title: "All Events",
+      icon: <CalendarDays className="h-5 w-5" />,
+      href: "/all-events",
+    },
+  ];
+
+  return (
+    <div className={cn(
+      "min-h-screen w-full",
+      isDarkMode ? "dark bg-[#0F172A] text-gray-100" : "bg-gray-50 text-gray-900"
+    )}>
+      {/* Sidebar */}
+      <div className={cn(
+        "fixed left-0 top-0 h-full transition-all duration-300 z-50 flex flex-col",
+        isDarkMode ? "bg-[#1E293B] border-gray-700" : "bg-white border-gray-200",
+        "border-r shadow-sm",
+        collapsed ? "w-20" : "w-72"
+      )}>
+        {/* Logo Area */}
+        <div className={cn(
+          "h-16 flex items-center gap-3 px-6",
+          collapsed ? "justify-center px-4" : "px-6"
+        )}>
+          <div className="flex items-center gap-3 min-w-max">
+            <div className="relative h-8 w-8">
+              <img 
+                src="/images/bataanlogo.png" 
+                alt="PGO Logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            {!collapsed && (
+              <div className="flex flex-col gap-1">
+                <h1 className="text-lg font-semibold tracking-tight">
+                  PGO Events
+                </h1>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Separator className={cn(isDarkMode ? "bg-gray-700" : "bg-gray-100")} />
+
+        {/* User Profile */}
+        <div className={cn(
+          "p-4",
+          collapsed ? "items-center" : ""
+        )}>
+          <div className={cn(
+            "p-4 rounded-xl",
+            isDarkMode ? "bg-gray-800/50" : "bg-gray-50",
+            collapsed ? "flex justify-center" : "space-y-3"
+          )}>
+            <div className={cn(
+              "flex items-center",
+              collapsed ? "justify-center" : "gap-3"
+            )}>
+              <Avatar className={cn(
+                "ring-2",
+                isDarkMode ? "ring-gray-700" : "ring-gray-200"
+              )}>
+                <AvatarImage src={userData?.photoURL} />
+                <AvatarFallback className={cn(
+                  isDarkMode ? "bg-gray-700" : "bg-gray-100"
+                )}>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-semibold truncate">
+                    {userData?.firstName || "John"} {userData?.lastName || "Doe"}
+                  </h2>
+                  <p className={cn(
+                    "text-xs truncate",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    {userData?.email || "john.doe@example.com"}
+                  </p>
+                </div>
+              )}
+            </div>
+            {!collapsed && (
+              <div className={cn(
+                "text-xs px-3 py-1 rounded-full w-fit",
+                isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"
+              )}>
+                {userData?.department || "Department"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Items */}
+        <div className="flex-1 overflow-y-auto">
+          <nav className="grid gap-1 px-2 py-4">
+            {sidebarItems.map((item) => (
+              <Button
+                key={item.title}
+                variant="ghost"
+                className={cn(
+                  "justify-start gap-3 px-3 py-6",
+                  collapsed ? "justify-center px-3" : "px-3",
+                  isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100",
+                  "transition-colors duration-200",
+                  location.pathname === item.href && (
+                    isDarkMode 
+                      ? "bg-gray-700 text-white" 
+                      : "bg-gray-100 text-blue-600"
+                  )
+                )}
+                onClick={() => navigate(item.href)}
+              >
+                <div className={cn(
+                  "flex items-center gap-3",
+                  collapsed && "justify-center"
+                )}>
+                  {item.icon}
+                  {!collapsed && (
+                    <span className="text-sm font-medium">{item.title}</span>
+                  )}
+                </div>
+              </Button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-auto p-4">
+          <div className="grid gap-1">
+            <Button
+              variant="ghost"
+              className={cn(
+                "justify-start gap-3",
+                collapsed ? "justify-center px-3" : "px-3",
+                isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+              )}
+              onClick={toggleDarkMode}
+            >
+              {isDarkMode ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+              {!collapsed && (
+                <span className="text-sm font-medium">
+                  {isDarkMode ? "Light Mode" : "Dark Mode"}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                "justify-start gap-3",
+                collapsed ? "justify-center px-3" : "px-3",
+                isDarkMode 
+                  ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" 
+                  : "text-red-500 hover:text-red-600 hover:bg-red-50/10"
+              )}
+              onClick={handleLogout}
+            >
+              <LogOut className="h-5 w-5" />
+              {!collapsed && <span className="text-sm font-medium">Logout</span>}
+            </Button>
+          </div>
+        </div>
+
+        {/* Collapse Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "absolute -right-4 top-7 h-8 w-8 rounded-full",
+            isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-white hover:bg-gray-100",
+            "shadow-md"
+          )}
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {/* Main Content */}
+      <div className={cn(
+        "transition-all duration-300 min-h-screen",
+        collapsed ? "ml-20" : "ml-72",
+        isDarkMode ? "bg-[#0F172A]" : "bg-gray-50"
+      )}>
+        <div className="p-8">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MainLayout;

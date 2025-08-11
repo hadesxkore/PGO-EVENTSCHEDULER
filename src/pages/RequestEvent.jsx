@@ -11,7 +11,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
+import RichTextEditor from "../components/RichTextEditor";
 import { Calendar } from "../components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
@@ -186,7 +186,7 @@ const RequestEvent = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-6xl mx-auto"
+      className="max-w-6xl mx-auto px-6 py-6"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-8">
@@ -195,7 +195,7 @@ const RequestEvent = () => {
           isDarkMode ? "text-white" : "text-gray-900"
         )}>Request Event</h1>
         <p className={cn(
-          "text-sm mt-1",
+          "text-base mt-2",
           isDarkMode ? "text-gray-400" : "text-gray-500"
         )}>Create a new event request for approval.</p>
       </motion.div>
@@ -205,7 +205,7 @@ const RequestEvent = () => {
         {/* Left Column - Main Details */}
         <motion.div 
           variants={item}
-          className="lg:col-span-2 space-y-6"
+          className="lg:col-span-2 space-y-5"
         >
           {/* Event Details Card */}
           <div className={cn(
@@ -213,7 +213,7 @@ const RequestEvent = () => {
             isDarkMode ? "bg-slate-800" : "bg-white"
           )}>
             <h2 className={cn(
-              "text-lg font-semibold mb-6",
+              "text-2xl font-bold mb-6",
               isDarkMode ? "text-gray-100" : "text-gray-900"
             )}>Event Details</h2>
             
@@ -221,7 +221,7 @@ const RequestEvent = () => {
               {/* Title and Requestor */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Event Title
                   </Label>
                   <Input
@@ -230,7 +230,7 @@ const RequestEvent = () => {
                     onChange={handleInputChange}
                     placeholder="Enter event title"
                     className={cn(
-                      "rounded-lg h-11",
+                      "rounded-lg h-12 text-base px-4",
                       isDarkMode 
                         ? "bg-slate-900 border-slate-700" 
                         : "bg-white border-gray-200"
@@ -239,18 +239,18 @@ const RequestEvent = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Requestor
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       name="requestor"
                       value={formData.requestor}
                       onChange={handleInputChange}
                       placeholder="Your name"
                       className={cn(
-                        "pl-10 rounded-lg h-11",
+                        "pl-12 rounded-lg h-12 text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -263,18 +263,18 @@ const RequestEvent = () => {
               {/* Location and Participants */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Location
                   </Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       name="location"
                       value={formData.location}
                       onChange={handleInputChange}
                       placeholder="Event location"
                       className={cn(
-                        "pl-10 rounded-lg h-11",
+                        "pl-12 rounded-lg h-12 text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -284,11 +284,11 @@ const RequestEvent = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Number of Participants
                   </Label>
                   <div className="relative">
-                    <Users className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       name="participants"
                       value={formData.participants}
@@ -297,7 +297,7 @@ const RequestEvent = () => {
                       min="1"
                       placeholder="Expected number of attendees"
                       className={cn(
-                        "pl-10 rounded-lg h-11",
+                        "pl-12 rounded-lg h-12 text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -309,26 +309,20 @@ const RequestEvent = () => {
 
               {/* Program Provision */}
               <div className="space-y-2">
-                <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                  Program Provision
+                <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                  Requirements
                 </Label>
-                <Textarea
-                  name="provisions"
+                <RichTextEditor
                   value={formData.provisions}
-                  onChange={handleInputChange}
-                  placeholder="List down required equipment, refreshments, or any other provisions needed"
-                  className={cn(
-                    "rounded-lg min-h-[120px] resize-none",
-                    isDarkMode 
-                      ? "bg-slate-900 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}
+                  onChange={(value) => setFormData(prev => ({ ...prev, provisions: value }))}
+                  placeholder="List down your event requirements (e.g., equipment, refreshments, setup needs, etc.)"
+                  isDarkMode={isDarkMode}
                 />
               </div>
 
               {/* Attachments */}
               <div className="space-y-2">
-                <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                   Attachments
                 </Label>
                 <input
@@ -442,7 +436,7 @@ const RequestEvent = () => {
                       "h-8 w-8",
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     )} />
-                    <div className="text-sm">
+                    <div className="text-base">
                       <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
                         Drag & drop files here or{" "}
                       </span>
@@ -519,7 +513,7 @@ const RequestEvent = () => {
             isDarkMode ? "bg-slate-800" : "bg-white"
           )}>
             <h2 className={cn(
-              "text-lg font-semibold mb-6",
+              "text-2xl font-bold mb-6",
               isDarkMode ? "text-gray-100" : "text-gray-900"
             )}>Schedule</h2>
 
@@ -528,7 +522,7 @@ const RequestEvent = () => {
               <div className="flex gap-4">
                 <div className="flex flex-col gap-3 flex-1">
                   <Label htmlFor="date-picker" className={cn(
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                    "text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
                     Date
                   </Label>
@@ -592,7 +586,7 @@ const RequestEvent = () => {
 
                 <div className="flex flex-col gap-3 flex-1">
                   <Label htmlFor="time-picker" className={cn(
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                    "text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
                     Time
                   </Label>
@@ -613,7 +607,7 @@ const RequestEvent = () => {
 
               {/* Duration Selection */}
               <div className="space-y-2">
-                <Label className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                   Duration
                 </Label>
                 <Select
@@ -683,8 +677,8 @@ const RequestEvent = () => {
           <Button
             size="lg"
             className={cn(
-              "w-full rounded-lg h-11",
-              "bg-[#4263EB] hover:bg-blue-600 text-white"
+              "w-full rounded-lg h-12 text-base flex items-center justify-center gap-2",
+              "bg-black hover:bg-gray-800 text-white"
             )}
             onClick={handleSubmit}
             disabled={isSubmitting}

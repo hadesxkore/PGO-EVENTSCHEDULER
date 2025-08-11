@@ -37,32 +37,32 @@ const AdminLayout = ({ children, userData }) => {
   const sidebarItems = [
     {
       title: "Dashboard",
-      icon: <LayoutDashboard className="h-5 w-5" />,
+      icon: <LayoutDashboard className="h-6 w-6" />,
       href: "/admin/dashboard",
     },
     {
       title: "Event Requests",
-      icon: <CalendarDays className="h-5 w-5" />,
+      icon: <CalendarDays className="h-6 w-6" />,
       href: "/admin/event-requests",
     },
     {
       title: "Users",
-      icon: <Users className="h-5 w-5" />,
+      icon: <Users className="h-6 w-6" />,
       href: "/admin/users",
     },
     {
       title: "Departments",
-      icon: <Building2 className="h-5 w-5" />,
+      icon: <Building2 className="h-6 w-6" />,
       href: "/admin/departments",
     },
     {
       title: "Reports",
-      icon: <FileText className="h-5 w-5" />,
+      icon: <FileText className="h-6 w-6" />,
       href: "/admin/reports",
     },
     {
       title: "Settings",
-      icon: <Settings className="h-5 w-5" />,
+      icon: <Settings className="h-6 w-6" />,
       href: "/admin/settings",
     },
   ];
@@ -77,7 +77,7 @@ const AdminLayout = ({ children, userData }) => {
         "fixed left-0 top-0 h-full transition-all duration-300 z-50 flex flex-col",
         isDarkMode ? "bg-[#1E293B] border-gray-700" : "bg-white border-gray-200",
         "border-r shadow-sm",
-        collapsed ? "w-20" : "w-72"
+        collapsed ? "w-24" : "w-80"
       )}>
         {/* Logo Area */}
         <div className={cn(
@@ -85,7 +85,7 @@ const AdminLayout = ({ children, userData }) => {
           collapsed ? "justify-center px-4" : "px-6"
         )}>
           <div className="flex items-center gap-3 min-w-max">
-            <div className="relative h-8 w-8">
+                          <div className="relative h-10 w-10">
               <img 
                 src="/images/bataanlogo.png" 
                 alt="PGO Logo"
@@ -94,7 +94,7 @@ const AdminLayout = ({ children, userData }) => {
             </div>
             {!collapsed && (
               <div className="flex flex-col">
-                <h1 className="text-lg font-semibold tracking-tight">
+                <h1 className="text-xl font-bold tracking-tight">
                   Admin Portal
                 </h1>
               </div>
@@ -128,12 +128,12 @@ const AdminLayout = ({ children, userData }) => {
               </Avatar>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-semibold truncate">
+                  <h2 className="text-base font-bold truncate">
                     {userData?.firstName || "Admin"} {userData?.lastName || "User"}
                   </h2>
                   <div className="flex items-center gap-1 mt-1">
                     <Shield className="h-3 w-3 text-red-500" />
-                    <p className="text-xs font-medium text-red-500">
+                    <p className="text-sm font-semibold text-red-500">
                       Administrator
                     </p>
                   </div>
@@ -151,7 +151,7 @@ const AdminLayout = ({ children, userData }) => {
                 key={item.title}
                 variant="ghost"
                 className={cn(
-                  "justify-start gap-3 px-3 py-6",
+                  "justify-start gap-4 px-4 py-7",
                   collapsed ? "justify-center px-3" : "px-3",
                   isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100",
                   "transition-colors duration-200",
@@ -172,7 +172,7 @@ const AdminLayout = ({ children, userData }) => {
                 )}>
                   {item.icon}
                   {!collapsed && (
-                    <span className="text-sm font-medium">{item.title}</span>
+                    <span className="text-base font-semibold">{item.title}</span>
                   )}
                 </div>
               </Button>
@@ -182,23 +182,23 @@ const AdminLayout = ({ children, userData }) => {
 
         {/* Bottom Actions */}
         <div className="mt-auto p-4">
-          <div className="grid gap-1">
+          <div className="grid gap-3">
             <Button
               variant="ghost"
               className={cn(
-                "justify-start gap-3",
-                collapsed ? "justify-center px-3" : "px-3",
+                "justify-start gap-4 h-12",
+                collapsed ? "justify-center px-3" : "px-4",
                 isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               )}
               onClick={toggleDarkMode}
             >
               {isDarkMode ? (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-6 w-6" />
               ) : (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-6 w-6" />
               )}
               {!collapsed && (
-                <span className="text-sm font-medium">
+                <span className="text-lg font-semibold">
                   {isDarkMode ? "Light Mode" : "Dark Mode"}
                 </span>
               )}
@@ -206,16 +206,16 @@ const AdminLayout = ({ children, userData }) => {
             <Button
               variant="ghost"
               className={cn(
-                "justify-start gap-3",
-                collapsed ? "justify-center px-3" : "px-3",
+                "justify-start gap-4 h-12",
+                collapsed ? "justify-center px-3" : "px-4",
                 isDarkMode 
                   ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" 
                   : "text-red-500 hover:text-red-600 hover:bg-red-50/10"
               )}
               onClick={handleLogout}
             >
-              <LogOut className="h-5 w-5" />
-              {!collapsed && <span className="text-sm font-medium">Logout</span>}
+              <LogOut className="h-6 w-6" />
+              {!collapsed && <span className="text-lg font-semibold">Logout</span>}
             </Button>
           </div>
         </div>
@@ -242,7 +242,7 @@ const AdminLayout = ({ children, userData }) => {
       {/* Main Content */}
       <div className={cn(
         "transition-all duration-300 min-h-screen",
-        collapsed ? "ml-20" : "ml-72",
+        collapsed ? "ml-24" : "ml-80",
         isDarkMode ? "bg-[#0F172A]" : "bg-gray-50"
       )}>
         <div className="p-8">

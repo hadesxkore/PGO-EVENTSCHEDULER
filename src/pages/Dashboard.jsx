@@ -1,45 +1,86 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/card";
 import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
+import { getUserDashboardStats } from "../lib/firebase/dashboard-user";
+import { auth } from "../lib/firebase/firebase";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { isDarkMode } = useTheme();
-  
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    totalEvents: 0,
+    upcomingEvents: 0,
+    departmentEvents: 0,
+    totalHours: 0,
+    nextEventIn: null,
+    thisWeekEvents: 0,
+    thisWeekHours: 0,
+    upcomingEventsList: []
+  });
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        const result = await getUserDashboardStats(currentUser.uid);
+        if (result.success) {
+          setDashboardData(result.stats);
+        } else {
+          toast.error("Failed to fetch dashboard data");
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        toast.error("An error occurred while fetching dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   const stats = [
     {
       title: "Total Events",
-      value: "24",
+      value: loading ? "-" : dashboardData.totalEvents.toString(),
       icon: <CalendarDays className="h-6 w-6 text-blue-500" />,
-      trend: "+12% from last month",
+      trend: "All time events",
       trendUp: true,
       color: "bg-blue-500/10",
     },
     {
       title: "Upcoming Events",
-      value: "8",
+      value: loading ? "-" : dashboardData.upcomingEvents.toString(),
       icon: <Calendar className="h-6 w-6 text-green-500" />,
-      trend: "Next event in 2 days",
-      trendUp: true,
+      trend: dashboardData.nextEventIn ? `Next event in ${dashboardData.nextEventIn} days` : "No upcoming events",
+      trendUp: !loading && dashboardData.upcomingEvents > 0,
       color: "bg-green-500/10",
     },
     {
       title: "Department Events",
-      value: "12",
+      value: loading ? "-" : dashboardData.departmentEvents.toString(),
       icon: <Users className="h-6 w-6 text-purple-500" />,
-      trend: "4 this week",
-      trendUp: false,
+      trend: `${dashboardData.thisWeekEvents} this week`,
+      trendUp: dashboardData.thisWeekEvents > 0,
       color: "bg-purple-500/10",
     },
     {
       title: "Hours Scheduled",
-      value: "156",
+      value: loading ? "-" : dashboardData.totalHours.toString(),
       icon: <Clock className="h-6 w-6 text-orange-500" />,
-      trend: "32 hours this week",
-      trendUp: true,
+      trend: `${dashboardData.thisWeekHours} hours this week`,
+      trendUp: dashboardData.thisWeekHours > 0,
       color: "bg-orange-500/10",
     },
   ];
@@ -139,7 +180,7 @@ const Dashboard = () => {
         ))}
       </motion.div>
 
-      {/* Recent Events */}
+      {/* Upcoming Events */}
       <motion.div variants={item}>
         <div className={cn(
           "rounded-xl p-6",
@@ -149,69 +190,89 @@ const Dashboard = () => {
             <h2 className={cn(
               "text-xl font-semibold",
               isDarkMode ? "text-white" : "text-gray-900"
-            )}>Recent Events</h2>
+            )}>Upcoming Events</h2>
             <Button
               variant="ghost"
               className={cn(
                 "text-sm rounded-xl",
                 isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               )}
+              onClick={() => navigate('/my-events')}
             >
               View All
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
           <div className="space-y-4">
-            {[1, 2, 3].map((_, i) => (
-              <motion.div
-                key={i}
-                variants={item}
-                className={cn(
-                  "flex items-center justify-between p-4 rounded-xl transition-all duration-200",
-                  isDarkMode 
-                    ? "bg-gray-900/50 hover:bg-gray-700" 
-                    : "bg-gray-50 hover:bg-gray-100",
-                  "cursor-pointer group"
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <Avatar className={cn(
-                    "h-10 w-10 transition-transform duration-200",
-                    "group-hover:scale-105"
-                  )}>
-                    <AvatarImage src={`https://avatar.vercel.sh/${i}.png`} />
-                    <AvatarFallback>ME</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className={cn(
-                      "font-medium",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>Department Meeting</h3>
-                    <div className="flex items-center gap-2">
-                      <p className={cn(
-                        "text-sm",
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      )}>Tomorrow at 10:00 AM</p>
-                      <span className="h-1 w-1 rounded-full bg-gray-400" />
-                      <p className={cn(
-                        "text-sm",
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      )}>2 hours</p>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
+            {loading ? (
+              <div className={cn(
+                "text-sm text-center py-8",
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              )}>
+                Loading events...
+              </div>
+            ) : dashboardData.upcomingEventsList.length === 0 ? (
+              <div className={cn(
+                "text-sm text-center py-8",
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              )}>
+                No upcoming events
+              </div>
+            ) : (
+              dashboardData.upcomingEventsList.map((event) => (
+                <motion.div
+                  key={event.id}
+                  variants={item}
                   className={cn(
-                    "rounded-xl opacity-0 group-hover:opacity-100 transition-opacity",
-                    isDarkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
+                    "flex items-center justify-between p-4 rounded-xl transition-all duration-200",
+                    isDarkMode 
+                      ? "bg-gray-900/50 hover:bg-gray-700" 
+                      : "bg-gray-50 hover:bg-gray-100",
+                    "cursor-pointer group"
                   )}
                 >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            ))}
+                  <div className="flex items-center gap-4">
+                    <Avatar className={cn(
+                      "h-10 w-10 transition-transform duration-200",
+                      "group-hover:scale-105"
+                    )}>
+                      <AvatarFallback className={cn(
+                        isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                      )}>
+                        {event.title.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>{event.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <p className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>{format(event.date, "MMM d, yyyy 'at' h:mm a")}</p>
+                        <span className="h-1 w-1 rounded-full bg-gray-400" />
+                        <p className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>{event.duration} minutes</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "rounded-xl opacity-0 group-hover:opacity-100 transition-opacity",
+                      isDarkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
+                    )}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </motion.div>

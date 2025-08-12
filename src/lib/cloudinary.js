@@ -1,47 +1,79 @@
-// Function to upload file to Cloudinary
+const CLOUD_NAME = 'dz8rbjfa1';
+const UPLOAD_PRESET = 'images-files';
+
 export const uploadFile = async (file) => {
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'files-images'); // Your upload preset
-        formData.append('folder', 'event-scheduler-docs'); // Optional: organize files in folders
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('folder', 'event-scheduler-docs');
+    formData.append('tags', 'event_scheduler');
 
-        const response = await fetch(
-            `https://api.cloudinary.com/v1_1/dz8rbjfa1/auto/upload`,
-            {
-                method: 'POST',
-                body: formData,
-            }
-        );
+    const isImage = file.type.startsWith('image/');
+    const uploadEndpoint = isImage ? 'image' : 'auto';
 
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error.message);
-        }
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${uploadEndpoint}/upload`,
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
 
-        return {
-            success: true,
-            url: data.secure_url,
-            publicId: data.public_id,
-            format: data.format,
-            size: data.bytes,
-            resourceType: data.resource_type
-        };
-    } catch (error) {
-        console.error('Upload error:', error);
-        return {
-            success: false,
-            error: error.message
-        };
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
     }
+
+    return {
+      success: true,
+      url: data.secure_url,
+      publicId: data.public_id,
+      resourceType: data.resource_type,
+      format: data.format,
+      name: file.name,
+      size: file.size,
+      type: file.type
+    };
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return { success: false, error: error.message };
+  }
 };
 
-// Function to get file size in readable format
 export const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Function to generate a download URL for Cloudinary files
+export const getCloudinaryFileUrl = (url, { download = false } = {}) => {
+  if (!url) return url;
+
+  // Extract the version and file path from the URL
+  const matches = url.match(/\/v\d+\/(.+)$/);
+  if (!matches) return url;
+
+  const filePath = matches[1];
+  const fileExtension = filePath.split('.').pop().toLowerCase();
+
+  // Base Cloudinary URL
+  const baseUrl = `https://res.cloudinary.com/${CLOUD_NAME}`;
+
+  if (download) {
+    // For PDFs and documents
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(fileExtension)) {
+      return `${baseUrl}/image/upload/fl_attachment/v1/${filePath}`;
+    }
+    
+    // For images and other files
+    return `${baseUrl}/image/upload/fl_attachment,fl_force_download/v1/${filePath}`;
+  }
+
+  // For viewing, return the original URL
+  return url;
 };

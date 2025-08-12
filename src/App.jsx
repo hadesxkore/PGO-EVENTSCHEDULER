@@ -8,6 +8,8 @@ import RequestEvent from "./pages/RequestEvent";
 import MyEvents from "./pages/MyEvents";
 import AdminDashboard from "./pages/admin/Dashboard";
 import EventRequests from "./pages/admin/EventRequests";
+import Users from "./pages/admin/Users";
+import Departments from "./pages/admin/Departments";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
@@ -34,6 +36,8 @@ function App() {
               <Routes>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/event-requests" element={<EventRequests />} />
+                <Route path="/admin/users" element={<Users />} />
+                <Route path="/admin/departments" element={<Departments />} />
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />

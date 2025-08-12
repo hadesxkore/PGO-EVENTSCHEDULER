@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
+import { downloadFile } from "@/lib/utils/downloadFile";
+import { getAllEventRequests } from "@/lib/firebase/eventRequests";
+import { toast } from "sonner";
 import {
   Search,
   Filter,
@@ -9,13 +12,11 @@ import {
   Clock,
   MapPin,
   Users,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
   User,
   Eye,
   FileText,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -55,74 +57,55 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
-// Sample data - replace with actual data from Firebase
-const sampleRequests = [
-  {
-    id: "REQ-001",
-    title: "Department Meeting",
-    date: new Date(2024, 2, 15, 10, 0),
-    location: "Conference Room A",
-    participants: 12,
-    status: "pending",
-    type: "meeting",
-    description: "Monthly department sync-up meeting to discuss ongoing projects.",
-    requestor: {
-      name: "John Doe",
-      email: "john@example.com",
-      department: "IT",
-      avatar: null,
-    },
-    provisions: "Projector, Whiteboard, Coffee and Snacks",
-    requestedAt: new Date(2024, 2, 10, 14, 30),
-    attachments: [
-      { name: "Agenda.pdf", size: "245 KB" },
-      { name: "Presentation.pptx", size: "1.2 MB" },
-    ],
-  },
-  {
-    id: "REQ-002",
-    title: "Team Building Workshop",
-    date: new Date(2024, 2, 20, 14, 30),
-    location: "Main Hall",
-    participants: 30,
-    status: "pending",
-    type: "workshop",
-    description: "Annual team building event focusing on collaboration.",
-    requestor: {
-      name: "Jane Smith",
-      email: "jane@example.com",
-      department: "HR",
-      avatar: null,
-    },
-    provisions: "Audio System, Projector, Name Tags, Refreshments",
-    requestedAt: new Date(2024, 2, 11, 9, 15),
-    attachments: [
-      { name: "Workshop_Plan.pdf", size: "380 KB" },
-      { name: "Budget.xlsx", size: "128 KB" },
-    ],
-  },
-];
 
-const statusColors = {
-  pending: "bg-yellow-500/10 text-yellow-500",
-  approved: "bg-green-500/10 text-green-500",
-  rejected: "bg-red-500/10 text-red-500",
-};
-
-const statusIcons = {
-  pending: AlertCircle,
-  approved: CheckCircle2,
-  rejected: XCircle,
-};
 
 const EventRequests = () => {
   const { isDarkMode } = useTheme();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState(null);
+  const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 7;
 
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const result = await getAllEventRequests();
+      
+      if (result.success) {
+        setEvents(result.requests);
+      } else {
+        toast.error("Failed to fetch events");
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      toast.error("An error occurred while fetching events");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEvents = events.filter(event => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    return event.title?.toLowerCase().includes(searchLower) ||
+           event.requestor?.toLowerCase().includes(searchLower);
+  });
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -138,32 +121,22 @@ const EventRequests = () => {
     show: { opacity: 1, y: 0 },
   };
 
-  const handleAction = (request, action) => {
-    setSelectedRequest(request);
-    setActionType(action);
-    setIsActionDialogOpen(true);
-  };
 
-  const handleConfirmAction = () => {
-    // Implement the actual approval/rejection logic here
-    console.log(`${actionType} request:`, selectedRequest);
-    setIsActionDialogOpen(false);
-  };
 
   return (
     <motion.div
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-7xl mx-auto"
+      className="max-w-[1400px] mx-auto px-8 pt-4 pb-8"
     >
       {/* Header */}
-      <motion.div variants={item} className="mb-8">
+      <motion.div variants={item} className="mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1
               className={cn(
-                "text-3xl font-bold",
+                "text-4xl font-bold tracking-tight",
                 isDarkMode ? "text-white" : "text-gray-900"
               )}
             >
@@ -171,99 +144,18 @@ const EventRequests = () => {
             </h1>
             <p
               className={cn(
-                "text-sm mt-1",
+                "text-lg mt-2",
                 isDarkMode ? "text-gray-400" : "text-gray-500"
               )}
             >
               Review and manage event requests from users
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="h-8 px-3 font-medium">
-              {sampleRequests.length} requests
-            </Badge>
-          </div>
+
         </div>
       </motion.div>
 
-      {/* Search and Filter */}
-      <motion.div
-        variants={item}
-        className="flex flex-col sm:flex-row gap-4 mb-6"
-      >
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search requests..."
-            className={cn(
-              "pl-9",
-              isDarkMode
-                ? "bg-slate-900 border-slate-700"
-                : "bg-white border-gray-200"
-            )}
-          />
-        </div>
-        <Select defaultValue="all">
-          <SelectTrigger
-            className={cn(
-              "w-[160px]",
-              isDarkMode
-                ? "bg-slate-900 border-slate-700"
-                : "bg-white border-gray-200"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              <SelectValue placeholder="Filter" />
-            </div>
-          </SelectTrigger>
-          <SelectContent
-            className={cn(
-              "border-2",
-              isDarkMode 
-                ? "bg-slate-900 border-slate-700" 
-                : "bg-white border-gray-200"
-            )}
-          >
-            <SelectItem 
-              value="all" 
-              className={cn(
-                isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                isDarkMode ? "text-gray-100" : "text-gray-900"
-              )}
-            >
-              All Requests
-            </SelectItem>
-            <SelectItem 
-              value="pending" 
-              className={cn(
-                isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                isDarkMode ? "text-gray-100" : "text-gray-900"
-              )}
-            >
-              Pending
-            </SelectItem>
-            <SelectItem 
-              value="approved" 
-              className={cn(
-                isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                isDarkMode ? "text-gray-100" : "text-gray-900"
-              )}
-            >
-              Approved
-            </SelectItem>
-            <SelectItem 
-              value="rejected" 
-              className={cn(
-                isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                isDarkMode ? "text-gray-100" : "text-gray-900"
-              )}
-            >
-              Rejected
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </motion.div>
+
 
       {/* Requests Table */}
       <motion.div variants={item}>
@@ -271,38 +163,40 @@ const EventRequests = () => {
           "rounded-xl border shadow-sm",
           isDarkMode ? "border-slate-700 bg-slate-900" : "border-gray-100 bg-white"
         )}>
-          <div className="p-6">
+          <div className="p-8">
             {/* Table Header */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
+                          <div className="mb-8">
+                              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className={cn(
-                    "text-lg font-semibold mb-1",
+                    "text-2xl font-bold mb-2",
                     isDarkMode ? "text-gray-100" : "text-gray-900"
                   )}>
                     Event Requests
                   </h3>
                   <p className={cn(
-                    "text-sm",
+                    "text-base",
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   )}>
                     Manage and review all event requests from users
                   </p>
                 </div>
                 <Badge variant="outline" className={cn(
-                  "h-8 px-3 font-medium",
+                  "h-10 px-4 text-base font-medium",
                   isDarkMode ? "border-slate-700" : "border-gray-200"
                 )}>
-                  {sampleRequests.length} requests
+                  {events.length} requests
                 </Badge>
               </div>
 
-              {/* Search and Filter */}
-              <div className="flex gap-3">
+              {/* Search and Sort */}
+              <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search by event title, requestor, or location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className={cn(
                       "pl-9",
                       isDarkMode
@@ -311,18 +205,25 @@ const EventRequests = () => {
                     )}
                   />
                 </div>
-                <Select defaultValue="all">
+                <Select defaultValue="desc" onValueChange={(value) => {
+                  const sorted = [...filteredEvents].sort((a, b) => {
+                    const dateA = new Date(a.createdAt.seconds * 1000);
+                    const dateB = new Date(b.createdAt.seconds * 1000);
+                    return value === "asc" ? dateA - dateB : dateB - dateA;
+                  });
+                  setEvents(sorted);
+                }}>
                   <SelectTrigger
                     className={cn(
-                      "w-[160px]",
+                      "w-[180px]",
                       isDarkMode
                         ? "bg-slate-900 border-slate-700"
                         : "bg-white border-gray-200"
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      <SelectValue placeholder="Filter" />
+                      <Filter className="h-4 w-4 text-gray-400" />
+                      <SelectValue placeholder="Sort by date" />
                     </div>
                   </SelectTrigger>
                   <SelectContent
@@ -334,40 +235,22 @@ const EventRequests = () => {
                     )}
                   >
                     <SelectItem 
-                      value="all" 
+                      value="desc" 
                       className={cn(
                         isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
                         isDarkMode ? "text-gray-100" : "text-gray-900"
                       )}
                     >
-                      All Requests
+                      Newest First
                     </SelectItem>
                     <SelectItem 
-                      value="pending" 
+                      value="asc" 
                       className={cn(
                         isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
                         isDarkMode ? "text-gray-100" : "text-gray-900"
                       )}
                     >
-                      Pending
-                    </SelectItem>
-                    <SelectItem 
-                      value="approved" 
-                      className={cn(
-                        isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}
-                    >
-                      Approved
-                    </SelectItem>
-                    <SelectItem 
-                      value="rejected" 
-                      className={cn(
-                        isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}
-                    >
-                      Rejected
+                      Oldest First
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -379,154 +262,166 @@ const EventRequests = () => {
                 <TableRow className={cn(
                   isDarkMode ? "border-slate-700 hover:bg-transparent" : "border-gray-100 hover:bg-transparent"
                 )}>
-                  <TableHead className="w-[200px] py-4 font-semibold">Event Details</TableHead>
-                  <TableHead className="font-semibold">Requestor</TableHead>
-                  <TableHead className="font-semibold">Date & Time</TableHead>
-                  <TableHead className="font-semibold">Location</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="text-right font-semibold">Actions</TableHead>
+                  <TableHead className="w-[220px] py-3 text-sm font-semibold">Event Details</TableHead>
+                  <TableHead className="py-3 text-sm font-semibold">Requestor</TableHead>
+                  <TableHead className="py-3 text-sm font-semibold">Date & Time</TableHead>
+                  <TableHead className="py-3 text-sm font-semibold">Location</TableHead>
+                  <TableHead className="text-right py-3 text-sm font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sampleRequests.map((request) => {
-                  const StatusIcon = statusIcons[request.status];
-                  return (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                        Loading events...
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredEvents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                        No events found
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredEvents
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((event) => (
                     <TableRow 
-                      key={request.id} 
+                      key={event.id} 
                       className={cn(
                         isDarkMode 
-                          ? "hover:bg-slate-800/50 border-slate-700" 
-                          : "hover:bg-gray-50/50 border-gray-100",
-                        "transition-colors cursor-pointer"
+                          ? "border-slate-700" 
+                          : "border-gray-100"
                       )}
-                      onClick={() => {
-                        setSelectedRequest(request);
-                        setIsViewDialogOpen(true);
-                      }}
                     >
-                      <TableCell className="py-4">
-                        <div>
-                          <p className={cn(
-                            "font-medium mb-1",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{request.title}</p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className={cn(
-                              "capitalize",
-                              isDarkMode ? "bg-slate-800" : "bg-gray-100"
-                            )}>
-                              {request.type}
-                            </Badge>
-                            <span className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>
-                              {request.id}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-3">
                         <div>
                           <p className={cn(
                             "text-sm font-medium",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{request.requestor.name}</p>
+                          )}>{event.title}</p>
+
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-gray-100" : "text-gray-900"
+                          )}>{event.requestor}</p>
                           <p className={cn(
                             "text-xs",
                             isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>{request.requestor.department}</p>
+                          )}>{event.userDepartment}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-3">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <Calendar className="h-3.5 w-3.5 text-gray-400" />
                             <span className={cn(
                               "text-sm font-medium",
                               isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{format(request.date, "MMM d, yyyy")}</span>
+                            )}>{event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy") : "No date"}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Clock className="h-4 w-4 text-gray-400" />
+                            <Clock className="h-3.5 w-3.5 text-gray-400" />
                             <span className={cn(
-                              "text-sm",
+                              "text-xs",
                               isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>{format(request.date, "h:mm a")}</span>
+                            )}>{event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "No time"}</span>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
+                      <TableCell className="py-3">
                         <div className="flex items-center gap-1.5">
-                          <MapPin className="h-4 w-4 text-gray-400" />
+                          <MapPin className="h-3.5 w-3.5 text-gray-400" />
                           <span className={cn(
-                            "text-sm font-medium",
+                            "text-sm",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{request.location}</span>
+                          )}>{event.location}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "capitalize flex items-center gap-1 w-fit",
-                            statusColors[request.status]
-                          )}
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {request.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          {request.status === 'pending' && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="bg-green-500 hover:bg-green-600 text-white gap-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction(request, 'approve');
-                                }}
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-red-500 hover:bg-red-600 text-white gap-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction(request, 'reject');
-                                }}
-                              >
-                                <XCircle className="h-4 w-4" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
+                      <TableCell className="py-3">
+                        <div className="flex items-center justify-end">
+                          <Button
+                            size="sm"
+                            className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs"
+                            onClick={() => {
+                              setSelectedRequest(event);
+                              setIsViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Details
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))
+                )}
               </TableBody>
             </Table>
 
             {/* Table Footer */}
-            <div className="mt-4 flex items-center justify-between">
-              <p className={cn(
-                "text-sm",
-                isDarkMode ? "text-gray-400" : "text-gray-500"
-              )}>
-                Click on any row to view detailed information about the event request
-              </p>
-              <p className={cn(
-                "text-sm",
-                isDarkMode ? "text-gray-400" : "text-gray-500"
-              )}>
-                Last updated {format(new Date(), "MMM d, yyyy 'at' h:mm a")}
-              </p>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className={cn(
+                  "text-sm",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )}>
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredEvents.length)} of {filteredEvents.length} events
+                </p>
+                <p className={cn(
+                  "text-sm",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )}>
+                  Last updated {format(new Date(), "MMM d, yyyy 'at' h:mm a")}
+                </p>
+              </div>
+
+              {/* Pagination */}
+              {Math.ceil(filteredEvents.length / itemsPerPage) > 1 && (
+                <div className="flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          className={cn(
+                            "cursor-pointer",
+                            currentPage === 1 && "pointer-events-none opacity-50"
+                          )}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, Math.ceil(filteredEvents.length / itemsPerPage)) }).map((_, i) => (
+                        <PaginationItem key={i}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(i + 1)}
+                            isActive={currentPage === i + 1}
+                            className="cursor-pointer"
+                          >
+                            {i + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredEvents.length / itemsPerPage), p + 1))}
+                          className={cn(
+                            "cursor-pointer",
+                            currentPage === Math.ceil(filteredEvents.length / itemsPerPage) && "pointer-events-none opacity-50"
+                          )}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -535,244 +430,262 @@ const EventRequests = () => {
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className={cn(
-          "sm:max-w-[600px]",
+          "sm:max-w-[600px] border-none shadow-lg p-6",
           isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
-          <DialogHeader>
-            <DialogTitle className={cn(
-              "text-xl font-semibold",
-              isDarkMode ? "text-white" : "text-gray-900"
-            )}>
-              Event Request Details
-            </DialogTitle>
-          </DialogHeader>
-          
           {selectedRequest && (
-            <ScrollArea className="h-[600px] pr-4">
-              <div className="space-y-6">
-                {/* Header Section */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className={cn(
-                      "text-lg font-semibold mb-1",
-                      isDarkMode ? "text-white" : "text-gray-900"
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <h2 className={cn(
+                    "text-2xl font-semibold tracking-tight",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    {selectedRequest.title}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={cn(
+                      "font-medium",
+                      isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
                     )}>
-                      {selectedRequest.title}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className={cn(
-                        "capitalize",
-                        isDarkMode ? "bg-slate-800" : "bg-gray-100"
-                      )}>
-                        {selectedRequest.type}
-                      </Badge>
-                      <span className={cn(
-                        "text-sm",
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      )}>
-                        {selectedRequest.id}
-                      </span>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "capitalize flex items-center gap-1",
-                      statusColors[selectedRequest.status]
-                    )}
-                  >
-                    {(() => {
-                      const StatusIcon = statusIcons[selectedRequest.status];
-                      return <StatusIcon className="h-3 w-3" />;
-                    })()}
-                    {selectedRequest.status}
-                  </Badge>
-                </div>
-
-                <Separator className={isDarkMode ? "bg-slate-700" : "bg-gray-200"} />
-
-                {/* Requestor Info */}
-                <div>
-                  <h4 className={cn(
-                    "text-sm font-medium mb-3",
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  )}>Requestor</h4>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedRequest.requestor.avatar} />
-                      <AvatarFallback className={isDarkMode ? "bg-slate-700" : "bg-gray-100"}>
-                        <User className="h-5 w-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>{selectedRequest.requestor.name}</p>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                          {selectedRequest.requestor.department}
-                        </span>
-                        <span className={isDarkMode ? "text-gray-600" : "text-gray-300"}>•</span>
-                        <span className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                          {selectedRequest.requestor.email}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className={isDarkMode ? "bg-slate-700" : "bg-gray-200"} />
-
-                {/* Event Details */}
-                <div>
-                  <h4 className={cn(
-                    "text-sm font-medium mb-3",
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  )}>Event Details</h4>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Date & Time */}
-                    <div className="space-y-1">
-                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Date & Time</p>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                            {format(selectedRequest.date, "PPP")}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                            {format(selectedRequest.date, "p")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    <div className="space-y-1">
-                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Location</p>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-gray-400" />
-                        <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                          {selectedRequest.location}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Participants */}
-                    <div className="space-y-1">
-                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Participants</p>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-gray-400" />
-                        <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                          {selectedRequest.participants} attendees
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Request Date */}
-                    <div className="space-y-1">
-                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Requested On</p>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                          {format(selectedRequest.requestedAt, "PPP p")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className={isDarkMode ? "bg-slate-700" : "bg-gray-200"} />
-
-                {/* Description */}
-                <div className="space-y-1">
-                  <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Description</p>
-                  <p className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                    {selectedRequest.description}
-                  </p>
-                </div>
-
-                {/* Provisions */}
-                <div className="space-y-1">
-                  <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Provisions Required</p>
-                  <p className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                    {selectedRequest.provisions}
-                  </p>
-                </div>
-
-                {/* Attachments */}
-                <div className="space-y-3">
-                  <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>Attachments</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedRequest.attachments.map((file, index) => (
-                      <div
-                        key={index}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border",
-                          isDarkMode ? "border-slate-700 bg-slate-800/50" : "border-gray-200 bg-gray-50"
-                        )}
-                      >
-                        <FileText className="h-5 w-5 text-blue-500" />
-                        <div>
-                          <p className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{file.name}</p>
-                          <p className={cn(
-                            "text-xs",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>{file.size}</p>
-                        </div>
-                      </div>
-                    ))}
+                      {selectedRequest.userDepartment}
+                    </Badge>
+                    <span className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      Requested on {selectedRequest.createdAt ? format(new Date(selectedRequest.createdAt.seconds * 1000), "MMM d, yyyy") : "No date"}
+                    </span>
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+
+              {/* Main Content */}
+              <div className="grid grid-cols-2 gap-6">
+                {/* Left Column */}
+                <div className="space-y-4">
+                  {/* Requestor */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-500">Requestor</label>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={selectedRequest.userAvatar} />
+                        <AvatarFallback className={isDarkMode ? "bg-slate-700" : "bg-gray-100"}>
+                          <User className="h-4 w-4 text-blue-500" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      )}>
+                        {selectedRequest.requestor}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Date & Time */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-500">Date & Time</label>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                        <span className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        )}>
+                          {selectedRequest.date ? format(new Date(selectedRequest.date.seconds * 1000), "MMM d, yyyy") : "No date"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-purple-500" />
+                        <span className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        )}>
+                          {selectedRequest.date ? format(new Date(selectedRequest.date.seconds * 1000), "h:mm a") : "No time"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-500">Location</label>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-green-500" />
+                      <span className={cn(
+                        "text-sm",
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      )}>
+                        {selectedRequest.location}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Participants */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-500">Participants</label>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-orange-500" />
+                      <span className={cn(
+                        "text-sm",
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      )}>
+                        {selectedRequest.participants} attendees
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-4">
+                  {/* Requirements */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-500">Requirements</label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-blue-500 hover:text-blue-600 px-0"
+                        onClick={() => setIsRequirementsDialogOpen(true)}
+                      >
+                        View More
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Attachments */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-500">Attachments</label>
+                    <div className="space-y-2">
+                      {selectedRequest.attachments && selectedRequest.attachments.length > 0 ? (
+                        selectedRequest.attachments.map((file, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg",
+                              isDarkMode ? "bg-slate-800" : "bg-gray-50"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-blue-500" />
+                              <div>
+                                <p className={cn(
+                                  "font-medium",
+                                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                                )}>
+                                  {file.name}
+                                </p>
+                                <p className={cn(
+                                  "text-xs",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-500 hover:text-blue-600 gap-1"
+                                onClick={() => window.open(file.url, '_blank')}
+                              >
+                                <Eye className="h-4 w-4" />
+                                View
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-500 hover:text-blue-600 gap-1"
+                                onClick={async () => {
+                                  try {
+                                    await downloadFile(file.url, file.name);
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    toast.error('Failed to download file');
+                                  }
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className={cn(
+                          "text-sm italic",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          No attachments provided
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Action Confirmation Dialog */}
-      <AlertDialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
-        <AlertDialogContent className={cn(
-          isDarkMode ? "bg-slate-900 border-0" : "bg-white border-0"
+      {/* Requirements Dialog */}
+      <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[800px] border-none shadow-lg p-6",
+          isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className={cn(
-              "text-xl",
-              isDarkMode ? "text-white" : "text-gray-900"
-            )}>
-              {actionType === 'approve' ? 'Approve Request' : 'Reject Request'}
-            </AlertDialogTitle>
-            <AlertDialogDescription className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-              Are you sure you want to {actionType} this event request? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className={cn(
-              isDarkMode && "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
-            )}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={cn(
-                actionType === 'approve'
-                  ? "bg-green-500 hover:bg-green-600"
-                  : "bg-red-500 hover:bg-red-600",
-                "text-white"
-              )}
-              onClick={handleConfirmAction}
-            >
-              {actionType === 'approve' ? 'Approve' : 'Reject'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          {selectedRequest && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className={cn(
+                    "text-xl font-semibold tracking-tight",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    Event Requirements
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-gray-500 mt-1">
+                    Detailed requirements for {selectedRequest.title}
+                  </DialogDescription>
+                </div>
+                <Badge variant="outline" className={cn(
+                  "font-medium",
+                  isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
+                )}>
+                  {selectedRequest.userDepartment}
+                </Badge>
+              </div>
+
+              {/* Content */}
+              <div className={cn(
+                "mt-4 rounded-lg p-6",
+                isDarkMode ? "bg-slate-800" : "bg-gray-50"
+              )}>
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className={cn(
+                    "prose max-w-none",
+                    isDarkMode ? "prose-invert" : "",
+                    "prose-sm",
+                    "prose-p:leading-relaxed"
+                  )}>
+                    <pre className={cn(
+                      "whitespace-pre-wrap font-sans text-base",
+                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                    )}>
+                      {selectedRequest.provisions}
+                    </pre>
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </motion.div>
   );
 };

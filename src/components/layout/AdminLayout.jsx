@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   CalendarDays,
   Users,
-  Settings,
   Shield,
   LogOut,
   Moon,
@@ -17,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  FileText,
   Building2,
 } from "lucide-react";
 
@@ -54,16 +52,6 @@ const AdminLayout = ({ children, userData }) => {
       title: "Departments",
       icon: <Building2 className="h-5 w-5" />,
       href: "/admin/departments",
-    },
-    {
-      title: "Reports",
-      icon: <FileText className="h-5 w-5" />,
-      href: "/admin/reports",
-    },
-    {
-      title: "Settings",
-      icon: <Settings className="h-5 w-5" />,
-      href: "/admin/settings",
     },
   ];
 

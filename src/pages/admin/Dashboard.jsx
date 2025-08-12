@@ -1,71 +1,108 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
   CalendarDays,
   Users,
-  CheckCircle2,
-  Clock,
-  XCircle,
   ArrowRight,
   ArrowUpRight,
   Building2,
+  Trophy,
+  Activity,
+  TrendingUp,
 } from "lucide-react";
+import { getDashboardStats } from "@/lib/firebase/dashboard";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-
-const statsCards = [
-  {
-    title: "Total Events",
-    value: "156",
-    change: "+12%",
-    changeText: "from last month",
-    icon: CalendarDays,
-    color: "blue",
-  },
-  {
-    title: "Active Users",
-    value: "2,856",
-    change: "+8.2%",
-    changeText: "from last month",
-    icon: Users,
-    color: "green",
-  },
-  {
-    title: "Departments",
-    value: "24",
-    change: "+2",
-    changeText: "new this month",
-    icon: Building2,
-    color: "purple",
-  },
-];
-
-const requestStats = [
-  {
-    title: "Approved",
-    value: "89",
-    icon: CheckCircle2,
-    color: "text-green-500",
-    bg: "bg-green-500/10",
-  },
-  {
-    title: "Pending",
-    value: "45",
-    icon: Clock,
-    color: "text-yellow-500",
-    bg: "bg-yellow-500/10",
-  },
-  {
-    title: "Rejected",
-    value: "22",
-    icon: XCircle,
-    color: "text-red-500",
-    bg: "bg-red-500/10",
-  },
-];
 
 const AdminDashboard = () => {
   const { isDarkMode } = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalEvents: 0,
+    totalUsers: 0,
+    totalDepartments: 0,
+    recentEvents: 0,
+    recentUsers: 0,
+    recentDepartments: 0,
+    topDepartments: []
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const result = await getDashboardStats();
+      if (result.success) {
+        setStats(result.stats);
+      } else {
+        toast.error("Failed to fetch dashboard statistics");
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      toast.error("An error occurred while fetching statistics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsCards = [
+    {
+      title: "Total Events",
+      value: loading ? "-" : stats.totalEvents.toString(),
+      change: loading ? "-" : `+${stats.recentEvents}`,
+      changeText: "new this month",
+      icon: CalendarDays,
+      color: "blue",
+    },
+    {
+      title: "Total Users",
+      value: loading ? "-" : stats.totalUsers.toString(),
+      change: loading ? "-" : `+${stats.recentUsers}`,
+      changeText: "new this month",
+      icon: Users,
+      color: "green",
+    },
+    {
+      title: "Departments",
+      value: loading ? "-" : stats.totalDepartments.toString(),
+      change: loading ? "-" : `+${stats.recentDepartments}`,
+      changeText: "new this month",
+      icon: Building2,
+      color: "purple",
+    },
+  ];
+
+  const activityStats = [
+    {
+      title: "Most Active Department",
+      value: loading ? "-" : (stats.topDepartments[0]?.name || "No data"),
+      icon: Trophy,
+      color: "text-yellow-500",
+      bg: "bg-yellow-500/10",
+      subtext: loading ? "" : `${stats.topDepartments[0]?.count || 0} events`
+    },
+    {
+      title: "Monthly Activity",
+      value: loading ? "-" : `${stats.recentEvents} Events`,
+      icon: Activity,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      subtext: "In the last 30 days"
+    },
+    {
+      title: "User Growth",
+      value: loading ? "-" : `${stats.recentUsers} New Users`,
+      icon: TrendingUp,
+      color: "text-green-500",
+      bg: "bg-green-500/10",
+      subtext: "In the last 30 days"
+    },
+  ];
 
   const container = {
     hidden: { opacity: 0 },
@@ -165,7 +202,7 @@ const AdminDashboard = () => {
         ))}
       </motion.div>
 
-      {/* Event Requests Stats */}
+      {/* Activity Stats */}
       <motion.div variants={item}>
         <div className={cn(
           "rounded-xl border p-6",
@@ -177,13 +214,13 @@ const AdminDashboard = () => {
                 "text-lg font-semibold",
                 isDarkMode ? "text-white" : "text-gray-900"
               )}>
-                Event Requests Overview
+                Activity Overview
               </h2>
               <p className={cn(
                 "text-sm mt-1",
                 isDarkMode ? "text-gray-400" : "text-gray-500"
               )}>
-                Current month's event request statistics
+                Recent activity and performance metrics
               </p>
             </div>
             <Button
@@ -192,14 +229,15 @@ const AdminDashboard = () => {
                 "gap-2",
                 isDarkMode ? "border-slate-700 hover:bg-slate-700" : ""
               )}
+              onClick={fetchStats}
             >
-              View All
+              Refresh
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {requestStats.map((stat) => (
+            {activityStats.map((stat) => (
               <div
                 key={stat.title}
                 className={cn(
@@ -224,6 +262,14 @@ const AdminDashboard = () => {
                 )}>
                   {stat.value}
                 </p>
+                {stat.subtext && (
+                  <p className={cn(
+                    "text-sm mt-1",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    {stat.subtext}
+                  </p>
+                )}
               </div>
             ))}
           </div>

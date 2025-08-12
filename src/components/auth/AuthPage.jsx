@@ -89,7 +89,7 @@ const AuthPage = ({ onLoginSuccess }) => {
               {isLogin ? (
                 <LoginForm onLoginSuccess={onLoginSuccess} />
               ) : (
-                <SignUpForm />
+                <SignUpForm onSignUpSuccess={() => setIsLogin(true)} />
               )}
 
               <div className="mt-6">

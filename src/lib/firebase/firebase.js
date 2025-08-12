@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { getFirestore, doc, setDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -29,8 +29,9 @@ export const registerUser = async (email, password, userData) => {
     // Store additional user data in Firestore
     await setDoc(doc(db, "users", user.uid), {
       ...userData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      status: 'active',  // Set status as active by default
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
 
     return { success: true, user };

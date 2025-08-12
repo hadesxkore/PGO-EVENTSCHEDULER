@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -8,6 +9,7 @@ import { toast } from "sonner";
 import { loginUser } from "../../lib/firebase/firebase";
 
 const LoginForm = ({ onLoginSuccess }) => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
@@ -28,19 +30,37 @@ const LoginForm = ({ onLoginSuccess }) => {
     
     try {
       const { userData } = await loginUser(formData.username, formData.password);
-      toast("Welcome back!", {
-        description: `Welcome back, ${userData.firstName}!`,
-        icon: <Check className="h-4 w-4" />,
+      toast.success("Login Successful!", {
+        className: "bg-white dark:bg-slate-800 border-green-500/20",
+        description: (
+          <div className="flex flex-col gap-1">
+            <p className="font-medium">Welcome back, {userData.firstName}!</p>
+            <p className="text-xs text-gray-500">Redirecting to dashboard...</p>
+          </div>
+        ),
+        duration: 2000,
+        icon: <Check className="h-5 w-5 text-green-500" />,
       });
       
       // Call the onLoginSuccess callback to update authentication state
       onLoginSuccess(userData);
       
+      // Navigate to dashboard after a short delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
+      
     } catch (error) {
       console.error("Login error:", error);
-      toast("Error", {
-        description: error.message || "Failed to login. Please check your credentials and try again.",
-        variant: "destructive"
+      toast.error("Login Failed", {
+        className: "bg-white dark:bg-slate-800 border-red-500/20",
+        description: (
+          <div className="flex flex-col gap-1">
+            <p className="font-medium text-red-600">{error.message || "Invalid credentials"}</p>
+            <p className="text-xs text-gray-500">Please check your username and password</p>
+          </div>
+        ),
+        duration: 4000,
       });
     } finally {
       setIsLoading(false);

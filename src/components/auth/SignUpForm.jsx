@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Building2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -13,20 +14,40 @@ import {
 } from "../ui/select";
 import { toast } from "sonner";
 import { registerUser } from "../../lib/firebase/firebase";
+import { getAllDepartments } from "../../lib/firebase/departments";
 
-const DEPARTMENTS = {
-  admin: "Administration",
-  hr: "Human Resources",
-  finance: "Finance",
-  it: "Information Technology",
-  operations: "Operations",
-  planning: "Planning",
-  engineering: "Engineering",
-  legal: "Legal"
-};
 
-const SignUpForm = () => {
+
+const SignUpForm = ({ onSignUpSuccess }) => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [departments, setDepartments] = useState([]);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const result = await getAllDepartments();
+        if (result.success) {
+          setDepartments(result.departments);
+        } else {
+          toast.error("Failed to fetch departments", {
+            className: "bg-white dark:bg-slate-800 border-red-500/20",
+            description: "Please try again or contact support if the issue persists.",
+            duration: 3000,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        toast.error("An error occurred while fetching departments", {
+          className: "bg-white dark:bg-slate-800 border-red-500/20",
+          description: "Please check your connection and try again.",
+          duration: 3000,
+        });
+      }
+    };
+
+    fetchDepartments();
+  }, []);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -48,7 +69,7 @@ const SignUpForm = () => {
   const handleDepartmentChange = (value) => {
     setFormData(prev => ({
       ...prev,
-      department: DEPARTMENTS[value] // Store the full department name
+      department: value
     }));
   };
 
@@ -78,17 +99,33 @@ const SignUpForm = () => {
 
       await registerUser(formData.email, formData.password, userData);
       
-      toast("Account Created", {
-        description: `Welcome ${formData.firstName} ${formData.lastName}!`,
-        icon: <Check className="h-4 w-4" />,
+      toast.success("Account Created Successfully!", {
+        className: "bg-white dark:bg-slate-800 border-green-500/20",
+        description: (
+          <div className="flex flex-col gap-1">
+            <p className="font-medium">Welcome {formData.firstName} {formData.lastName}!</p>
+            <p className="text-xs text-gray-500">Redirecting you to login...</p>
+          </div>
+        ),
+        duration: 2000,
+        icon: <Check className="h-5 w-5 text-green-500" />,
       });
       
-      // You might want to redirect here or trigger a callback
+      // Wait for 2 seconds before switching to login form
+      setTimeout(() => {
+        onSignUpSuccess();
+      }, 2000);
     } catch (error) {
       console.error("Signup error:", error);
-      toast("Error", {
-        description: error.message || "Failed to create account. Please try again.",
-        variant: "destructive"
+      toast.error("Sign Up Failed", {
+        className: "bg-white dark:bg-slate-800 border-red-500/20",
+        description: (
+          <div className="flex flex-col gap-1">
+            <p className="font-medium text-red-600">{error.message || "Failed to create account"}</p>
+            <p className="text-xs text-gray-500">Please check your information and try again</p>
+          </div>
+        ),
+        duration: 4000,
       });
     } finally {
       setIsLoading(false);
@@ -98,21 +135,21 @@ const SignUpForm = () => {
   return (
     <motion.form
       onSubmit={onSubmit}
-      className="space-y-3.5"
+      className="space-y-2.5 max-w-xl mx-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
       {/* Name Fields - 2 columns */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="firstName" className="text-sm text-gray-600">
-            First Name
-          </Label>
-          <Input
+              <div className="space-y-1">
+        <Label htmlFor="firstName" className="text-xs text-gray-600">
+          First Name
+        </Label>
+        <Input
             id="firstName"
-            placeholder="John"
-            className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+            placeholder="Juan"
+            className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
             required
             disabled={isLoading}
             value={formData.firstName}
@@ -120,14 +157,14 @@ const SignUpForm = () => {
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="lastName" className="text-sm text-gray-600">
-            Last Name
-          </Label>
-          <Input
+              <div className="space-y-1">
+        <Label htmlFor="lastName" className="text-xs text-gray-600">
+          Last Name
+        </Label>
+        <Input
             id="lastName"
-            placeholder="Doe"
-            className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+            placeholder="Pedro"
+            className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
             required
             disabled={isLoading}
             value={formData.lastName}
@@ -138,15 +175,15 @@ const SignUpForm = () => {
 
       {/* Email and Username - 2 columns */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-sm text-gray-600">
-            Email Address
-          </Label>
-          <Input
+              <div className="space-y-1">
+        <Label htmlFor="email" className="text-xs text-gray-600">
+          Email Address
+        </Label>
+        <Input
             id="email"
             type="email"
-            placeholder="john@example.com"
-            className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+            placeholder="juanpedro@gmail.com"
+            className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
             required
             disabled={isLoading}
             value={formData.email}
@@ -154,14 +191,14 @@ const SignUpForm = () => {
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="username" className="text-sm text-gray-600">
-            Username
-          </Label>
-          <Input
+              <div className="space-y-1">
+        <Label htmlFor="username" className="text-xs text-gray-600">
+          Username
+        </Label>
+        <Input
             id="username"
-            placeholder="johndoe"
-            className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+            placeholder="juanpedro"
+            className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
             required
             disabled={isLoading}
             value={formData.username}
@@ -171,8 +208,8 @@ const SignUpForm = () => {
       </div>
 
       {/* Department Dropdown - Full width */}
-      <div className="space-y-1.5">
-        <Label htmlFor="department" className="text-sm text-gray-600">
+      <div className="space-y-1">
+        <Label htmlFor="department" className="text-xs text-gray-600">
           Department
         </Label>
         <Select 
@@ -181,33 +218,46 @@ const SignUpForm = () => {
           onValueChange={handleDepartmentChange}
         >
           <SelectTrigger 
-            className="w-full h-10 bg-gray-50/50 border-gray-200 focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full h-9 bg-gray-50/50 border-gray-200 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           >
-            <SelectValue placeholder="Select your department" className="text-gray-500" />
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-gray-500" />
+              <SelectValue placeholder="Select your department" />
+            </div>
           </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200">
-            <SelectItem value="admin" className="hover:bg-gray-50 cursor-pointer py-2.5">Administration</SelectItem>
-            <SelectItem value="hr" className="hover:bg-gray-50 cursor-pointer py-2.5">Human Resources</SelectItem>
-            <SelectItem value="finance" className="hover:bg-gray-50 cursor-pointer py-2.5">Finance</SelectItem>
-            <SelectItem value="it" className="hover:bg-gray-50 cursor-pointer py-2.5">Information Technology</SelectItem>
-            <SelectItem value="operations" className="hover:bg-gray-50 cursor-pointer py-2.5">Operations</SelectItem>
-            <SelectItem value="planning" className="hover:bg-gray-50 cursor-pointer py-2.5">Planning</SelectItem>
-            <SelectItem value="engineering" className="hover:bg-gray-50 cursor-pointer py-2.5">Engineering</SelectItem>
-            <SelectItem value="legal" className="hover:bg-gray-50 cursor-pointer py-2.5">Legal</SelectItem>
+          <SelectContent 
+            className="bg-white/95 backdrop-blur-sm border border-gray-200 shadow-lg animate-in fade-in-0 zoom-in-95"
+          >
+            <div className="p-2">
+              <div className="px-2 pb-2 mb-2 border-b border-gray-100">
+                <h4 className="text-sm font-medium text-gray-900">Select Department</h4>
+                <p className="text-xs text-gray-500">Choose your department from the list below</p>
+              </div>
+              {departments.map((dept) => (
+                <SelectItem 
+                  key={dept.id} 
+                  value={dept.name}
+                  className="relative flex items-center gap-2 px-8 py-2.5 text-sm rounded-md cursor-default hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors data-[state=checked]:bg-blue-50"
+                >
+                  <Building2 className="absolute left-2 h-4 w-4 text-blue-500" />
+                  <span className="font-medium text-gray-700">{dept.name}</span>
+                </SelectItem>
+              ))}
+            </div>
           </SelectContent>
         </Select>
       </div>
       
       {/* Password Fields - Full width */}
-      <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-sm text-gray-600">
+      <div className="space-y-1">
+        <Label htmlFor="password" className="text-xs text-gray-600">
           Password
         </Label>
         <Input
           id="password"
           type="password"
           placeholder="••••••••"
-          className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+          className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
           required
           disabled={isLoading}
           value={formData.password}
@@ -215,15 +265,15 @@ const SignUpForm = () => {
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="confirmPassword" className="text-sm text-gray-600">
+      <div className="space-y-1">
+        <Label htmlFor="confirmPassword" className="text-xs text-gray-600">
           Confirm Password
         </Label>
         <Input
           id="confirmPassword"
           type="password"
           placeholder="••••••••"
-          className="h-10 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+          className="h-9 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
           required
           disabled={isLoading}
           value={formData.confirmPassword}
@@ -233,7 +283,7 @@ const SignUpForm = () => {
 
       <Button
         type="submit"
-        className="w-full h-10 mt-4 bg-[#4263EB] hover:bg-blue-600 transition-colors text-white"
+        className="w-full h-9 mt-3 bg-[#4263EB] hover:bg-blue-600 transition-colors text-white"
         disabled={isLoading}
       >
         {isLoading ? (

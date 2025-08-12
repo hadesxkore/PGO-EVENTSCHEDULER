@@ -76,4 +76,4 @@ export const getCloudinaryFileUrl = (url, { download = false } = {}) => {
 
   // For viewing, return the original URL
   return url;
-};
+};image.png

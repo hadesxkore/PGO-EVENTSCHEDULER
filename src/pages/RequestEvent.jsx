@@ -47,6 +47,8 @@ import {
   User,
   X,
   ChevronDown,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "../components/ui/calendar";
@@ -82,6 +84,8 @@ const RequestEvent = () => {
     participants: "",
     provisions: "",
     duration: "",
+    contactNumber: "",
+    contactEmail: "",
   });
 
   const [date, setDate] = useState(new Date());
@@ -245,11 +249,13 @@ const RequestEvent = () => {
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Event Title
                   </Label>
-                  <Input
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    placeholder="Enter event title"
+                                      <Input
+                      name="title"
+                      type="text"
+                      required
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      placeholder="Enter event title"
                     className={cn(
                       "rounded-lg h-12 text-base px-4",
                       isDarkMode 
@@ -267,6 +273,8 @@ const RequestEvent = () => {
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       name="requestor"
+                      type="text"
+                      required
                       value={formData.requestor}
                       onChange={handleInputChange}
                       placeholder="Your name"
@@ -291,6 +299,8 @@ const RequestEvent = () => {
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       name="location"
+                      type="text"
+                      required
                       value={formData.location}
                       onChange={handleInputChange}
                       placeholder="Event location"
@@ -315,6 +325,7 @@ const RequestEvent = () => {
                       value={formData.participants}
                       onChange={handleInputChange}
                       type="number"
+                      required
                       min="1"
                       placeholder="Expected number of attendees"
                       className={cn(
@@ -336,6 +347,7 @@ const RequestEvent = () => {
                 <textarea
                   name="provisions"
                   value={formData.provisions}
+                  required
                   onChange={handleInputChange}
                   placeholder="List down your event requirements (e.g., sound system, microphones, tables & chairs, food & drinks, projector, etc.)"
                   className={cn(
@@ -734,6 +746,79 @@ const RequestEvent = () => {
                     )}>8 hours</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Contact Details */}
+              <div className="space-y-4 mt-6">
+                <h3 className={cn(
+                  "text-lg font-semibold",
+                  isDarkMode ? "text-gray-100" : "text-gray-900"
+                )}>Contact Details</h3>
+
+                {/* Phone Number */}
+                <div className="space-y-2">
+                  <Label className={cn(
+                    "text-sm font-medium",
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  )}>
+                    Phone Number
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      name="contactNumber"
+                      type="number"
+                      required
+                      maxLength="11"
+                      pattern="[0-9]{11}"
+                      value={formData.contactNumber}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 11) {
+                          handleInputChange(e);
+                        }
+                      }}
+                      onKeyPress={(e) => {
+                        if (!/[0-9]/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      placeholder="Enter 11-digit contact number"
+                      className={cn(
+                        "pl-9 h-10",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700" 
+                          : "bg-white border-gray-200"
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label className={cn(
+                    "text-sm font-medium",
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  )}>
+                    Email Address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      name="contactEmail"
+                      type="email"
+                      required
+                      value={formData.contactEmail}
+                      onChange={handleInputChange}
+                      placeholder="Enter your email address"
+                      className={cn(
+                        "pl-9 h-10",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700" 
+                          : "bg-white border-gray-200"
+                      )}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

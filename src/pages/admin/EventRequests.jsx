@@ -18,6 +18,8 @@ import {
   ChevronDown,
   Download,
   Trash2,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -697,6 +699,63 @@ const EventRequests = () => {
                           ? "bg-gradient-to-t from-slate-900/90 to-transparent"
                           : "bg-gradient-to-t from-white/90 to-transparent"
                       )} />
+                    </div>
+                  </div>
+
+                  {/* Contact Details Card */}
+                  <div className={cn(
+                    "p-5 rounded-xl",
+                    isDarkMode 
+                      ? "bg-slate-800/20" 
+                      : "bg-gray-50/80"
+                  )}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Phone className="h-5 w-5 text-indigo-500" />
+                      <h4 className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>Contact Details</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Phone Number */}
+                      <div className={cn(
+                        "p-4 rounded-lg",
+                        isDarkMode 
+                          ? "bg-slate-900/30" 
+                          : "bg-white/50"
+                      )}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Phone className="h-4 w-4 text-indigo-500" />
+                          <span className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-600"
+                          )}>Phone Number</span>
+                        </div>
+                        <p className={cn(
+                          "text-base font-semibold",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
+                        )}>{selectedRequest.contactNumber || "Not provided"}</p>
+                      </div>
+
+                      {/* Email */}
+                      <div className={cn(
+                        "p-4 rounded-lg",
+                        isDarkMode 
+                          ? "bg-slate-900/30" 
+                          : "bg-white/50"
+                      )}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mail className="h-4 w-4 text-indigo-500" />
+                          <span className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-600"
+                          )}>Email Address</span>
+                        </div>
+                        <p className={cn(
+                          "text-base font-semibold",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
+                        )}>{selectedRequest.contactEmail || selectedRequest.userEmail || "Not provided"}</p>
+                      </div>
                     </div>
                   </div>
 

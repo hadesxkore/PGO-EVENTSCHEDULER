@@ -53,7 +53,7 @@ export const getUserDashboardStats = async (uid) => {
     // Get next upcoming event date for trend
     const nextEvent = upcomingEvents[0];
     const daysUntilNext = nextEvent 
-      ? Math.ceil((nextEvent.date.toDate() - now.toDate()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((nextEvent.date.toDate() - now) / (1000 * 60 * 60 * 24))
       : null;
 
     // Get this week's events count

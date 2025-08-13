@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/card";
-import { Calendar, Clock, Users, CalendarDays, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
@@ -169,7 +169,22 @@ const Dashboard = () => {
           )}>Welcome back! Here's what's happening with your events.</p>
         </motion.div>
 
-
+        <motion.div 
+          variants={item}
+          className="flex items-center gap-4"
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            className={cn(
+              "relative rounded-xl border-0",
+              isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
+            )}
+          >
+            <Bell className="h-5 w-5" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+          </Button>
+        </motion.div>
       </div>
 
       {/* Stats Grid */}

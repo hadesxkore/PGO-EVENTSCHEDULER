@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Check, Building2 } from "lucide-react";
+import { Loader2, Check, Building2, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -22,6 +22,7 @@ const SignUpForm = ({ onSignUpSuccess }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -232,8 +233,23 @@ const SignUpForm = ({ onSignUpSuccess }) => {
               <div className="px-2 pb-2 mb-2 border-b border-gray-100">
                 <h4 className="text-sm font-medium text-gray-900">Select Department</h4>
                 <p className="text-xs text-gray-500">Choose your department from the list below</p>
+                <div className="mt-2 relative" onClick={(e) => e.stopPropagation()}>
+                  <Input
+                    placeholder="Search departments..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-8 bg-gray-50/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 pl-8"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
               </div>
-              {departments.map((dept) => (
+              {departments
+                .filter(dept => 
+                  dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  dept.location?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((dept) => (
                 <SelectItem 
                   key={dept.id} 
                   value={dept.name}

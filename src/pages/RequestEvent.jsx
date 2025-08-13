@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { auth, db } from "../lib/firebase/firebase";
@@ -9,11 +9,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
 import { Button } from "../components/ui/button";
+import { forwardRef } from "react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 
-import { Calendar } from "../components/ui/calendar";
+
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   Select,
@@ -34,11 +35,7 @@ import {
   Dialog,
   DialogContent,
 } from "../components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../components/ui/popover";
+
 import {
   CalendarIcon,
   Clock,
@@ -52,6 +49,14 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar } from "../components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+
+
 
 const RequestEvent = () => {
   const { isDarkMode } = useTheme();
@@ -571,95 +576,103 @@ const RequestEvent = () => {
 
             <div className="space-y-6">
               {/* Date and Time Selection */}
-              <div className="flex gap-4">
-                <div className="flex flex-col gap-3 flex-1">
-                  <Label htmlFor="date-picker" className={cn(
-                    "text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700"
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <Label className={cn(
+                    "text-sm font-medium mb-1.5 block", 
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
                     Date
                   </Label>
-                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        id="date-picker"
-                        className={cn(
-                          "w-full justify-between font-normal",
-                          isDarkMode 
-                            ? "bg-slate-900 border-slate-700" 
-                            : "bg-white border-gray-200"
-                        )}
-                      >
-                        {date ? format(date, "PPP") : "Select date"}
-                        <ChevronDown className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      role="combobox"
                       className={cn(
-                        "w-auto p-0",
-                        isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                        "w-full justify-start text-left font-normal text-sm",
+                        "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
+                        !date && "text-muted-foreground",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700 text-gray-100" 
+                          : "bg-white border-gray-200 text-gray-900"
                       )}
-                      align="start"
+                      onClick={() => setIsCalendarOpen(true)}
                     >
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={(date) => {
-                          setDate(date);
-                          setIsCalendarOpen(false);
-                        }}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                        className={cn(
-                          "p-3",
-                          isDarkMode ? "bg-slate-900" : "",
-                          "[&_.rdp-caption]:border-none",
-                          "[&_.rdp-caption_select]:rounded-md",
-                          "[&_.rdp-caption_select]:border",
-                          isDarkMode 
-                            ? "[&_.rdp-caption_select]:border-slate-700 [&_.rdp-caption_select]:bg-slate-900" 
-                            : "[&_.rdp-caption_select]:border-gray-200 [&_.rdp-caption_select]:bg-white",
-                          "[&_.rdp-caption_select]:text-sm",
-                          "[&_.rdp-caption_select]:font-normal",
-                          "[&_.rdp-caption_select]:px-2",
-                          "[&_.rdp-caption_select]:py-1.5",
-                          "[&_.rdp-dropdown]:border-gray-200",
-                          "[&_.rdp-dropdown]:dark:border-slate-700",
-                          "[&_.rdp-dropdown_option]:text-sm",
-                          "[&_.rdp-dropdown_option]:font-normal",
-                          isDarkMode
-                            ? "[&_.rdp-dropdown]:bg-slate-900 [&_.rdp-dropdown_option]:hover:bg-slate-800"
-                            : "[&_.rdp-dropdown]:bg-white [&_.rdp-dropdown_option]:hover:bg-gray-100"
-                        )}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                        <CalendarIcon className="h-4 w-4 text-gray-400" />
+                      </div>
+                      {date ? format(date, "MMM dd, yyyy") : <span>Pick a date</span>}
+                    </Button>
+                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <div className="absolute inset-0" />
+                      </PopoverTrigger>
+                                            <PopoverContent 
+                          className={cn(
+                            "p-2 w-auto",
+                            isDarkMode 
+                              ? "bg-slate-900 border-slate-700" 
+                              : "bg-white border-gray-200"
+                          )}
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={(newDate) => {
+                              setDate(newDate);
+                              setIsCalendarOpen(false);
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            showOutsideDays={false}
+                            className={cn(
+                              "rounded-md shadow-none",
+                              isDarkMode && "dark"
+                            )}
+                          />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-3 flex-1">
-                  <Label htmlFor="time-picker" className={cn(
-                    "text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700"
+                <div>
+                  <Label className={cn(
+                    "text-sm font-medium mb-1.5 block", 
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
                     Time
                   </Label>
-                  <Input
-                    type="time"
-                    id="time-picker"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    className={cn(
-                      "bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
-                      isDarkMode 
-                        ? "bg-slate-900 border-slate-700" 
-                        : "bg-white border-gray-200"
-                    )}
-                  />
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <select
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className={cn(
+                        "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700 text-gray-100" 
+                          : "bg-white border-gray-200 text-gray-900"
+                      )}
+                    >
+                      {timeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Duration Selection */}
               <div className="space-y-2">
-                <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                <Label className={cn(
+                  "text-sm font-medium", 
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                )}>
                   Duration
                 </Label>
                 <Select
@@ -667,6 +680,7 @@ const RequestEvent = () => {
                   onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}
                 >
                   <SelectTrigger className={cn(
+                    "h-10",
                     isDarkMode 
                       ? "bg-slate-900 border-slate-700" 
                       : "bg-white border-gray-200"

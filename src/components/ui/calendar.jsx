@@ -6,8 +6,8 @@ import {
 } from "lucide-react"
 import { DayPicker } from "react-day-picker";
 
-import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "../../lib/utils"
+import { Button, buttonVariants } from "./button"
 
 function Calendar({
   className,
@@ -23,7 +23,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "bg-background group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
+        "p-3",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
@@ -35,42 +35,42 @@ function Calendar({
         ...formatters,
       }}
       classNames={{
-        root: "w-fit",
-        months: "flex gap-4 flex-col md:flex-row relative",
-        month: "flex flex-col w-full gap-4",
-        nav: "flex items-center gap-1 w-full absolute top-0 inset-x-0 justify-between",
-        button_previous: cn(
-          buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) aria-disabled:opacity-50 p-0 select-none"
+        root: "w-[250px] bg-white dark:bg-slate-900",
+        months: "flex flex-col",
+        month: "space-y-3",
+        caption: "flex justify-center items-center h-8 relative mb-2",
+        caption_label: "text-sm font-medium",
+        nav: "absolute inset-0 flex items-center justify-between px-2",
+        nav_button: cn(
+          buttonVariants({ variant: "ghost" }),
+          "h-7 w-7 p-0 opacity-50 hover:opacity-100"
         ),
-        button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) aria-disabled:opacity-50 p-0 select-none"
-        ),
-        month_caption: "flex items-center justify-center h-(--cell-size) w-full px-(--cell-size)",
-        dropdowns: "w-full flex items-center text-sm font-medium justify-center h-(--cell-size) gap-1.5",
-        dropdown_root: "relative has-focus:border-ring border border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] rounded-md",
-        dropdown: "absolute bg-popover inset-0 opacity-0",
-        caption_label: cn(
-          "select-none font-medium",
-          captionLayout === "label"
-            ? "text-sm"
-            : "rounded-md pl-2 pr-1 flex items-center gap-1 text-sm h-8 [&>svg]:text-muted-foreground [&>svg]:size-3.5"
-        ),
+        nav_button_previous: "",
+        nav_button_next: "",
         table: "w-full border-collapse",
-        weekdays: "flex",
-        weekday: "text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none",
-        week: "flex w-full mt-2",
-        week_number_header: "select-none w-(--cell-size)",
-        week_number: "text-[0.8rem] select-none text-muted-foreground",
-        day: "relative w-full h-full p-0 text-center [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md group/day aspect-square select-none",
-        range_start: "rounded-l-md bg-accent",
-        range_middle: "rounded-none",
-        range_end: "rounded-r-md bg-accent",
-        today: "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
-        outside: "text-muted-foreground aria-selected:text-muted-foreground",
-        disabled: "text-muted-foreground opacity-50",
-        hidden: "invisible",
+        head_row: "flex",
+        head_cell: "text-muted-foreground w-8 text-xs font-normal text-center",
+        row: "flex w-full mt-1",
+        cell: cn(
+          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+          props.mode === "range"
+            ? "[&:has(>.day-range-end)]:rounded-md [&:has(>.day-range-start)]:rounded-md"
+            : "[&:has([aria-selected])]:rounded-md"
+        ),
+        day: cn(
+          buttonVariants({ variant: "ghost" }),
+          "h-8 w-8 p-0 font-normal text-sm hover:bg-accent/50 aria-selected:opacity-100 aria-selected:bg-primary/10 aria-selected:text-primary aria-selected:hover:bg-primary/20"
+        ),
+        day_range_start: "day-range-start",
+        day_range_end: "day-range-end",
+        day_selected:
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        day_today: "bg-accent text-accent-foreground",
+        day_outside: "text-slate-500 dark:text-slate-400 opacity-50",
+        day_disabled: "text-slate-500 dark:text-slate-400 opacity-50",
+        day_range_middle:
+          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        day_hidden: "invisible",
         ...classNames,
       }}
       components={{

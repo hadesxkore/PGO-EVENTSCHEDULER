@@ -9,8 +9,57 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
 import { getUserDashboardStats } from "../lib/firebase/dashboard-user";
 import { auth } from "../lib/firebase/firebase";
-import { format } from "date-fns";
+import { format, isAfter, isBefore, addHours } from "date-fns";
 import { toast } from "sonner";
+
+// Helper function to generate consistent colors based on string
+const getEventColor = (title) => {
+  const colors = [
+    "ring-blue-500",
+    "ring-purple-500",
+    "ring-green-500",
+    "ring-yellow-500",
+    "ring-red-500",
+    "ring-indigo-500",
+    "ring-pink-500",
+    "ring-orange-500"
+  ];
+  
+  const index = title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[index % colors.length];
+};
+
+// Helper function to get background color for avatar
+const getEventBgColor = (title) => {
+  const colors = [
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-green-500",
+    "bg-yellow-500",
+    "bg-red-500",
+    "bg-indigo-500",
+    "bg-pink-500",
+    "bg-orange-500"
+  ];
+  
+  const index = title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[index % colors.length];
+};
+
+// Helper function to get status color based on event time
+const getEventStatusColor = (event) => {
+  const now = new Date();
+  const eventDate = new Date(event.date);
+  const eventEnd = addHours(eventDate, event.duration / 60);
+
+  if (isBefore(eventEnd, now)) {
+    return "bg-gray-400"; // Past event
+  }
+  if (isAfter(eventDate, now)) {
+    return "bg-green-500"; // Upcoming event
+  }
+  return "bg-yellow-500"; // Ongoing event
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -194,8 +243,8 @@ const Dashboard = () => {
             <Button
               variant="ghost"
               className={cn(
-                "text-sm rounded-xl",
-                isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                "text-sm rounded-xl bg-gray-900 text-white hover:bg-gray-800",
+                "transition-all duration-300 font-medium"
               )}
               onClick={() => navigate('/my-events')}
             >
@@ -219,59 +268,89 @@ const Dashboard = () => {
                 No upcoming events
               </div>
             ) : (
-              dashboardData.upcomingEventsList.map((event) => (
+              <>
+                {dashboardData.upcomingEventsList.slice(0, 5).map((event) => (
                 <motion.div
                   key={event.id}
                   variants={item}
                   className={cn(
-                    "flex items-center justify-between p-4 rounded-xl transition-all duration-200",
+                    "relative overflow-hidden p-4 rounded-xl",
                     isDarkMode 
-                      ? "bg-gray-900/50 hover:bg-gray-700" 
-                      : "bg-gray-50 hover:bg-gray-100",
-                    "cursor-pointer group"
+                      ? "bg-gray-800/50" 
+                      : "bg-white",
+                    "shadow-sm"
                   )}
                 >
-                  <div className="flex items-center gap-4">
+                  {/* Decorative gradient background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-50/5 to-transparent" />
+                  
+                  <div className="relative flex items-center gap-4">
                     <Avatar className={cn(
-                      "h-10 w-10 transition-transform duration-200",
-                      "group-hover:scale-105"
+                      "h-12 w-12 ring-2 ring-offset-2",
+                      isDarkMode 
+                        ? "ring-gray-700 ring-offset-gray-800" 
+                        : "ring-gray-100 ring-offset-white",
+                      getEventColor(event.title) // Function to get consistent color based on event title
                     )}>
-                      <AvatarFallback className={cn(
-                        isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                      )}>
+                      <AvatarFallback 
+                        className={cn(
+                          "text-white font-semibold",
+                          getEventBgColor(event.title) // Function to get background color
+                        )}
+                      >
                         {event.title.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
+
+                    <div className="flex-1 min-w-0">
                       <h3 className={cn(
-                        "font-medium",
+                        "font-semibold truncate",
                         isDarkMode ? "text-white" : "text-gray-900"
                       )}>{event.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <p className={cn(
-                          "text-sm",
+                      
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className={cn(
+                          "flex items-center gap-1.5",
                           isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>{format(event.date, "MMM d, yyyy 'at' h:mm a")}</p>
-                        <span className="h-1 w-1 rounded-full bg-gray-400" />
-                        <p className={cn(
-                          "text-sm",
+                        )}>
+                          <Calendar className="h-3.5 w-3.5" />
+                          <p className="text-sm">{format(event.date, "MMM d, yyyy")}</p>
+                        </div>
+                        
+                        <div className={cn(
+                          "flex items-center gap-1.5",
                           isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>{event.duration} minutes</p>
+                        )}>
+                          <Clock className="h-3.5 w-3.5" />
+                          <p className="text-sm">{format(event.date, "h:mm a")}</p>
+                        </div>
+                        
+                        <div className={cn(
+                          "flex items-center gap-1.5",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          <span className={cn(
+                            "inline-block h-2 w-2 rounded-full",
+                            getEventStatusColor(event) // Function to get status color
+                          )} />
+                          <p className="text-sm">{event.duration}m</p>
+                        </div>
                       </div>
                     </div>
+
+
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "rounded-xl opacity-0 group-hover:opacity-100 transition-opacity",
-                      isDarkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
-                    )}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
                 </motion.div>
-              ))
+              ))}
+                {dashboardData.upcomingEventsList.length > 5 && (
+                  <div className={cn(
+                    "text-sm text-center py-4 border-t",
+                    isDarkMode ? "text-gray-400 border-gray-700" : "text-gray-500 border-gray-200"
+                  )}>
+                    {dashboardData.upcomingEventsList.length - 5} more events. Click "View All" to see them.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

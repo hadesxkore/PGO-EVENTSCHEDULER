@@ -23,9 +23,10 @@ export const getUserDashboardStats = async (uid) => {
     const userEventsSnapshot = await getDocs(userEventsQuery);
     const totalEvents = userEventsSnapshot.size;
 
-    // Get all upcoming events
+    // Get all upcoming events for the user
     const upcomingEventsQuery = query(
       eventsRef,
+      where("userId", "==", uid),
       where("date", ">=", now),
       orderBy("date", "asc")
     );
@@ -85,7 +86,7 @@ export const getUserDashboardStats = async (uid) => {
         nextEventIn: daysUntilNext,
         thisWeekEvents,
         thisWeekHours: Math.round(thisWeekHours),
-        upcomingEventsList: upcomingEvents.slice(0, 3).map(event => ({
+        upcomingEventsList: upcomingEvents.slice(0, 5).map(event => ({
           id: event.id,
           title: event.title,
           date: event.date.toDate(),

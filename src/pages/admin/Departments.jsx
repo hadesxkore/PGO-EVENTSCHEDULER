@@ -45,6 +45,15 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 import { 
   getAllDepartments, 
@@ -67,10 +76,17 @@ const Departments = () => {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     fetchDepartments();
   }, []);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const fetchDepartments = async () => {
     try {
@@ -166,6 +182,28 @@ const Departments = () => {
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedDepartments = filteredDepartments.slice(startIndex, startIndex + itemsPerPage);
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 || // First page
+        i === totalPages || // Last page
+        (i >= currentPage - 1 && i <= currentPage + 1) // Pages around current page
+      ) {
+        pageNumbers.push(i);
+      } else if (i === currentPage - 2 || i === currentPage + 2) {
+        pageNumbers.push("...");
+      }
+    }
+    return pageNumbers;
+  };
 
 
 
@@ -288,12 +326,12 @@ const Departments = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredDepartments.map((department) => (
+              {paginatedDepartments.map((department) => (
                 <TableRow 
                   key={department.id}
                   className={cn(
-                    "hover:bg-muted/50 transition-colors border-gray-200",
-                    isDarkMode ? "hover:bg-slate-800/50 border-gray-700/50" : "hover:bg-slate-50/50"
+                    "transition-colors border-gray-200",
+                    isDarkMode ? "border-gray-700/50" : ""
                   )}
                 >
                   <TableCell>
@@ -305,29 +343,26 @@ const Departments = () => {
                         <Building2 className="h-5 w-5 text-blue-500" />
                       </div>
                       <div>
-                        <p className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>{department.name}</p>
+                        <p className="font-medium group-hover:text-white">{department.name}</p>
 
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="font-medium bg-blue-500/10 text-blue-500">
+                    <Badge variant="secondary" className="font-medium bg-blue-500/10 text-blue-500 group-hover:bg-white/10 group-hover:text-white">
                       {department.location}
                     </Badge>
                   </TableCell>
 
                   <TableCell>
                     <div className="text-sm">
-                      <p className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
+                      <p className="group-hover:text-white">
                         {department.createdAt?.seconds 
                           ? format(new Date(department.createdAt.seconds * 1000), "MMM d, yyyy")
                           : "Unknown"
                         }
                       </p>
-                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                      <p className="text-gray-400 group-hover:text-white/70">
                         {department.createdAt?.seconds 
                           ? format(new Date(department.createdAt.seconds * 1000), "h:mm a")
                           : ""
@@ -372,12 +407,53 @@ const Departments = () => {
 
           {/* Table Footer */}
           <div className="mt-4">
-            <p className={cn(
-              "text-sm",
-              isDarkMode ? "text-gray-400" : "text-gray-500"
-            )}>
-              Last updated {format(new Date(), "MMM d, yyyy 'at' h:mm a")}
-            </p>
+            <div className="flex items-center justify-end gap-8">
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        className={cn(
+                          "cursor-pointer hover:bg-blue-500 hover:text-white",
+                          currentPage === 1 && "pointer-events-none opacity-50"
+                        )}
+                      />
+                    </PaginationItem>
+                    
+                    {getPageNumbers().map((pageNumber, index) => (
+                      <PaginationItem key={index}>
+                        {pageNumber === "..." ? (
+                          <PaginationEllipsis />
+                        ) : (
+                          <PaginationLink
+                            className={cn(
+                              "cursor-pointer hover:bg-blue-500 hover:text-white",
+                              currentPage === pageNumber && "bg-blue-500 text-white hover:bg-blue-600"
+                            )}
+                            isActive={currentPage === pageNumber}
+                            onClick={() => setCurrentPage(pageNumber)}
+                          >
+                            {pageNumber}
+                          </PaginationLink>
+                        )}
+                      </PaginationItem>
+                    ))}
+
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        className={cn(
+                          "cursor-pointer hover:bg-blue-500 hover:text-white",
+                          currentPage === totalPages && "pointer-events-none opacity-50"
+                        )}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
           </div>
         </div>
       </div>

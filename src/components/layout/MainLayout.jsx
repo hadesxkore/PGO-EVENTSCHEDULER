@@ -40,27 +40,22 @@ const MainLayout = ({ children, userData }) => {
   const sidebarItems = [
     {
       title: "Dashboard",
-      icon: <LayoutDashboard className="h-5 w-5" />,
+      icon: <LayoutDashboard className="h-6 w-6" />,
       href: "/dashboard",
     },
     {
       title: "Request Event",
-      icon: <CalendarPlus className="h-5 w-5" />,
+      icon: <CalendarPlus className="h-6 w-6" />,
       href: "/request-event",
     },
     {
       title: "My Events",
-      icon: <Calendar className="h-5 w-5" />,
+      icon: <Calendar className="h-6 w-6" />,
       href: "/my-events",
     },
     {
-      title: "Department Calendar",
-      icon: <CalendarClock className="h-5 w-5" />,
-      href: "/department-calendar",
-    },
-    {
       title: "All Events",
-      icon: <CalendarDays className="h-5 w-5" />,
+      icon: <CalendarDays className="h-6 w-6" />,
       href: "/all-events",
     },
   ];
@@ -75,7 +70,7 @@ const MainLayout = ({ children, userData }) => {
         "fixed left-0 top-0 h-full transition-all duration-300 z-50 flex flex-col",
         isDarkMode ? "bg-[#1E293B] border-gray-700" : "bg-white border-gray-200",
         "border-r shadow-sm",
-        collapsed ? "w-20" : "w-72"
+        collapsed ? "w-24" : "w-80"
       )}>
         {/* Logo Area */}
         <div className={cn(
@@ -83,7 +78,7 @@ const MainLayout = ({ children, userData }) => {
           collapsed ? "justify-center px-4" : "px-6"
         )}>
           <div className="flex items-center gap-3 min-w-max">
-            <div className="relative h-8 w-8">
+            <div className="relative h-10 w-10">
               <img 
                 src="/images/bataanlogo.png" 
                 alt="PGO Logo"
@@ -92,7 +87,7 @@ const MainLayout = ({ children, userData }) => {
             </div>
             {!collapsed && (
               <div className="flex flex-col gap-1">
-                <h1 className="text-lg font-semibold tracking-tight">
+                <h1 className="text-xl font-bold tracking-tight">
                   PGO Events
                 </h1>
               </div>
@@ -129,11 +124,11 @@ const MainLayout = ({ children, userData }) => {
               </Avatar>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-semibold truncate">
+                  <h2 className="text-base font-bold truncate">
                     {userData?.firstName || "John"} {userData?.lastName || "Doe"}
                   </h2>
                   <p className={cn(
-                    "text-xs truncate",
+                    "text-sm font-medium truncate",
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   )}>
                     {userData?.email || "john.doe@example.com"}
@@ -143,7 +138,7 @@ const MainLayout = ({ children, userData }) => {
             </div>
             {!collapsed && (
               <div className={cn(
-                "text-xs px-3 py-1 rounded-full w-fit",
+                "text-sm font-medium px-4 py-1.5 rounded-full w-fit",
                 isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"
               )}>
                 {userData?.department || "Department"}
@@ -160,7 +155,7 @@ const MainLayout = ({ children, userData }) => {
                 key={item.title}
                 variant="ghost"
                 className={cn(
-                  "justify-start gap-3 px-3 py-6",
+                  "justify-start gap-4 px-4 py-7",
                   collapsed ? "justify-center px-3" : "px-3",
                   isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100",
                   "transition-colors duration-200",
@@ -178,7 +173,7 @@ const MainLayout = ({ children, userData }) => {
                 )}>
                   {item.icon}
                   {!collapsed && (
-                    <span className="text-sm font-medium">{item.title}</span>
+                    <span className="text-base font-semibold">{item.title}</span>
                   )}
                 </div>
               </Button>
@@ -192,19 +187,19 @@ const MainLayout = ({ children, userData }) => {
             <Button
               variant="ghost"
               className={cn(
-                "justify-start gap-3",
+                "justify-start gap-4 py-6",
                 collapsed ? "justify-center px-3" : "px-3",
                 isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
               )}
               onClick={toggleDarkMode}
             >
               {isDarkMode ? (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-6 w-6" />
               ) : (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-6 w-6" />
               )}
               {!collapsed && (
-                <span className="text-sm font-medium">
+                <span className="text-base font-semibold">
                   {isDarkMode ? "Light Mode" : "Dark Mode"}
                 </span>
               )}
@@ -212,7 +207,7 @@ const MainLayout = ({ children, userData }) => {
             <Button
               variant="ghost"
               className={cn(
-                "justify-start gap-3",
+                "justify-start gap-4 py-6",
                 collapsed ? "justify-center px-3" : "px-3",
                 isDarkMode 
                   ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" 
@@ -220,8 +215,8 @@ const MainLayout = ({ children, userData }) => {
               )}
               onClick={handleLogout}
             >
-              <LogOut className="h-5 w-5" />
-              {!collapsed && <span className="text-sm font-medium">Logout</span>}
+              <LogOut className="h-6 w-6" />
+              {!collapsed && <span className="text-base font-semibold">Logout</span>}
             </Button>
           </div>
         </div>
@@ -248,7 +243,7 @@ const MainLayout = ({ children, userData }) => {
       {/* Main Content */}
       <div className={cn(
         "transition-all duration-300 min-h-screen",
-        collapsed ? "ml-20" : "ml-72",
+        collapsed ? "ml-24" : "ml-80",
         isDarkMode ? "bg-[#0F172A]" : "bg-gray-50"
       )}>
         <div className="p-8">

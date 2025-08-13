@@ -1,0 +1,358 @@
+/* Calendar Styles */
+.custom-calendar.react-big-calendar {
+  @apply font-sans antialiased;
+}
+
+/* Header */
+.custom-calendar .rbc-toolbar {
+  @apply mb-8;
+}
+
+/* Month View */
+.custom-calendar .rbc-month-view {
+  @apply rounded-2xl border backdrop-blur-sm bg-white/50 shadow-lg overflow-hidden transition-all duration-300;
+}
+
+.dark-mode.custom-calendar .rbc-month-view {
+  @apply border-slate-800/50 bg-slate-900/50;
+}
+
+/* Header Cells */
+.custom-calendar .rbc-header {
+  @apply py-5 font-medium border-b text-sm uppercase tracking-wider text-gray-600;
+}
+
+.dark-mode.custom-calendar .rbc-header {
+  @apply border-slate-800/50 text-gray-400;
+}
+
+/* Day Cells */
+.custom-calendar .rbc-date-cell {
+  @apply p-2 text-right transition-all duration-200;
+}
+
+.custom-calendar .rbc-date-cell > a {
+  @apply text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors;
+}
+
+.dark-mode.custom-calendar .rbc-date-cell > a {
+  @apply text-gray-400 hover:text-gray-200;
+}
+
+.custom-calendar .rbc-off-range-bg {
+  @apply bg-gray-50/50;
+}
+
+.dark-mode.custom-calendar .rbc-off-range-bg {
+  @apply bg-slate-800/20;
+}
+
+/* Today */
+.custom-calendar .rbc-today {
+  @apply bg-blue-50/50 backdrop-blur-sm;
+}
+
+.dark-mode.custom-calendar .rbc-today {
+  @apply bg-blue-900/10;
+}
+
+/* Events */
+.custom-calendar .rbc-event {
+  @apply bg-transparent border-none p-0 m-0.5 transition-transform duration-200;
+}
+
+.custom-calendar .rbc-event-content {
+  @apply w-full h-full;
+}
+
+.custom-calendar .rbc-show-more {
+  @apply !text-xs !font-medium !text-blue-600 hover:!text-blue-700 dark:!text-blue-400 dark:hover:!text-blue-300 !transition-colors;
+}
+
+/* Month View Events */
+.custom-calendar .rbc-month-view .rbc-event {
+  @apply m-0.5;
+}
+
+.custom-calendar .rbc-row-segment {
+  @apply px-0.5 py-0.5;
+}
+
+/* Time Grid */
+.custom-calendar .rbc-time-view {
+  @apply rounded-2xl border backdrop-blur-sm bg-white/50 shadow-lg overflow-hidden;
+}
+
+.dark-mode.custom-calendar .rbc-time-view {
+  @apply border-slate-800/50 bg-slate-900/50;
+}
+
+.custom-calendar .rbc-time-header {
+  @apply rounded-t-2xl border-b min-h-[80px];
+}
+
+.dark-mode.custom-calendar .rbc-time-header {
+  @apply border-slate-800/50;
+}
+
+.custom-calendar .rbc-time-content {
+  @apply border-t overflow-y-auto;
+}
+
+.dark-mode.custom-calendar .rbc-time-content {
+  @apply border-slate-800/50;
+}
+
+.custom-calendar .rbc-time-slot {
+  @apply text-sm text-gray-600 transition-colors;
+}
+
+.dark-mode.custom-calendar .rbc-time-slot {
+  @apply text-gray-400;
+}
+
+/* Time Column */
+.custom-calendar .rbc-time-gutter {
+  @apply w-20 text-right bg-white/50 dark:bg-slate-900/50;
+}
+
+.custom-calendar .rbc-time-gutter .rbc-timeslot-group {
+  @apply h-[60px] flex items-center justify-end pr-4;
+}
+
+/* Time Column Text */
+.custom-calendar .rbc-label {
+  @apply text-sm font-medium text-gray-600 dark:text-gray-400;
+}
+
+/* Time Slots */
+.custom-calendar .rbc-timeslot-group {
+  @apply min-h-[60px] border-b border-gray-100/50 dark:border-slate-800/50;
+}
+
+/* Event in Time Grid */
+.custom-calendar .rbc-time-view .rbc-event {
+  @apply rounded-lg shadow-sm backdrop-blur-sm border-none;
+  margin: 2px;
+}
+
+.custom-calendar .rbc-time-view .rbc-event-content {
+  @apply h-full flex flex-col justify-center px-3;
+}
+
+/* Time Grid Background */
+.custom-calendar .rbc-time-column {
+  @apply bg-white/30 dark:bg-slate-900/30;
+}
+
+.custom-calendar .rbc-day-slot .rbc-time-slot {
+  @apply border-t border-gray-100/30 dark:border-slate-800/30;
+}
+
+/* Current Time Indicator */
+.custom-calendar .rbc-current-time-indicator {
+  @apply bg-blue-500/80 h-0.5 backdrop-blur-sm z-10;
+}
+
+/* Time Column */
+.custom-calendar .rbc-time-gutter {
+  @apply w-20 text-right;
+}
+
+.custom-calendar .rbc-time-gutter .rbc-timeslot-group {
+  @apply px-4 py-2;
+}
+
+/* Time Slots */
+.custom-calendar .rbc-timeslot-group {
+  @apply min-h-[60px] flex items-center;
+}
+
+/* Events in Time Grid */
+.custom-calendar .rbc-time-view .rbc-event {
+  @apply rounded-lg shadow-sm backdrop-blur-sm border-none;
+  top: 2px !important;
+  right: 2px !important;
+  left: 2px !important;
+}
+
+.custom-calendar .rbc-time-view .rbc-event-content {
+  @apply h-full flex flex-col justify-center px-2;
+}
+
+/* Time Grid Lines */
+.custom-calendar .rbc-time-content > * + * > * {
+  @apply border-l border-gray-200/50;
+}
+
+.dark-mode.custom-calendar .rbc-time-content > * + * > * {
+  @apply border-slate-800/50;
+}
+
+/* Current Time Line */
+.custom-calendar .rbc-current-time-indicator {
+  @apply bg-blue-500/80 h-0.5 backdrop-blur-sm z-10;
+}
+
+/* Time Grid Background */
+.custom-calendar .rbc-day-slot .rbc-time-slot {
+  @apply border-t border-gray-100/50;
+}
+
+.dark-mode.custom-calendar .rbc-day-slot .rbc-time-slot {
+  @apply border-slate-800/30;
+}
+
+/* Current Time Indicator */
+.custom-calendar .rbc-current-time-indicator {
+  @apply bg-blue-500/80 h-0.5 backdrop-blur-sm;
+}
+
+/* Hover Effects */
+.custom-calendar .rbc-date-cell {
+  @apply transition-all duration-200;
+}
+
+.custom-calendar .rbc-date-cell:hover {
+  @apply bg-gray-50/70 backdrop-blur-sm;
+}
+
+.dark-mode.custom-calendar .rbc-date-cell:hover {
+  @apply bg-slate-800/30;
+}
+
+/* Selection Highlight */
+.custom-calendar .rbc-day-bg.rbc-selected-cell {
+  @apply bg-blue-50/50 backdrop-blur-sm;
+}
+
+.dark-mode.custom-calendar .rbc-day-bg.rbc-selected-cell {
+  @apply bg-blue-900/10;
+}
+
+/* Week/Day View */
+.custom-calendar .rbc-time-header-content {
+  @apply border-l;
+}
+
+.dark-mode.custom-calendar .rbc-time-header-content {
+  @apply border-slate-800/50;
+}
+
+.custom-calendar .rbc-time-view .rbc-row {
+  @apply min-h-[48px];
+}
+
+/* Time Column */
+.custom-calendar .rbc-time-gutter .rbc-timeslot-group {
+  @apply text-right pr-4 text-gray-600;
+}
+
+.custom-calendar .rbc-timeslot-group {
+  @apply border-b transition-colors;
+}
+
+.dark-mode.custom-calendar .rbc-timeslot-group {
+  @apply border-slate-800/50;
+}
+
+/* Event Overlapping */
+.custom-calendar .rbc-event.rbc-selected {
+  @apply outline-none ring-2 ring-blue-400 ring-offset-2 scale-[1.02];
+}
+
+.dark-mode.custom-calendar .rbc-event.rbc-selected {
+  @apply ring-offset-slate-900;
+}
+
+/* Agenda View */
+.custom-calendar .rbc-agenda-view table.rbc-agenda-table {
+  @apply border rounded-2xl shadow-lg backdrop-blur-sm bg-white/50;
+}
+
+.dark-mode.custom-calendar .rbc-agenda-view table.rbc-agenda-table {
+  @apply border-slate-800/50 bg-slate-900/50;
+}
+
+.custom-calendar .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  @apply p-4 transition-colors;
+}
+
+/* Week View Specific */
+.custom-calendar .rbc-time-header-gutter {
+  @apply bg-gray-50/50 backdrop-blur-sm border-r border-gray-200/50;
+}
+
+.dark-mode.custom-calendar .rbc-time-header-gutter {
+  @apply bg-slate-800/30 border-slate-800/50;
+}
+
+.custom-calendar .rbc-allday-cell {
+  @apply bg-gray-50/30 backdrop-blur-sm;
+}
+
+.dark-mode.custom-calendar .rbc-allday-cell {
+  @apply bg-slate-800/20;
+}
+
+.custom-calendar .rbc-time-view .rbc-header {
+  @apply py-3 border-b border-r border-gray-200/50;
+}
+
+.dark-mode.custom-calendar .rbc-time-view .rbc-header {
+  @apply border-slate-800/50;
+}
+
+/* Day Slots */
+.custom-calendar .rbc-day-slot {
+  @apply bg-white/50 backdrop-blur-sm;
+}
+
+.dark-mode.custom-calendar .rbc-day-slot {
+  @apply bg-slate-900/30;
+}
+
+.custom-calendar .rbc-day-slot .rbc-events-container {
+  @apply mr-1;
+}
+
+/* Event in Time Grid */
+.custom-calendar .rbc-time-view .rbc-event {
+  @apply rounded-lg border-none shadow-sm backdrop-blur-sm transition-transform duration-200;
+}
+
+.custom-calendar .rbc-time-view .rbc-event:hover {
+  @apply transform scale-[1.02] z-50;
+}
+
+.custom-calendar .rbc-time-view .rbc-event-content {
+  @apply h-full flex flex-col justify-center;
+}
+
+/* Time Grid Now Highlight */
+.custom-calendar .rbc-time-view .rbc-now {
+  @apply bg-blue-50/30;
+}
+
+.dark-mode.custom-calendar .rbc-time-view .rbc-now {
+  @apply bg-blue-900/10;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .custom-calendar .rbc-toolbar {
+    @apply flex-col gap-4;
+  }
+  
+  .custom-calendar .rbc-toolbar-label {
+    @apply text-center font-medium;
+  }
+  
+  .custom-calendar .rbc-header {
+    @apply py-3 text-xs;
+  }
+  
+  .custom-calendar .rbc-date-cell > a {
+    @apply text-xs;
+  }
+}

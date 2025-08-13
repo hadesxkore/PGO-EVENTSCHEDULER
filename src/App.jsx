@@ -6,6 +6,7 @@ import AdminLayout from "./components/layout/AdminLayout";
 import Dashboard from "./pages/Dashboard";
 import RequestEvent from "./pages/RequestEvent";
 import MyEvents from "./pages/MyEvents";
+import AllEvents from "./pages/AllEvents";
 import AdminDashboard from "./pages/admin/Dashboard";
 import EventRequests from "./pages/admin/EventRequests";
 import Users from "./pages/admin/Users";
@@ -38,6 +39,7 @@ function App() {
                 <Route path="/admin/event-requests" element={<EventRequests />} />
                 <Route path="/admin/users" element={<Users />} />
                 <Route path="/admin/departments" element={<Departments />} />
+                <Route path="/admin/all-events" element={<AllEvents />} />
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
@@ -49,6 +51,7 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/request-event" element={<RequestEvent />} />
                 <Route path="/my-events" element={<MyEvents />} />
+                <Route path="/all-events" element={<AllEvents />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

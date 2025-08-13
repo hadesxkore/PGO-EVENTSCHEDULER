@@ -12,7 +12,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
-import RichTextEditor from "../components/RichTextEditor";
+
 import { Calendar } from "../components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
@@ -30,6 +30,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+} from "../components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -82,6 +86,8 @@ const RequestEvent = () => {
   const [showYearPicker, setShowYearPicker] = useState(false);
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
   const [attachments, setAttachments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -196,7 +202,7 @@ const RequestEvent = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-6xl mx-auto px-6 pt-4 pb-6"
+      className="max-w-6xl mx-auto px-6 py-6"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-6">
@@ -322,11 +328,17 @@ const RequestEvent = () => {
                 <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                   Requirements
                 </Label>
-                <RichTextEditor
+                <textarea
+                  name="provisions"
                   value={formData.provisions}
-                  onChange={(value) => setFormData(prev => ({ ...prev, provisions: value }))}
+                  onChange={handleInputChange}
                   placeholder="List down your event requirements (e.g., sound system, microphones, tables & chairs, food & drinks, projector, etc.)"
-                  isDarkMode={isDarkMode}
+                  className={cn(
+                    "w-full min-h-[140px] rounded-lg p-3 text-base resize-y border",
+                    isDarkMode 
+                      ? "bg-slate-900 border-slate-700 text-gray-100 placeholder:text-gray-500 focus:border-slate-600" 
+                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300"
+                  )}
                 />
               </div>
 
@@ -361,10 +373,19 @@ const RequestEvent = () => {
                       return;
                     }
 
-                    // Upload files
+                    // Start upload process
+                    setIsUploading(true);
+                    setUploadProgress(0);
+                    
+                    // Upload files with progress
+                    const totalFiles = files.length;
+                    let completedFiles = 0;
+                    
                     const uploadPromises = files.map(async (file) => {
                       const result = await uploadFile(file);
                       if (result.success) {
+                        completedFiles++;
+                        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
                         return {
                           name: file.name,
                           size: file.size,
@@ -380,6 +401,12 @@ const RequestEvent = () => {
                     const results = await Promise.all(uploadPromises);
                     const successfulUploads = results.filter(result => result !== null);
                     setAttachments(prev => [...prev, ...successfulUploads]);
+                    
+                    // End upload process
+                    setTimeout(() => {
+                      setIsUploading(false);
+                      setUploadProgress(0);
+                    }, 500); // Small delay to show 100% completion
                   }}
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
@@ -420,10 +447,19 @@ const RequestEvent = () => {
                       return;
                     }
 
-                    // Upload files
+                    // Start upload process
+                    setIsUploading(true);
+                    setUploadProgress(0);
+                    
+                    // Upload files with progress
+                    const totalFiles = files.length;
+                    let completedFiles = 0;
+                    
                     const uploadPromises = files.map(async (file) => {
                       const result = await uploadFile(file);
                       if (result.success) {
+                        completedFiles++;
+                        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
                         return {
                           name: file.name,
                           size: file.size,
@@ -439,6 +475,12 @@ const RequestEvent = () => {
                     const results = await Promise.all(uploadPromises);
                     const successfulUploads = results.filter(result => result !== null);
                     setAttachments(prev => [...prev, ...successfulUploads]);
+                    
+                    // End upload process
+                    setTimeout(() => {
+                      setIsUploading(false);
+                      setUploadProgress(0);
+                    }, 500); // Small delay to show 100% completion
                   }}
                 >
                   <div className="flex flex-col items-center gap-2">
@@ -705,6 +747,68 @@ const RequestEvent = () => {
           </Button>
         </motion.div>
       </div>
+
+      {/* Upload Loading Modal */}
+      <Dialog open={isUploading} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-[400px] border-none p-0 gap-0">
+          <div className={cn(
+            "p-6",
+            isDarkMode ? "bg-slate-900" : "bg-white"
+          )}>
+            <div className="flex flex-col items-center justify-center gap-4">
+              {/* Loading Animation */}
+              <div className="relative w-16 h-16">
+                <div className={cn(
+                  "absolute inset-0 rounded-full animate-ping opacity-25",
+                  isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                )} />
+                <div className={cn(
+                  "absolute inset-[6px] rounded-full animate-pulse",
+                  isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                )} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-white animate-pulse" />
+                </div>
+              </div>
+
+              {/* Upload Status */}
+              <div className="text-center space-y-2">
+                <h3 className={cn(
+                  "font-semibold text-lg",
+                  isDarkMode ? "text-gray-100" : "text-gray-900"
+                )}>
+                  Uploading Files...
+                </h3>
+                <p className={cn(
+                  "text-sm",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )}>
+                  Please wait while we upload your files
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full space-y-2">
+                <div className="h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all duration-300",
+                      isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                    )}
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className={cn(
+                  "text-sm text-center font-medium",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )}>
+                  {uploadProgress}% Complete
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

@@ -52,7 +52,6 @@ import {
   updateDepartment, 
   deleteDepartment 
 } from "@/lib/firebase/departments";
-import { addAllDepartments } from "@/scripts/addDepartments";
 
 
 

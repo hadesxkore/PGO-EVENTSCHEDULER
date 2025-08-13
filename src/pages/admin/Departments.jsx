@@ -52,6 +52,7 @@ import {
   updateDepartment, 
   deleteDepartment 
 } from "@/lib/firebase/departments";
+import { addAllDepartments } from "@/scripts/addDepartments";
 
 
 
@@ -187,17 +188,39 @@ const Departments = () => {
             Manage and organize departments
           </p>
         </div>
-        <Button 
-          className="bg-black hover:bg-gray-800 text-white gap-2"
-          onClick={() => {
-            setName("");
-            setLocation("");
-            setIsAddDialogOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Add Department
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+            onClick={async () => {
+              try {
+                setIsSubmitting(true);
+                await addAllDepartments();
+                await fetchDepartments();
+                toast.success("All departments added successfully");
+              } catch (error) {
+                console.error('Error adding departments:', error);
+                toast.error("Failed to add departments");
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            disabled={isSubmitting}
+          >
+            <Plus className="h-4 w-4" />
+            Import All Departments
+          </Button>
+          <Button 
+            className="bg-black hover:bg-gray-800 text-white gap-2"
+            onClick={() => {
+              setName("");
+              setLocation("");
+              setIsAddDialogOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
+        </div>
       </div>
 
       {/* Stats Card */}

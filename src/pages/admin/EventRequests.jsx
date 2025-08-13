@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import { downloadFile } from "@/lib/utils/downloadFile";
-import { getAllEventRequests } from "@/lib/firebase/eventRequests";
+import { getAllEventRequests, deleteEventRequest } from "@/lib/firebase/eventRequests";
 import { toast } from "sonner";
 import {
   Search,
@@ -397,10 +397,13 @@ const EventRequests = () => {
                                   className="bg-red-500 hover:bg-red-600 text-white"
                                   onClick={async () => {
                                     try {
-                                      // Add your delete logic here
-                                      toast.success("Event request deleted successfully");
-                                      // Refresh the events list
-                                      await fetchEvents();
+                                      const result = await deleteEventRequest(event.id);
+                                      if (result.success) {
+                                        toast.success("Event request deleted successfully");
+                                        await fetchEvents();
+                                      } else {
+                                        toast.error("Failed to delete event request");
+                                      }
                                     } catch (error) {
                                       console.error('Error deleting event:', error);
                                       toast.error("Failed to delete event request");

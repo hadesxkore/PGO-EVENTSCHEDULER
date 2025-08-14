@@ -34,34 +34,9 @@ const useEventStore = create((set, get) => ({
   dashboardCacheTime: 2 * 60 * 1000, // 2 minutes in milliseconds
 
   // Actions
-  setEvents: (events) => {
-    console.log('🔄 Zustand: Setting events', events);
-    set({ events });
-  },
-  setLoading: (loading) => {
-    console.log('🔄 Zustand: Setting loading', loading);
-    set({ loading });
-  },
-  setError: (error) => {
-    console.log('🔄 Zustand: Setting error', error);
-    set({ error });
-  },
-
-  // Debug function to log current state
-  logState: () => {
-    const state = get();
-    console.log('📊 Zustand Store State:', {
-      events: state.events.map(event => ({
-        id: event.id,
-        title: event.title,
-        requestor: event.requestor,
-        date: event.date
-      })),
-      eventsCount: state.events.length,
-      loading: state.loading,
-      error: state.error
-    });
-  },
+  setEvents: (events) => set({ events }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
 
   // Check if all events cache is valid
   isAllEventsCacheValid: () => {
@@ -72,11 +47,7 @@ const useEventStore = create((set, get) => ({
     const cacheAge = now - state.lastAllEventsFetch;
     const isValid = cacheAge < state.cacheTime;
     
-    console.log('🕒 All Events Cache status:', {
-      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
-      isValid,
-      eventsInCache: state.allEvents.length
-    });
+    // Cache validation
     
     return isValid;
   },
@@ -87,13 +58,11 @@ const useEventStore = create((set, get) => ({
     
     // Return cached data if valid and not forcing fetch
     if (!forceFetch && state.allEvents.length > 0 && state.isAllEventsCacheValid()) {
-      console.log('📦 Using cached all events:', state.allEvents.length);
       return { success: true, events: state.allEvents };
     }
 
     try {
       set({ loading: true, error: null });
-      console.log('🔄 Fetching fresh all events data');
       
       const result = await getAllEventRequests();
       
@@ -124,7 +93,7 @@ const useEventStore = create((set, get) => ({
           lastAllEventsFetch: Date.now()
         });
         
-        console.log('✅ Fresh all events data stored in cache');
+        // Data stored in cache
         return { success: true, events: transformedEvents };
       } else {
         const error = 'Failed to fetch all events';
@@ -150,11 +119,7 @@ const useEventStore = create((set, get) => ({
     const cacheAge = now - state.lastDashboardFetch;
     const isValid = cacheAge < state.dashboardCacheTime;
     
-    console.log('🕒 Dashboard Cache status:', {
-      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
-      isValid,
-      hasData: Object.keys(state.dashboardData).length > 0
-    });
+    // Cache validation
     
     return isValid;
   },
@@ -165,13 +130,11 @@ const useEventStore = create((set, get) => ({
     
     // Return cached data if valid and not forcing fetch
     if (!forceFetch && state.isDashboardCacheValid()) {
-      console.log('📦 Using cached dashboard data');
       return { success: true, stats: state.dashboardData };
     }
 
     try {
       set({ loading: true, error: null });
-      console.log('🔄 Fetching fresh dashboard data');
       
       const result = await getUserDashboardStats(userId);
       
@@ -180,7 +143,7 @@ const useEventStore = create((set, get) => ({
           dashboardData: result.stats,
           lastDashboardFetch: Date.now()
         });
-        console.log('✅ Fresh dashboard data stored in cache');
+        // Data stored in cache
         return result;
       } else {
         const error = 'Failed to fetch dashboard data';

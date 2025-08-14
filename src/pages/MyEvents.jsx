@@ -94,22 +94,15 @@ const MyEvents = () => {
     error,
     fetchUserEvents, 
     deleteEvent,
-    clearStore,
-    logState 
+    clearStore
   } = useEventStore();
 
-  // Debug: Log state changes
+  // Watch for errors
   useEffect(() => {
-    console.log('🔍 Component State Changed:', {
-      eventsCount: events.length,
-      loading,
-      error,
-      searchTerm,
-      currentPage
-    });
-    // Log full store state
-    logState();
-  }, [events, loading, error, searchTerm, currentPage, logState]);
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const handleDelete = async () => {
     if (!eventToDelete) return;

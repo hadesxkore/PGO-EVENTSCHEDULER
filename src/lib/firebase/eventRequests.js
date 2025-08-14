@@ -26,7 +26,7 @@ export const createEventRequest = async (eventData) => {
     });
     return { success: true, id: docRef.id };
   } catch (error) {
-    console.error('Error creating event request:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };
@@ -40,17 +40,15 @@ export const getUserEventRequests = async (userId) => {
       eventRequestsRef, 
       where('userId', '==', userId)
     );
-    console.log("Querying events for userId:", userId);
     const querySnapshot = await getDocs(q);
     const requests = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      console.log("Found event:", { id: doc.id, ...data });
       requests.push({ id: doc.id, ...data });
     });
     return { success: true, requests };
   } catch (error) {
-    console.error('Error getting user event requests:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };
@@ -67,7 +65,7 @@ export const getAllEventRequests = async () => {
     });
     return { success: true, requests };
   } catch (error) {
-    console.error('Error getting all event requests:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };
@@ -84,7 +82,7 @@ export const updateEventRequestStatus = async (requestId, status, adminId) => {
     });
     return { success: true };
   } catch (error) {
-    console.error('Error updating event request status:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };
@@ -105,7 +103,7 @@ export const getEventRequestsByStatus = async (status) => {
     });
     return { success: true, requests };
   } catch (error) {
-    console.error('Error getting event requests by status:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };
@@ -117,7 +115,7 @@ export const deleteEventRequest = async (eventId) => {
     await deleteDoc(eventRef);
     return { success: true };
   } catch (error) {
-    console.error('Error deleting event request:', error);
+    // Error handled in return
     return { success: false, error: error.message };
   }
 };

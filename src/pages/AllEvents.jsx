@@ -8,7 +8,7 @@ import startOfWeek from "date-fns/startOfWeek";
 import getDay from "date-fns/getDay";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
-import { getAllEventRequests } from "@/lib/firebase/eventRequests";
+import useEventStore from "@/store/eventStore";
 import { toast } from "sonner";
 import {
   Calendar as CalendarIcon,
@@ -69,8 +69,13 @@ const getInitials = (fullName) => {
 
 const AllEvents = () => {
   const { isDarkMode } = useTheme();
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    allEvents,
+    loading,
+    error,
+    fetchAllEvents 
+  } = useEventStore();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -78,6 +83,13 @@ const AllEvents = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [view, setView] = useState("month");
   const [date, setDate] = useState(new Date());
+
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   // Handle calendar navigation
   const handleNavigate = (action) => {
@@ -113,52 +125,18 @@ const AllEvents = () => {
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllEventRequests();
-      
-      if (result.success) {
-        // Transform events for calendar
-        const transformedEvents = result.requests.map(event => {
-          // Get the full date and time from Firestore timestamp
-          const startDate = new Date(event.date.seconds * 1000);
-          
-          // Create end date 1 hour after start for better visibility
-          const endDate = new Date(startDate);
-          endDate.setHours(startDate.getHours() + 1);
-
-          return {
-            id: event.id,
-            title: event.title,
-            start: startDate,
-            end: endDate,
-            status: event.status,
-            requestor: event.requestor,
-            department: event.department,
-            location: event.location,
-            participants: event.participants,
-            provisions: event.provisions,
-            attachments: event.attachments,
-          };
-        });
-        setEvents(transformedEvents.filter(event => event !== null));
-      } else {
-        toast.error("Failed to fetch events");
+    const loadEvents = async () => {
+      const result = await fetchAllEvents();
+      if (!result.success) {
+        toast.error(result.error || "Failed to fetch events");
       }
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      toast.error("An error occurred while fetching events");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    loadEvents();
+  }, [fetchAllEvents]);
 
   // Filter events based on search term
-  const filteredEvents = events.filter(event => {
+  const filteredEvents = allEvents.filter(event => {
     if (!searchTerm.trim()) return true;
     
     const searchLower = searchTerm.toLowerCase().trim();

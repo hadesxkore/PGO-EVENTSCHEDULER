@@ -7,7 +7,7 @@ import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
-import { getUserDashboardStats } from "../lib/firebase/dashboard-user";
+import useEventStore from "../store/eventStore";
 import { auth } from "../lib/firebase/firebase";
 import { format, isAfter, isBefore, addHours } from "date-fns";
 import { toast } from "sonner";
@@ -64,40 +64,34 @@ const getEventStatusColor = (event) => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    totalEvents: 0,
-    upcomingEvents: 0,
-    departmentEvents: 0,
-    totalHours: 0,
-    nextEventIn: null,
-    thisWeekEvents: 0,
-    thisWeekHours: 0,
-    upcomingEventsList: []
-  });
+  // Get state and actions from Zustand store
+  const { 
+    dashboardData, 
+    loading, 
+    error,
+    fetchDashboardData 
+  } = useEventStore();
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
+    const loadDashboardData = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
 
-        const result = await getUserDashboardStats(currentUser.uid);
-        if (result.success) {
-          setDashboardData(result.stats);
-        } else {
-          toast.error("Failed to fetch dashboard data");
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        toast.error("An error occurred while fetching dashboard data");
-      } finally {
-        setLoading(false);
+      const result = await fetchDashboardData(currentUser.uid);
+      if (!result.success) {
+        toast.error(result.error || "Failed to fetch dashboard data");
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    loadDashboardData();
+  }, [fetchDashboardData]);
+
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const stats = [
     {

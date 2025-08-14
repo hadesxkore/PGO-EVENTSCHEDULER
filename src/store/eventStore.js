@@ -1,0 +1,324 @@
+import { create } from 'zustand';
+import { 
+  getUserEventRequests, 
+  deleteEventRequest,
+  createEventRequest,
+  getAllEventRequests 
+} from '@/lib/firebase/eventRequests';
+import { getUserDashboardStats } from '@/lib/firebase/dashboard-user';
+
+const useEventStore = create((set, get) => ({
+  // State
+  events: [], // User's events
+  allEvents: [], // All events
+  loading: false,
+  error: null,
+  lastFetched: null, // Timestamp of last fetch
+  lastDashboardFetch: null, // Timestamp of last dashboard fetch
+  lastAllEventsFetch: null, // Timestamp of last all events fetch
+  
+  // Dashboard state
+  dashboardData: {
+    totalEvents: 0,
+    upcomingEvents: 0,
+    departmentEvents: 0,
+    totalHours: 0,
+    nextEventIn: null,
+    thisWeekEvents: 0,
+    thisWeekHours: 0,
+    upcomingEventsList: []
+  },
+  
+  // Cache configuration
+  cacheTime: 5 * 60 * 1000, // 5 minutes in milliseconds
+  dashboardCacheTime: 2 * 60 * 1000, // 2 minutes in milliseconds
+
+  // Actions
+  setEvents: (events) => {
+    console.log('🔄 Zustand: Setting events', events);
+    set({ events });
+  },
+  setLoading: (loading) => {
+    console.log('🔄 Zustand: Setting loading', loading);
+    set({ loading });
+  },
+  setError: (error) => {
+    console.log('🔄 Zustand: Setting error', error);
+    set({ error });
+  },
+
+  // Debug function to log current state
+  logState: () => {
+    const state = get();
+    console.log('📊 Zustand Store State:', {
+      events: state.events.map(event => ({
+        id: event.id,
+        title: event.title,
+        requestor: event.requestor,
+        date: event.date
+      })),
+      eventsCount: state.events.length,
+      loading: state.loading,
+      error: state.error
+    });
+  },
+
+  // Check if all events cache is valid
+  isAllEventsCacheValid: () => {
+    const state = get();
+    if (!state.lastAllEventsFetch) return false;
+    
+    const now = Date.now();
+    const cacheAge = now - state.lastAllEventsFetch;
+    const isValid = cacheAge < state.cacheTime;
+    
+    console.log('🕒 All Events Cache status:', {
+      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
+      isValid,
+      eventsInCache: state.allEvents.length
+    });
+    
+    return isValid;
+  },
+
+  // Fetch all events
+  fetchAllEvents: async (forceFetch = false) => {
+    const state = get();
+    
+    // Return cached data if valid and not forcing fetch
+    if (!forceFetch && state.allEvents.length > 0 && state.isAllEventsCacheValid()) {
+      console.log('📦 Using cached all events:', state.allEvents.length);
+      return { success: true, events: state.allEvents };
+    }
+
+    try {
+      set({ loading: true, error: null });
+      console.log('🔄 Fetching fresh all events data');
+      
+      const result = await getAllEventRequests();
+      
+      if (result.success) {
+        // Transform events for calendar
+        const transformedEvents = result.requests.map(event => {
+          const startDate = new Date(event.date.seconds * 1000);
+          const endDate = new Date(startDate);
+          endDate.setHours(startDate.getHours() + 1);
+
+          return {
+            id: event.id,
+            title: event.title,
+            start: startDate,
+            end: endDate,
+            status: event.status,
+            requestor: event.requestor,
+            department: event.department,
+            location: event.location,
+            participants: event.participants,
+            provisions: event.provisions,
+            attachments: event.attachments,
+          };
+        }).filter(event => event !== null);
+
+        set({ 
+          allEvents: transformedEvents,
+          lastAllEventsFetch: Date.now()
+        });
+        
+        console.log('✅ Fresh all events data stored in cache');
+        return { success: true, events: transformedEvents };
+      } else {
+        const error = 'Failed to fetch all events';
+        set({ error });
+        return { success: false, error };
+      }
+    } catch (error) {
+      console.error('Error fetching all events:', error);
+      const errorMsg = 'An error occurred while fetching all events';
+      set({ error: errorMsg });
+      return { success: false, error: errorMsg };
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // Check if dashboard cache is valid
+  isDashboardCacheValid: () => {
+    const state = get();
+    if (!state.lastDashboardFetch) return false;
+    
+    const now = Date.now();
+    const cacheAge = now - state.lastDashboardFetch;
+    const isValid = cacheAge < state.dashboardCacheTime;
+    
+    console.log('🕒 Dashboard Cache status:', {
+      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
+      isValid,
+      hasData: Object.keys(state.dashboardData).length > 0
+    });
+    
+    return isValid;
+  },
+
+  // Fetch dashboard data
+  fetchDashboardData: async (userId, forceFetch = false) => {
+    const state = get();
+    
+    // Return cached data if valid and not forcing fetch
+    if (!forceFetch && state.isDashboardCacheValid()) {
+      console.log('📦 Using cached dashboard data');
+      return { success: true, stats: state.dashboardData };
+    }
+
+    try {
+      set({ loading: true, error: null });
+      console.log('🔄 Fetching fresh dashboard data');
+      
+      const result = await getUserDashboardStats(userId);
+      
+      if (result.success) {
+        set({ 
+          dashboardData: result.stats,
+          lastDashboardFetch: Date.now()
+        });
+        console.log('✅ Fresh dashboard data stored in cache');
+        return result;
+      } else {
+        const error = 'Failed to fetch dashboard data';
+        set({ error });
+        return { success: false, error };
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard:', error);
+      const errorMsg = 'An error occurred while fetching dashboard data';
+      set({ error: errorMsg });
+      return { success: false, error: errorMsg };
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // Check if events cache is valid
+  isCacheValid: () => {
+    const state = get();
+    if (!state.lastFetched) return false;
+    
+    const now = Date.now();
+    const cacheAge = now - state.lastFetched;
+    const isValid = cacheAge < state.cacheTime;
+    
+    console.log('🕒 Cache status:', {
+      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
+      isValid,
+      eventsInCache: state.events.length
+    });
+    
+    return isValid;
+  },
+
+  // Fetch events
+  fetchUserEvents: async (userId, forceFetch = false) => {
+    const state = get();
+    
+    // Return cached data if valid and not forcing fetch
+    if (!forceFetch && state.events.length > 0 && state.isCacheValid()) {
+      console.log('📦 Using cached events:', state.events.length);
+      return;
+    }
+
+    try {
+      set({ loading: true, error: null });
+      console.log('🔄 Fetching fresh data from Firestore');
+      
+      const result = await getUserEventRequests(userId);
+      
+      if (result.success) {
+        // Sort events by date, most recent first
+        const sortedEvents = result.requests.sort((a, b) => {
+          const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(0);
+          const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(0);
+          return dateB - dateA;
+        });
+        
+        set({ 
+          events: sortedEvents,
+          lastFetched: Date.now() // Update last fetch timestamp
+        });
+        
+        console.log('✅ Fresh data stored in cache');
+      } else {
+        set({ error: 'Failed to fetch events' });
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      set({ error: 'An error occurred while fetching events' });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // Delete event
+  deleteEvent: async (eventId) => {
+    try {
+      const result = await deleteEventRequest(eventId);
+      if (result.success) {
+        // Remove event from state
+        const events = get().events.filter(event => event.id !== eventId);
+        set({ events });
+        return { success: true };
+      } else {
+        set({ error: 'Failed to delete event' });
+        return { success: false, error: 'Failed to delete event' };
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      set({ error: 'An error occurred while deleting the event' });
+      return { success: false, error: 'An error occurred while deleting the event' };
+    }
+  },
+
+  // Submit new event request
+  submitEventRequest: async (eventData) => {
+    try {
+      set({ loading: true, error: null });
+      console.log('📤 Submitting event request:', eventData);
+
+      const result = await createEventRequest(eventData);
+      
+      if (result.success) {
+        // Add the new event to the store
+        const state = get();
+        const newEvent = {
+          id: result.eventId,
+          ...eventData,
+          status: 'pending'
+        };
+        
+        // Update cache with new event
+        const updatedEvents = [newEvent, ...state.events];
+        set({ 
+          events: updatedEvents,
+          lastFetched: Date.now() // Update cache timestamp
+        });
+        
+        console.log('✅ Event request submitted and cached');
+        return { success: true, eventId: result.eventId };
+      } else {
+        set({ error: 'Failed to submit event request' });
+        return { success: false, error: 'Failed to submit event request' };
+      }
+    } catch (error) {
+      console.error('Error submitting event:', error);
+      set({ error: 'An error occurred while submitting the event request' });
+      return { success: false, error: 'An error occurred while submitting the event request' };
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // Clear store
+  clearStore: () => {
+    set({ events: [], loading: false, error: null, lastFetched: null });
+  }
+}));
+
+export default useEventStore;

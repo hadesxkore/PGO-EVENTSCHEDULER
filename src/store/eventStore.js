@@ -169,11 +169,7 @@ const useEventStore = create((set, get) => ({
     const cacheAge = now - state.lastFetched;
     const isValid = cacheAge < state.cacheTime;
     
-    console.log('🕒 Cache status:', {
-      cacheAge: Math.round(cacheAge / 1000) + ' seconds',
-      isValid,
-      eventsInCache: state.events.length
-    });
+
     
     return isValid;
   },
@@ -184,13 +180,13 @@ const useEventStore = create((set, get) => ({
     
     // Return cached data if valid and not forcing fetch
     if (!forceFetch && state.events.length > 0 && state.isCacheValid()) {
-      console.log('📦 Using cached events:', state.events.length);
+
       return;
     }
 
     try {
       set({ loading: true, error: null });
-      console.log('🔄 Fetching fresh data from Firestore');
+
       
       const result = await getUserEventRequests(userId);
       
@@ -207,7 +203,7 @@ const useEventStore = create((set, get) => ({
           lastFetched: Date.now() // Update last fetch timestamp
         });
         
-        console.log('✅ Fresh data stored in cache');
+
       } else {
         set({ error: 'Failed to fetch events' });
       }
@@ -243,7 +239,7 @@ const useEventStore = create((set, get) => ({
   submitEventRequest: async (eventData) => {
     try {
       set({ loading: true, error: null });
-      console.log('📤 Submitting event request:', eventData);
+
 
       const result = await createEventRequest(eventData);
       
@@ -263,7 +259,7 @@ const useEventStore = create((set, get) => ({
           lastFetched: Date.now() // Update cache timestamp
         });
         
-        console.log('✅ Event request submitted and cached');
+
         return { success: true, eventId: result.eventId };
       } else {
         set({ error: 'Failed to submit event request' });

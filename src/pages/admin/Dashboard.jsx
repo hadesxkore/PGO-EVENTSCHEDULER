@@ -224,11 +224,7 @@ const AdminDashboard = () => {
               </p>
             </div>
             <Button
-              variant="outline"
-              className={cn(
-                "gap-2",
-                isDarkMode ? "border-slate-700 hover:bg-slate-700" : ""
-              )}
+              className="bg-black hover:bg-gray-800 text-white gap-2 transition-all duration-200 ease-in-out"
               onClick={fetchStats}
             >
               Refresh

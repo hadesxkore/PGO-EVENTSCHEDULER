@@ -19,7 +19,6 @@ function App() {
   const [userData, setUserData] = useState(null);
 
   const handleLoginSuccess = (userData) => {
-    console.log("Login success with userData:", userData); // For debugging
     setIsAuthenticated(true);
     setUserData({
       ...userData,
@@ -32,7 +31,6 @@ function App() {
       <Router>
         {isAuthenticated ? (
           userData?.role?.toLowerCase() === 'admin' ? (
-            console.log("Rendering admin layout") || // For debugging
             <AdminLayout userData={userData}>
               <Routes>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />

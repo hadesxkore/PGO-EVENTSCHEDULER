@@ -27,6 +27,7 @@ const AdminLayout = ({ children, userData }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('userData');
     sessionStorage.removeItem('user');
     navigate('/');
     window.location.reload();
@@ -154,10 +155,7 @@ const AdminLayout = ({ children, userData }) => {
                       : "bg-red-50 text-red-600"
                   )
                 )}
-                onClick={() => {
-                  console.log("Navigating to:", item.href);
-                  navigate(item.href);
-                }}
+                                 onClick={() => navigate(item.href)}
               >
                 <div className={cn(
                   "flex items-center gap-3",

@@ -28,6 +28,7 @@ const MainLayout = ({ children, userData }) => {
   const handleLogout = () => {
     // Clear any stored user data/tokens
     localStorage.removeItem('user');
+    localStorage.removeItem('userData');
     sessionStorage.removeItem('user');
     
     // Navigate to auth page

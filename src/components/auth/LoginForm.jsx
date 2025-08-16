@@ -42,6 +42,9 @@ const LoginForm = ({ onLoginSuccess }) => {
         icon: <Check className="h-5 w-5 text-green-500" />,
       });
       
+      // Save user data to localStorage for access across the app
+      localStorage.setItem('userData', JSON.stringify(userData));
+      
       // Call the onLoginSuccess callback to update authentication state
       onLoginSuccess(userData);
       

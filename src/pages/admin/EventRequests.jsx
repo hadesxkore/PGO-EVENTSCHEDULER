@@ -91,6 +91,8 @@ const EventRequests = () => {
       const result = await getAllEventRequests();
       
       if (result.success) {
+        console.log('Fetched events:', result.requests);
+        console.log('First event data:', result.requests[0]);
         setEvents(result.requests);
       } else {
         toast.error("Failed to fetch events");
@@ -258,13 +260,15 @@ const EventRequests = () => {
             <Table>
               <TableHeader>
                 <TableRow className={cn(
-                  isDarkMode ? "border-slate-700 hover:bg-transparent" : "border-gray-100 hover:bg-transparent"
+                  isDarkMode 
+                    ? "border-slate-700 bg-slate-800/50" 
+                    : "border-gray-200 bg-gray-50"
                 )}>
-                  <TableHead className="w-[250px] py-5 text-base font-semibold">Event Details</TableHead>
-                  <TableHead className="py-5 text-base font-semibold">Requestor</TableHead>
-                  <TableHead className="py-5 text-base font-semibold">Date & Time</TableHead>
-                  <TableHead className="py-5 text-base font-semibold">Location</TableHead>
-                  <TableHead className="text-center py-5 text-base font-semibold">Actions</TableHead>
+                  <TableHead className="w-[250px] py-4 text-sm font-medium">Event Details</TableHead>
+                  <TableHead className="py-4 text-sm font-medium">Requestor</TableHead>
+                  <TableHead className="py-4 text-sm font-medium">Date & Time</TableHead>
+                  <TableHead className="py-4 text-sm font-medium">Location</TableHead>
+                  <TableHead className="text-center py-4 text-sm font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -287,72 +291,68 @@ const EventRequests = () => {
                 ) : (
                   filteredEvents
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((event) => (
+                  .map((event, index) => (
                     <TableRow 
                       key={event.id} 
                       className={cn(
                         isDarkMode 
-                          ? "border-slate-700" 
-                          : "border-gray-100"
+                          ? "border-slate-700 hover:bg-slate-800/30" 
+                          : "border-gray-100 hover:bg-gray-50/80"
                       )}
                     >
-                      <TableCell className="py-5">
+                      <TableCell className="py-4">
                         <div className={cn(
-                          "p-2 rounded-lg",
-                          isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
+                          "inline-block px-3 py-2 rounded-md text-sm font-medium",
+                          isDarkMode 
+                            ? "bg-blue-500/10 text-blue-300" 
+                            : "bg-blue-50 text-blue-700"
                         )}>
-                          <p className={cn(
-                            "text-base font-medium",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{event.title}</p>
+                          {event.title}
                         </div>
                       </TableCell>
-                      <TableCell className="py-5">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
-                        )}>
-                          <p className={cn(
+                      <TableCell className="py-4">
+                        <div className="space-y-1">
+                          <div className={cn(
                             "text-sm font-medium",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{event.requestor}</p>
-                          <p className={cn(
-                            "text-sm",
+                          )}>
+                            {event.requestor}
+                          </div>
+                          <div className={cn(
+                            "text-xs",
                             isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>{event.userDepartment}</p>
+                          )}>
+                            {event.userDepartment || event.department || "No department"}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-5">
+                      <TableCell className="py-4">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                            <span className={cn(
-                              "text-sm font-medium",
-                              isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy") : "No date"}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-gray-400" />
-                            <span className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>{event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "No time"}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-5">
-                        <div className={cn(
-                          "p-2 rounded-lg flex items-center gap-1.5",
-                          isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
-                        )}>
-                          <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                          <span className={cn(
-                            "text-sm",
+                          <div className={cn(
+                            "text-sm font-medium",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{event.location}</span>
+                          )}>
+                            {event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy") : "No date"}
+                          </div>
+                          <div className={cn(
+                            "text-xs",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>
+                            {event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "No time"}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-5">
+                      <TableCell className="py-4">
+                        <div className={cn(
+                          "inline-block px-3 py-2 rounded-md text-sm font-medium",
+                          isDarkMode 
+                            ? "bg-indigo-500/10 text-indigo-300" 
+                            : "bg-indigo-50 text-indigo-700"
+                        )}>
+                          {event.location}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
                         <div className="flex items-center justify-center gap-2">
                           <Button
                             size="sm"
@@ -673,32 +673,74 @@ const EventRequests = () => {
                         )}>Requirements</h4>
                       </div>
                       <Button
-                        variant="ghost"
                         size="sm"
-                        className={cn(
-                          "text-sm font-medium transition-colors hover:bg-transparent",
-                          isDarkMode 
-                            ? "text-blue-400 hover:text-blue-300" 
-                            : "text-blue-600 hover:text-blue-700"
-                        )}
+                        className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[140px] transition-all duration-200 ease-in-out"
                         onClick={() => setIsRequirementsDialogOpen(true)}
                       >
-                        View Full Requirements →
+                        View Full Details →
                       </Button>
                     </div>
-                    <div className={cn(
-                      "text-sm leading-relaxed whitespace-pre-wrap rounded-lg p-4 max-h-[100px] overflow-hidden relative",
-                      isDarkMode 
-                        ? "bg-slate-900/30 text-gray-300" 
-                        : "bg-white/50 text-gray-600"
-                    )}>
-                      {selectedRequest.provisions}
+                    <div className="relative">
                       <div className={cn(
-                        "absolute bottom-0 left-0 right-0 h-12",
-                        isDarkMode
-                          ? "bg-gradient-to-t from-slate-900/90 to-transparent"
-                          : "bg-gradient-to-t from-white/90 to-transparent"
-                      )} />
+                        "rounded-lg p-4 text-sm relative",
+                        isDarkMode 
+                          ? "bg-slate-900/30 text-gray-300" 
+                          : "bg-white/50 text-gray-600"
+                      )}>
+                        {selectedRequest.requirements && selectedRequest.requirements.slice(0, 3).map((req, index) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div
+                              key={index}
+                              className={cn(
+                                "mb-3 last:mb-0 flex items-start gap-2",
+                                isDarkMode ? "text-gray-300" : "text-gray-600"
+                              )}
+                            >
+                              <div className={cn(
+                                "p-1.5 rounded-md mt-0.5",
+                                isDarkMode ? "bg-slate-800" : "bg-white",
+                                "shadow-sm"
+                              )}>
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              </div>
+                              <div>
+                                <span className={cn(
+                                  "font-semibold block",
+                                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                                )}>
+                                  {requirement.name}
+                                </span>
+                                {requirement.note && (
+                                  <span className={cn(
+                                    "text-xs block mt-0.5",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {requirement.note}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {selectedRequest.requirements && selectedRequest.requirements.length > 3 && (
+                          <>
+                            <div className={cn(
+                              "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
+                              isDarkMode
+                                ? "bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent"
+                                : "bg-gradient-to-t from-white/90 via-white/50 to-transparent"
+                            )} />
+                            <div className={cn(
+                              "absolute bottom-2 left-0 right-0 text-sm font-medium text-center",
+                              isDarkMode ? "text-blue-400" : "text-blue-600"
+                            )}>
+                              Click "View Full Details" to see all requirements
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -891,18 +933,59 @@ const EventRequests = () => {
                 isDarkMode ? "bg-slate-800" : "bg-gray-50"
               )}>
                 <ScrollArea className="h-[400px] pr-4">
-                  <div className={cn(
-                    "prose max-w-none",
-                    isDarkMode ? "prose-invert" : "",
-                    "prose-sm",
-                    "prose-p:leading-relaxed"
-                  )}>
-                    <pre className={cn(
-                      "whitespace-pre-wrap font-sans text-base",
-                      isDarkMode ? "text-gray-200" : "text-gray-900"
-                    )}>
-                      {selectedRequest.provisions}
-                    </pre>
+                  <div className="space-y-4">
+                    {selectedRequest.requirements && selectedRequest.requirements.length > 0 ? (
+                      selectedRequest.requirements.map((req, index) => {
+                        const requirement = typeof req === 'string' ? { name: req } : req;
+                        return (
+                          <div
+                            key={index}
+                            className={cn(
+                              "rounded-xl p-5 border transition-all duration-200 hover:shadow-md",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700 hover:border-slate-600" 
+                                : "bg-white border-gray-200 hover:border-gray-300"
+                            )}
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className={cn(
+                                "p-3 rounded-lg flex-shrink-0",
+                                isDarkMode ? "bg-slate-800" : "bg-gray-50"
+                              )}>
+                                <FileText className="h-6 w-6 text-blue-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className={cn(
+                                  "text-lg font-semibold mb-2",
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                )}>
+                                  {requirement.name}
+                                </h3>
+                                {requirement.note && (
+                                  <p className={cn(
+                                    "text-sm leading-relaxed",
+                                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                                  )}>
+                                    {requirement.note}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className={cn(
+                        "rounded-xl p-8 text-center border-2 border-dashed",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700 text-gray-400" 
+                          : "bg-white border-gray-200 text-gray-500"
+                      )}>
+                        <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                        <p className="text-lg font-medium mb-1">No Requirements</p>
+                        <p className="text-sm">No requirements specified for this event</p>
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
               </div>

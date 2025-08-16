@@ -84,6 +84,7 @@ const useEventStore = create((set, get) => ({
             location: event.location,
             participants: event.participants,
             provisions: event.provisions,
+            requirements: event.requirements,
             attachments: event.attachments,
           };
         }).filter(event => event !== null);
@@ -220,9 +221,33 @@ const useEventStore = create((set, get) => ({
     try {
       const result = await deleteEventRequest(eventId);
       if (result.success) {
-        // Remove event from state
+        // Remove event from both events and allEvents state
         const events = get().events.filter(event => event.id !== eventId);
-        set({ events });
+        const allEvents = get().allEvents.filter(event => event.id !== eventId);
+        
+        // Get current user ID from any existing event
+        const userId = events[0]?.userId;
+        
+        // Update all relevant states and timestamps
+        set({ 
+          events,
+          allEvents,
+          lastAllEventsFetch: Date.now(),
+          lastFetched: Date.now(),
+          lastDashboardFetch: null // Force dashboard refresh
+        });
+
+        // Refresh dashboard data if we have the userId
+        if (userId) {
+          const dashboardResult = await getUserDashboardStats(userId);
+          if (dashboardResult.success) {
+            set({
+              dashboardData: dashboardResult.stats,
+              lastDashboardFetch: Date.now()
+            });
+          }
+        }
+
         return { success: true };
       } else {
         set({ error: 'Failed to delete event' });
@@ -240,7 +265,6 @@ const useEventStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-
       const result = await createEventRequest(eventData);
       
       if (result.success) {
@@ -256,9 +280,18 @@ const useEventStore = create((set, get) => ({
         const updatedEvents = [newEvent, ...state.events];
         set({ 
           events: updatedEvents,
-          lastFetched: Date.now() // Update cache timestamp
+          lastFetched: Date.now(),
+          lastDashboardFetch: null // Force dashboard refresh
         });
-        
+
+        // Refresh dashboard data
+        const dashboardResult = await getUserDashboardStats(eventData.userId);
+        if (dashboardResult.success) {
+          set({
+            dashboardData: dashboardResult.stats,
+            lastDashboardFetch: Date.now()
+          });
+        }
 
         return { success: true, eventId: result.eventId };
       } else {

@@ -360,10 +360,10 @@ const MyEvents = () => {
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Button
-                              onClick={() => {
-                                setSelectedEvent(event);
-                                setIsViewDialogOpen(true);
-                              }}
+                                                     onClick={() => {
+                         setSelectedEvent(event);
+                         setIsViewDialogOpen(true);
+                       }}
                               className="bg-black hover:bg-gray-800 text-white gap-2"
                               size="sm"
                             >
@@ -650,19 +650,75 @@ const MyEvents = () => {
                       className={cn(
                         "gap-2 bg-black hover:bg-gray-900 text-white border-0"
                       )}
-                      onClick={() => setIsRequirementsDialogOpen(true)}
+                                             onClick={() => {
+                         setIsRequirementsDialogOpen(true);
+                       }}
                     >
                       <Eye className="h-4 w-4" />
                       View Full Details
                     </Button>
                   </div>
-                  <div className={cn(
-                    "rounded-lg p-4 text-sm",
-                    isDarkMode 
-                      ? "bg-slate-900/50 text-gray-300" 
-                      : "bg-gray-50 text-gray-600"
-                  )}>
-                    {selectedEvent.provisions}
+                  <div className="relative">
+                    <div className={cn(
+                      "rounded-lg p-4 text-sm relative",
+                      isDarkMode 
+                        ? "bg-slate-900/50 text-gray-300" 
+                        : "bg-gray-50 text-gray-600"
+                    )}>
+                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 3).map((req, index) => {
+                        const requirement = typeof req === 'string' ? { name: req } : req;
+                        return (
+                          <div
+                            key={index}
+                            className={cn(
+                              "mb-3 last:mb-0 flex items-start gap-2",
+                              isDarkMode ? "text-gray-300" : "text-gray-600"
+                            )}
+                          >
+                            <div className={cn(
+                              "p-1.5 rounded-md mt-0.5",
+                              isDarkMode ? "bg-slate-800" : "bg-white",
+                              "shadow-sm"
+                            )}>
+                              <FileText className="h-4 w-4 text-blue-500" />
+                            </div>
+                            <div>
+                              <span className={cn(
+                                "font-semibold block",
+                                isDarkMode ? "text-gray-200" : "text-gray-700"
+                              )}>
+                                {requirement.name}
+                              </span>
+                              {requirement.note && (
+                                <span className={cn(
+                                  "text-xs block mt-0.5",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  {requirement.note}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {selectedEvent.requirements && selectedEvent.requirements.length > 3 && (
+                        <>
+                          <div className={cn(
+                            "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
+                            isDarkMode
+                              ? "bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent"
+                              : "bg-gradient-to-t from-gray-50/90 via-gray-50/50 to-transparent"
+                          )} />
+                          <div className={cn(
+                            "absolute bottom-2 left-0 right-0 text-sm font-medium text-center",
+                            isDarkMode ? "text-blue-400" : "text-blue-600"
+                          )}>
+                            Click "View Full Details" to see all requirements
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 

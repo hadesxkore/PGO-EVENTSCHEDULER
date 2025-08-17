@@ -2,11 +2,17 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../components/ui/card";
-import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell } from "lucide-react";
+import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import { ScrollArea } from "../components/ui/scroll-area";
 import useEventStore from "../store/eventStore";
 import { auth } from "../lib/firebase/firebase";
 import { format, isAfter, isBefore, addHours } from "date-fns";
@@ -167,17 +173,115 @@ const Dashboard = () => {
           variants={item}
           className="flex items-center gap-4"
         >
-          <Button
-            variant="outline"
-            size="icon"
-            className={cn(
-              "relative rounded-xl border-0",
-              isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
-            )}
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className={cn(
+                  "relative rounded-xl border-0",
+                  isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
+                )}
+              >
+                <Bell className="h-5 w-5" />
+                {!loading && dashboardData.upcomingEventsList.length > 0 && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className={cn(
+                "w-80 p-0 border-0",
+                isDarkMode ? "bg-gray-800" : "bg-white"
+              )}
+              align="end"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h4 className={cn(
+                  "font-semibold",
+                  isDarkMode ? "text-white" : "text-gray-900"
+                )}>Notifications</h4>
+                <span className={cn(
+                  "text-xs font-medium px-2 py-1 rounded-full",
+                  isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                )}>
+                  {loading ? "..." : dashboardData.upcomingEventsList.length} events
+                </span>
+              </div>
+              <ScrollArea className="h-[300px] p-4">
+                {loading ? (
+                  <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                    Loading notifications...
+                  </div>
+                ) : dashboardData.upcomingEventsList.length === 0 ? (
+                  <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                    No upcoming events
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {dashboardData.upcomingEventsList.map((event) => (
+                      <div
+                        key={event.id}
+                        className={cn(
+                          "flex items-start gap-3 p-2 rounded-lg transition-colors",
+                          isDarkMode 
+                            ? "hover:bg-gray-700/50" 
+                            : "hover:bg-gray-50"
+                        )}
+                      >
+                        <Avatar className={cn(
+                          "h-9 w-9 ring-2 ring-offset-2",
+                          isDarkMode 
+                            ? "ring-gray-700 ring-offset-gray-800" 
+                            : "ring-gray-100 ring-offset-white",
+                          getEventColor(event.title)
+                        )}>
+                          <AvatarFallback 
+                            className={cn(
+                              "text-white text-xs font-semibold",
+                              getEventBgColor(event.title)
+                            )}
+                          >
+                            {event.title.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <p className={cn(
+                            "text-sm font-medium leading-none",
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          )}>
+                            {event.title}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className={cn(
+                              "text-xs",
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            )}>
+                              {format(event.date, "MMM d, yyyy")}
+                            </p>
+                            <span className={cn(
+                              "inline-block h-1 w-1 rounded-full",
+                              isDarkMode ? "bg-gray-600" : "bg-gray-300"
+                            )} />
+                            <p className={cn(
+                              "text-xs",
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            )}>
+                              {format(event.date, "h:mm a")}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={cn(
+                          "h-2 w-2 rounded-full mt-1",
+                          getEventStatusColor(event)
+                        )} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
         </motion.div>
       </div>
 

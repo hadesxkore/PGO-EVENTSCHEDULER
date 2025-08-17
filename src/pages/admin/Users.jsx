@@ -17,7 +17,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -102,7 +101,6 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
@@ -655,21 +653,6 @@ const Users = () => {
                 <Separator className="bg-black/20" />
 
                                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Schedule Date</Label>
-                      <div className={cn(
-                        "rounded-lg border",
-                        isDarkMode ? "bg-slate-800 border-slate-700" : "bg-gray-100 border-gray-200"
-                      )}>
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          className="rounded-md"
-                        />
-                      </div>
-                    </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                     <div className="relative">

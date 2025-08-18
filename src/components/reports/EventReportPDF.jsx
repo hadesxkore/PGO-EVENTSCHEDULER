@@ -15,27 +15,31 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   logo: {
-    width: 50,
-    height: 50,
-    marginBottom: 10,
+    width: 70,
+    height: 70,
+    marginBottom: 12,
   },
   headerText: {
     textAlign: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 12,
-    marginBottom: 1,
+    fontSize: 13,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   date: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#666666',
-    marginTop: 8,
+    marginTop: 10,
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   divider: {
     borderBottom: '1 solid #e5e5e5',
@@ -119,7 +123,7 @@ const EventReportPDF = ({ events }) => {
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Department:</Text>
-                <Text style={styles.infoValue}>{event.userDepartment}</Text>
+                <Text style={styles.infoValue}>{event.userDepartment || event.department || "Not specified"}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Date:</Text>
@@ -169,18 +173,6 @@ const EventReportPDF = ({ events }) => {
                     </Text>
                   );
                 })}
-              </View>
-            )}
-
-            {/* Attachments */}
-            {event.attachments && event.attachments.length > 0 && (
-              <View style={styles.infoSection}>
-                <Text style={styles.sectionTitle}>Attachments</Text>
-                {event.attachments.map((file, idx) => (
-                  <Text key={idx} style={styles.listItem}>
-                    • {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                  </Text>
-                ))}
               </View>
             )}
           </View>

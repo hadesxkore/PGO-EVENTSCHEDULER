@@ -410,11 +410,11 @@ const EventRequests = () => {
                           ? "border-slate-700" 
                           : "border-gray-100",
                         isSelectMode && (isDarkMode
-                          ? "hover:bg-blue-500/10 cursor-pointer"
-                          : "hover:bg-blue-50 cursor-pointer"),
-                        selectedEvents.includes(event) && (isDarkMode 
+                          ? "bg-blue-500/5 hover:bg-blue-500/20 cursor-pointer"
+                          : "bg-blue-50/50 hover:bg-blue-100 cursor-pointer"),
+                        isSelectMode && selectedEvents.includes(event) && (isDarkMode 
                           ? "bg-blue-500/20 hover:bg-blue-500/30" 
-                          : "bg-blue-100 hover:bg-blue-200"
+                          : "bg-blue-200 hover:bg-blue-300"
                         )
                       )}
                       onClick={() => {

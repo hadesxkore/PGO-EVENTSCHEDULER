@@ -4,7 +4,7 @@ import bataanLogo from '/images/bataanlogo.png';
 
 const styles = StyleSheet.create({
   page: {
-    padding: 50,
+    padding: 40,
     backgroundColor: 'white',
     fontSize: 11,
     color: '#333333',
@@ -12,7 +12,9 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
+    position: 'relative',
+    top: 0,
   },
   logo: {
     width: 70,
@@ -46,10 +48,9 @@ const styles = StyleSheet.create({
     marginVertical: 15,
   },
   eventContainer: {
-    marginBottom: 25,
-    borderBottom: '0.5 solid #e5e5e5',
+    marginBottom: 20,
     paddingBottom: 15,
-    breakInside: 'avoid',
+    flex: 1,
   },
   eventTitle: {
     fontSize: 12,
@@ -83,14 +84,14 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 30,
-    left: 50,
-    right: 50,
+    bottom: 20,
+    left: 40,
+    right: 40,
     textAlign: 'center',
     fontSize: 8,
     color: '#666666',
     borderTop: '0.5 solid #e5e5e5',
-    paddingTop: 10,
+    paddingTop: 8,
   },
 });
 
@@ -111,27 +112,15 @@ const ReportHeader = () => (
 );
 
 const EventReportPDF = ({ events }) => {
-  // Split events into groups of 3 for pagination
-  const eventsPerPage = 3;
-  const eventGroups = events.reduce((acc, event, index) => {
-    const groupIndex = Math.floor(index / eventsPerPage);
-    if (!acc[groupIndex]) {
-      acc[groupIndex] = [];
-    }
-    acc[groupIndex].push(event);
-    return acc;
-  }, []);
-
   return (
     <Document>
-      {eventGroups.map((groupEvents, pageIndex) => (
-        <Page key={pageIndex} size="A4" style={styles.page}>
-          {/* Header - repeated on each page */}
+      {events.map((event, index) => (
+        <Page key={index} size="A4" style={styles.page} wrap>
+          {/* Header - repeated on each page automatically */}
           <ReportHeader />
 
-          {/* Events for this page */}
-          {groupEvents.map((event, index) => (
-            <View key={index} style={styles.eventContainer}>
+          {/* Single event per page */}
+          <View style={[styles.eventContainer, { borderBottom: 'none' }]}>
             <Text style={styles.eventTitle}>{event.title.toUpperCase()}</Text>
             
             {/* Basic Information */}
@@ -195,7 +184,6 @@ const EventReportPDF = ({ events }) => {
               </View>
             )}
           </View>
-        ))}
 
           {/* Footer */}
           <Text style={styles.footer}>

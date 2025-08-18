@@ -4,96 +4,88 @@ import bataanLogo from '/images/bataanlogo.png';
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 50,
     backgroundColor: 'white',
+    fontSize: 11,
+    color: '#333333',
+    lineHeight: 1.5,
   },
-  header: {
-    flexDirection: 'row',
+  headerContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginRight: 15,
+    width: 50,
+    height: 50,
+    marginBottom: 10,
   },
   headerText: {
-    flex: 1,
+    textAlign: 'center',
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#4a4a4a',
-    marginBottom: 2,
+    fontSize: 12,
+    marginBottom: 1,
   },
   date: {
     fontSize: 10,
     color: '#666666',
-    marginTop: 10,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
-  section: {
-    marginTop: 20,
+  divider: {
     borderBottom: '1 solid #e5e5e5',
-    paddingBottom: 10,
+    marginVertical: 15,
   },
-  sectionTitle: {
-    fontSize: 14,
+  eventContainer: {
+    marginBottom: 30,
+    borderBottom: '0.5 solid #e5e5e5',
+    paddingBottom: 20,
+  },
+  eventTitle: {
+    fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
     marginBottom: 10,
+    textDecoration: 'underline',
   },
-  infoGrid: {
+  infoSection: {
+    marginBottom: 15,
+  },
+  infoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 20,
-    marginBottom: 20,
-  },
-  infoCard: {
-    width: '45%',
-    backgroundColor: '#f8fafc',
-    padding: 15,
-    borderRadius: 8,
+    marginBottom: 5,
   },
   infoLabel: {
-    fontSize: 10,
-    color: '#666666',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 12,
-    color: '#1a1a1a',
+    width: '25%',
     fontWeight: 'bold',
   },
-  requirementsList: {
-    marginTop: 10,
+  infoValue: {
+    width: '75%',
   },
-  requirementItem: {
-    marginBottom: 8,
+  sectionTitle: {
     fontSize: 11,
-    color: '#1a1a1a',
-  },
-  attachmentsList: {
-    marginTop: 10,
-  },
-  attachmentItem: {
-    flexDirection: 'row',
+    fontWeight: 'bold',
     marginBottom: 8,
-    fontSize: 11,
-    color: '#1a1a1a',
+    marginTop: 12,
+  },
+  listItem: {
+    marginBottom: 4,
+    paddingLeft: 15,
   },
   footer: {
     position: 'absolute',
-    bottom: 40,
-    left: 40,
-    right: 40,
+    bottom: 30,
+    left: 50,
+    right: 50,
     textAlign: 'center',
-    color: '#666666',
     fontSize: 8,
+    color: '#666666',
+    borderTop: '0.5 solid #e5e5e5',
+    paddingTop: 10,
   },
 });
 
@@ -102,81 +94,93 @@ const EventReportPDF = ({ events }) => {
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.headerContainer}>
           <Image src={bataanLogo} style={styles.logo} />
           <View style={styles.headerText}>
-            <Text style={styles.title}>Provincial Government of Bataan</Text>
-            <Text style={styles.subtitle}>Event Management System Report</Text>
+            <Text style={styles.title}>PROVINCIAL GOVERNMENT OF BATAAN</Text>
+            <Text style={styles.subtitle}>Event Management System</Text>
             <Text style={styles.subtitle}>Event Requests Report</Text>
             <Text style={styles.date}>Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</Text>
           </View>
         </View>
 
+        <View style={styles.divider} />
+
         {/* Events */}
         {events.map((event, index) => (
-          <View key={index} style={styles.section}>
-            <Text style={styles.sectionTitle}>{event.title}</Text>
+          <View key={index} style={styles.eventContainer}>
+            <Text style={styles.eventTitle}>{event.title.toUpperCase()}</Text>
             
-            {/* Info Grid */}
-            <View style={styles.infoGrid}>
-              {/* Requestor */}
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Requestor</Text>
+            {/* Basic Information */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Requestor:</Text>
                 <Text style={styles.infoValue}>{event.requestor}</Text>
-                <Text style={[styles.infoValue, { fontSize: 10 }]}>{event.userDepartment}</Text>
               </View>
-
-              {/* Date & Time */}
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Date & Time</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Department:</Text>
+                <Text style={styles.infoValue}>{event.userDepartment}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Date:</Text>
                 <Text style={styles.infoValue}>
-                  {event.date ? format(new Date(event.date.seconds * 1000), "PPP") : "No date"}
-                </Text>
-                <Text style={[styles.infoValue, { fontSize: 10, color: '#2563eb' }]}>
-                  {event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "No time"}
+                  {event.date ? format(new Date(event.date.seconds * 1000), "MMMM d, yyyy") : "Not specified"}
                 </Text>
               </View>
-
-              {/* Location */}
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Location</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Time:</Text>
+                <Text style={styles.infoValue}>
+                  {event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "Not specified"}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Location:</Text>
                 <Text style={styles.infoValue}>{event.location}</Text>
               </View>
-
-              {/* Participants */}
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Participants</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Participants:</Text>
                 <Text style={styles.infoValue}>{event.participants} attendees</Text>
               </View>
             </View>
 
+            {/* Contact Information */}
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{event.contactEmail || event.userEmail || "Not provided"}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Phone:</Text>
+                <Text style={styles.infoValue}>{event.contactNumber || "Not provided"}</Text>
+              </View>
+            </View>
+
             {/* Requirements */}
-            <View style={{ marginTop: 10 }}>
-              <Text style={[styles.sectionTitle, { fontSize: 12 }]}>Requirements</Text>
-              <View style={styles.requirementsList}>
-                {event.requirements?.map((req, idx) => {
+            {event.requirements && event.requirements.length > 0 && (
+              <View style={styles.infoSection}>
+                <Text style={styles.sectionTitle}>Requirements</Text>
+                {event.requirements.map((req, idx) => {
                   const requirement = typeof req === 'string' ? { name: req } : req;
                   return (
-                    <Text key={idx} style={styles.requirementItem}>
+                    <Text key={idx} style={styles.listItem}>
                       • {requirement.name}
                       {requirement.note && ` - ${requirement.note}`}
                     </Text>
                   );
                 })}
               </View>
-            </View>
+            )}
 
             {/* Attachments */}
             {event.attachments && event.attachments.length > 0 && (
-              <View style={{ marginTop: 10 }}>
-                <Text style={[styles.sectionTitle, { fontSize: 12 }]}>Attachments</Text>
-                <View style={styles.attachmentsList}>
-                  {event.attachments.map((file, idx) => (
-                    <View key={idx} style={styles.attachmentItem}>
-                      <Text>• {file.name} ({(file.size / 1024).toFixed(1)} KB)</Text>
-                    </View>
-                  ))}
-                </View>
+              <View style={styles.infoSection}>
+                <Text style={styles.sectionTitle}>Attachments</Text>
+                {event.attachments.map((file, idx) => (
+                  <Text key={idx} style={styles.listItem}>
+                    • {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                  </Text>
+                ))}
               </View>
             )}
           </View>

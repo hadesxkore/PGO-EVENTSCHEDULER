@@ -27,6 +27,7 @@ import {
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -83,6 +84,7 @@ const EventRequests = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEvents, setSelectedEvents] = useState([]);
+  const [isSelectMode, setIsSelectMode] = useState(false);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -159,7 +161,7 @@ const EventRequests = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {selectedEvents.length > 0 ? (
+            {isSelectMode ? (
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className={cn(
                   "h-8 px-3",
@@ -167,32 +169,37 @@ const EventRequests = () => {
                 )}>
                   {selectedEvents.length} events selected
                 </Badge>
-                <PDFDownloadLink
-                  document={<EventReportPDF events={selectedEvents} />}
-                  fileName={`selected-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
-                >
-                  {({ loading }) => (
-                    <Button
-                      className={cn(
-                        "gap-2 shadow-sm",
-                        isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                      )}
-                      disabled={loading}
-                    >
-                      <FileOutput className="h-4 w-4" />
-                      {loading ? "Preparing Report..." : "Generate Selected Reports"}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
+                {selectedEvents.length > 0 && (
+                  <PDFDownloadLink
+                    document={<EventReportPDF events={selectedEvents} />}
+                    fileName={`selected-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+                  >
+                    {({ loading }) => (
+                      <Button
+                        className={cn(
+                          "gap-2 shadow-sm",
+                          isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                        )}
+                        disabled={loading}
+                      >
+                        <FileOutput className="h-4 w-4" />
+                        {loading ? "Preparing Report..." : "Generate Selected Reports"}
+                      </Button>
+                    )}
+                  </PDFDownloadLink>
+                )}
                 <Button
                   variant="outline"
                   className={cn(
                     "gap-2",
                     isDarkMode ? "border-slate-700 hover:bg-slate-800" : "border-gray-200 hover:bg-gray-100"
                   )}
-                  onClick={() => setSelectedEvents([])}
+                  onClick={() => {
+                    setIsSelectMode(false);
+                    setSelectedEvents([]);
+                  }}
                 >
-                  Clear Selection
+                  Cancel Selection
                 </Button>
               </div>
             ) : (
@@ -247,9 +254,11 @@ const EventRequests = () => {
                         // Close the current dialog
                         const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
                         if (closeButton) closeButton.click();
+                        // Enable select mode
+                        setIsSelectMode(true);
                       }}
                     >
-                      <Eye className="h-4 w-4" />
+                      <Checkbox className="h-4 w-4 mr-1" />
                       Select Specific Events
                     </Button>
                   </div>
@@ -405,19 +414,48 @@ const EventRequests = () => {
                     <TableRow 
                       key={event.id} 
                       className={cn(
+                        "cursor-pointer transition-colors",
                         isDarkMode 
                           ? "border-slate-700 hover:bg-slate-800/30" 
-                          : "border-gray-100 hover:bg-gray-50/80"
+                          : "border-gray-100 hover:bg-gray-50/80",
+                        selectedEvents.includes(event) && (isDarkMode 
+                          ? "bg-slate-800/50" 
+                          : "bg-blue-50/50"
+                        )
                       )}
+                      onClick={() => {
+                        setSelectedRequest(event);
+                        setIsViewDialogOpen(true);
+                      }}
                     >
                       <TableCell className="py-4">
-                        <div className={cn(
-                          "inline-block px-3 py-2 rounded-md text-sm font-medium",
-                          isDarkMode 
-                            ? "bg-blue-500/10 text-blue-300" 
-                            : "bg-blue-50 text-blue-700"
-                        )}>
-                          {event.title}
+                        <div className="flex items-center gap-3">
+                          {isSelectMode && (
+                            <Checkbox
+                              checked={selectedEvents.includes(event)}
+                              onCheckedChange={(checked) => {
+                                setSelectedEvents(prev =>
+                                  checked
+                                    ? [...prev, event]
+                                    : prev.filter(e => e !== event)
+                                );
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                isDarkMode 
+                                  ? "border-slate-700 data-[state=checked]:bg-blue-600" 
+                                  : "border-gray-200 data-[state=checked]:bg-blue-500"
+                              )}
+                            />
+                          )}
+                          <div className={cn(
+                            "inline-block px-3 py-2 rounded-md text-sm font-medium",
+                            isDarkMode 
+                              ? "bg-blue-500/10 text-blue-300" 
+                              : "bg-blue-50 text-blue-700"
+                          )}>
+                            {event.title}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
@@ -462,48 +500,14 @@ const EventRequests = () => {
                           {event.location}
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center justify-center gap-2">
-                                                        <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[100px]"
-                                  onClick={() => {
-                                    setSelectedRequest(event);
-                                    setIsViewDialogOpen(true);
-                                  }}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                  View Details
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={selectedEvents.includes(event) ? "default" : "outline"}
-                                  className={cn(
-                                    "h-8 text-xs min-w-[100px] gap-1.5",
-                                    selectedEvents.includes(event)
-                                      ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                      : isDarkMode
-                                        ? "border-slate-700 hover:bg-slate-800"
-                                        : "border-gray-200 hover:bg-gray-100"
-                                  )}
-                                  onClick={() => {
-                                    setSelectedEvents(prev =>
-                                      prev.includes(event)
-                                        ? prev.filter(e => e !== event)
-                                        : [...prev, event]
-                                    );
-                                  }}
-                                >
-                                  <FileOutput className="h-3.5 w-3.5" />
-                                  {selectedEvents.includes(event) ? "Selected" : "Select"}
-                                </Button>
-                              </div>
+                                            <TableCell className="py-4">
+                        <div className="flex items-center justify-end gap-2">
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
                                 size="sm"
                                 className="bg-red-500 hover:bg-red-600 text-white gap-1.5 h-8 text-xs min-w-[100px]"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                                 Delete

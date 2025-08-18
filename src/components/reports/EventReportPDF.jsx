@@ -24,20 +24,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 3,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
-    marginBottom: 2,
+    fontSize: 11,
+    marginBottom: 1,
     textAlign: 'center',
   },
   date: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#666666',
-    marginTop: 10,
+    marginTop: 8,
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -46,9 +46,10 @@ const styles = StyleSheet.create({
     marginVertical: 15,
   },
   eventContainer: {
-    marginBottom: 30,
+    marginBottom: 25,
     borderBottom: '0.5 solid #e5e5e5',
-    paddingBottom: 20,
+    paddingBottom: 15,
+    breakInside: 'avoid',
   },
   eventTitle: {
     fontSize: 12,
@@ -93,26 +94,44 @@ const styles = StyleSheet.create({
   },
 });
 
+// Reusable header component
+const ReportHeader = () => (
+  <>
+    <View style={styles.headerContainer}>
+      <Image src={bataanLogo} style={styles.logo} />
+      <View style={styles.headerText}>
+        <Text style={styles.title}>PROVINCIAL GOVERNMENT OF BATAAN</Text>
+        <Text style={styles.subtitle}>Event Management System</Text>
+        <Text style={styles.subtitle}>Event Requests Report</Text>
+        <Text style={styles.date}>Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</Text>
+      </View>
+    </View>
+    <View style={styles.divider} />
+  </>
+);
+
 const EventReportPDF = ({ events }) => {
+  // Split events into groups of 3 for pagination
+  const eventsPerPage = 3;
+  const eventGroups = events.reduce((acc, event, index) => {
+    const groupIndex = Math.floor(index / eventsPerPage);
+    if (!acc[groupIndex]) {
+      acc[groupIndex] = [];
+    }
+    acc[groupIndex].push(event);
+    return acc;
+  }, []);
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <Image src={bataanLogo} style={styles.logo} />
-          <View style={styles.headerText}>
-            <Text style={styles.title}>PROVINCIAL GOVERNMENT OF BATAAN</Text>
-            <Text style={styles.subtitle}>Event Management System</Text>
-            <Text style={styles.subtitle}>Event Requests Report</Text>
-            <Text style={styles.date}>Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</Text>
-          </View>
-        </View>
+      {eventGroups.map((groupEvents, pageIndex) => (
+        <Page key={pageIndex} size="A4" style={styles.page}>
+          {/* Header - repeated on each page */}
+          <ReportHeader />
 
-        <View style={styles.divider} />
-
-        {/* Events */}
-        {events.map((event, index) => (
-          <View key={index} style={styles.eventContainer}>
+          {/* Events for this page */}
+          {groupEvents.map((event, index) => (
+            <View key={index} style={styles.eventContainer}>
             <Text style={styles.eventTitle}>{event.title.toUpperCase()}</Text>
             
             {/* Basic Information */}
@@ -178,11 +197,12 @@ const EventReportPDF = ({ events }) => {
           </View>
         ))}
 
-        {/* Footer */}
-        <Text style={styles.footer}>
-          © {new Date().getFullYear()} Provincial Government of Bataan - Event Management System
-        </Text>
-      </Page>
+          {/* Footer */}
+          <Text style={styles.footer}>
+            © {new Date().getFullYear()} Provincial Government of Bataan - Event Management System
+          </Text>
+        </Page>
+      ))}
     </Document>
   );
 };

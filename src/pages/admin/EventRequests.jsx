@@ -5,6 +5,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { downloadFile } from "@/lib/utils/downloadFile";
 import { getAllEventRequests, deleteEventRequest } from "@/lib/firebase/eventRequests";
 import { toast } from "sonner";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import EventReportPDF from "@/components/reports/EventReportPDF";
 import {
   Search,
   Filter,
@@ -20,6 +22,7 @@ import {
   Trash2,
   Phone,
   Mail,
+  FileOutput,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -79,6 +82,7 @@ const EventRequests = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedEvents, setSelectedEvents] = useState([]);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -153,6 +157,112 @@ const EventRequests = () => {
             >
               Review and manage event requests from users
             </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {selectedEvents.length > 0 ? (
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className={cn(
+                  "h-8 px-3",
+                  isDarkMode ? "border-slate-700" : "border-gray-200"
+                )}>
+                  {selectedEvents.length} events selected
+                </Badge>
+                <PDFDownloadLink
+                  document={<EventReportPDF events={selectedEvents} />}
+                  fileName={`selected-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+                >
+                  {({ loading }) => (
+                    <Button
+                      className={cn(
+                        "gap-2 shadow-sm",
+                        isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                      )}
+                      disabled={loading}
+                    >
+                      <FileOutput className="h-4 w-4" />
+                      {loading ? "Preparing Report..." : "Generate Selected Reports"}
+                    </Button>
+                  )}
+                </PDFDownloadLink>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "gap-2",
+                    isDarkMode ? "border-slate-700 hover:bg-slate-800" : "border-gray-200 hover:bg-gray-100"
+                  )}
+                  onClick={() => setSelectedEvents([])}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            ) : (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className={cn(
+                      "gap-2 shadow-sm",
+                      isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                    )}
+                  >
+                    <FileOutput className="h-4 w-4" />
+                    Generate Report
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className={cn(
+                  "border-none",
+                  isDarkMode ? "bg-slate-900" : "bg-white"
+                )}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className={cn(
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>Generate Event Report</AlertDialogTitle>
+                    <AlertDialogDescription className={cn(
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      Choose whether to generate a report for all events or select specific events.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="flex flex-col gap-4 py-4">
+                    <PDFDownloadLink
+                      document={<EventReportPDF events={filteredEvents} />}
+                      fileName={`all-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+                    >
+                      {({ loading }) => (
+                        <Button
+                          className={cn(
+                            "w-full gap-2",
+                            isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                          )}
+                          disabled={loading}
+                        >
+                          <FileOutput className="h-4 w-4" />
+                          {loading ? "Preparing Report..." : "Generate Report for All Events"}
+                        </Button>
+                      )}
+                    </PDFDownloadLink>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        // Close the current dialog
+                        const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
+                        if (closeButton) closeButton.click();
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Select Specific Events
+                    </Button>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className={cn(
+                      isDarkMode 
+                        ? "bg-slate-800 hover:bg-slate-700 text-gray-100" 
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                    )}>Cancel</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </motion.div>
@@ -354,17 +464,41 @@ const EventRequests = () => {
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="flex items-center justify-center gap-2">
-                          <Button
-                            size="sm"
-                            className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[100px]"
-                            onClick={() => {
-                              setSelectedRequest(event);
-                              setIsViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View Details
-                          </Button>
+                                                        <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[100px]"
+                                  onClick={() => {
+                                    setSelectedRequest(event);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  View Details
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={selectedEvents.includes(event) ? "default" : "outline"}
+                                  className={cn(
+                                    "h-8 text-xs min-w-[100px] gap-1.5",
+                                    selectedEvents.includes(event)
+                                      ? "bg-blue-500 hover:bg-blue-600 text-white"
+                                      : isDarkMode
+                                        ? "border-slate-700 hover:bg-slate-800"
+                                        : "border-gray-200 hover:bg-gray-100"
+                                  )}
+                                  onClick={() => {
+                                    setSelectedEvents(prev =>
+                                      prev.includes(event)
+                                        ? prev.filter(e => e !== event)
+                                        : [...prev, event]
+                                    );
+                                  }}
+                                >
+                                  <FileOutput className="h-3.5 w-3.5" />
+                                  {selectedEvents.includes(event) ? "Selected" : "Select"}
+                                </Button>
+                              </div>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button

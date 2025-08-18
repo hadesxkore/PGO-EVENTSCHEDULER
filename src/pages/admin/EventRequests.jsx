@@ -5,7 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { downloadFile } from "@/lib/utils/downloadFile";
 import { getAllEventRequests, deleteEventRequest } from "@/lib/firebase/eventRequests";
 import { toast } from "sonner";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
 import EventReportPDF from "@/components/reports/EventReportPDF";
 import {
   Search,
@@ -85,6 +85,8 @@ const EventRequests = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [previewEvents, setPreviewEvents] = useState([]);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -169,21 +171,17 @@ const EventRequests = () => {
                 )}>
                   {selectedEvents.length} events selected
                 </Badge>
-                {selectedEvents.length > 0 && (
-                  <PDFDownloadLink
-                    document={<EventReportPDF events={selectedEvents} />}
-                    fileName={`selected-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+                                {selectedEvents.length > 0 && (
+                  <Button
+                    className="gap-2 shadow-sm bg-black hover:bg-gray-800 text-white"
+                    onClick={() => {
+                      setPreviewEvents(selectedEvents);
+                      setIsPreviewDialogOpen(true);
+                    }}
                   >
-                    {({ loading }) => (
-                      <Button
-                                              className="gap-2 shadow-sm bg-black hover:bg-gray-800 text-white"
-                        disabled={loading}
-                      >
-                        <FileOutput className="h-4 w-4" />
-                        {loading ? "Preparing Report..." : "Generate Selected Reports"}
-                      </Button>
-                    )}
-                  </PDFDownloadLink>
+                    <Eye className="h-4 w-4" />
+                    Preview Selected Reports
+                  </Button>
                 )}
                 <Button
                   variant="outline"
@@ -224,34 +222,36 @@ const EventRequests = () => {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="flex flex-col gap-4 py-4">
-                    <PDFDownloadLink
-                      document={<EventReportPDF events={filteredEvents} />}
-                      fileName={`all-events-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
-                    >
-                      {({ loading }) => (
-                        <Button
-                          className="w-full gap-2 bg-black hover:bg-gray-800 text-white"
-                          disabled={loading}
-                        >
-                          <FileOutput className="h-4 w-4" />
-                          {loading ? "Preparing Report..." : "Generate Report for All Events"}
-                        </Button>
-                      )}
-                    </PDFDownloadLink>
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => {
-                        // Close the current dialog
-                        const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
-                        if (closeButton) closeButton.click();
-                        // Enable select mode
-                        setIsSelectMode(true);
-                      }}
-                    >
-                      <Checkbox className="h-4 w-4 mr-1" />
-                      Select Specific Events
-                    </Button>
+                    <div className="flex flex-col gap-4">
+                      <Button
+                        className="w-full gap-2 bg-black hover:bg-gray-800 text-white"
+                        onClick={() => {
+                          // Close the current dialog
+                          const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
+                          if (closeButton) closeButton.click();
+                          // Open preview dialog
+                          setPreviewEvents(filteredEvents);
+                          setIsPreviewDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Preview Report
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => {
+                          // Close the current dialog
+                          const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
+                          if (closeButton) closeButton.click();
+                          // Enable select mode
+                          setIsSelectMode(true);
+                        }}
+                      >
+                        <Checkbox className="h-4 w-4 mr-1" />
+                        Select Specific Events
+                      </Button>
+                    </div>
                   </div>
                   <AlertDialogFooter>
                     <AlertDialogCancel className={cn(
@@ -1121,6 +1121,67 @@ const EventRequests = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className={cn(
+          "max-w-[900px] p-0 border-none",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className={cn(
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            )}>Preview Report</DialogTitle>
+          </DialogHeader>
+
+          <div className={cn(
+            "flex flex-col gap-4 p-6 pt-2",
+            isDarkMode ? "text-gray-100" : "text-gray-900"
+          )}>
+            <div className={cn(
+              "w-full h-[70vh] rounded-lg overflow-hidden",
+              isDarkMode ? "bg-slate-800" : "bg-gray-50"
+            )}>
+              <PDFViewer
+                width="100%"
+                height="100%"
+                style={{
+                  border: 'none',
+                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                }}
+              >
+                <EventReportPDF events={previewEvents} />
+              </PDFViewer>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                className={cn(
+                  isDarkMode ? "border-slate-700 hover:bg-slate-800" : "border-gray-200 hover:bg-gray-100"
+                )}
+                onClick={() => setIsPreviewDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <PDFDownloadLink
+                document={<EventReportPDF events={previewEvents} />}
+                fileName={`event-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+              >
+                {({ loading }) => (
+                  <Button
+                    className="bg-black hover:bg-gray-800 text-white gap-2"
+                    disabled={loading}
+                  >
+                    <FileOutput className="h-4 w-4" />
+                    {loading ? "Preparing..." : "Download PDF"}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>

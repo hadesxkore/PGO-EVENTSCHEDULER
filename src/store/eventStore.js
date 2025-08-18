@@ -86,6 +86,8 @@ const useEventStore = create((set, get) => ({
             provisions: event.provisions,
             requirements: event.requirements,
             attachments: event.attachments,
+            userId: event.userId,
+            userEmail: event.userEmail,
           };
         }).filter(event => event !== null);
 

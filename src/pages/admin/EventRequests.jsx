@@ -546,6 +546,44 @@ const EventRequests = () => {
                 <div className="space-y-6">
                   {/* Info Cards Grid */}
                   <div className="grid grid-cols-2 gap-4">
+                    {/* Requestor Card */}
+                    <div className={cn(
+                      "p-4 rounded-xl transition-colors",
+                      isDarkMode 
+                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
+                        : "bg-gray-50/80 hover:bg-gray-50"
+                    )}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <User className="h-5 w-5 text-purple-500" />
+                        <h4 className={cn(
+                          "font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>Requestor</h4>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={selectedRequest.userAvatar} />
+                          <AvatarFallback className={isDarkMode ? "bg-slate-700" : "bg-gray-100"}>
+                            <User className="h-4 w-4 text-purple-500" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className={cn(
+                            "font-semibold",
+                            isDarkMode ? "text-gray-100" : "text-gray-900"
+                          )}>
+                            {selectedRequest.requestor}
+                          </p>
+                          <p className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>
+                            {selectedRequest.userDepartment}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Date & Time Card */}
                     <div className={cn(
                       "p-4 rounded-xl transition-colors",
@@ -594,44 +632,6 @@ const EventRequests = () => {
                       )}>
                         {selectedRequest.location}
                       </p>
-                    </div>
-
-                    {/* Requestor Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <User className="h-5 w-5 text-purple-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Requestor</h4>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={selectedRequest.userAvatar} />
-                          <AvatarFallback className={isDarkMode ? "bg-slate-700" : "bg-gray-100"}>
-                            <User className="h-4 w-4 text-purple-500" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className={cn(
-                            "font-semibold",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>
-                            {selectedRequest.requestor}
-                          </p>
-                          <p className={cn(
-                            "text-sm",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>
-                            {selectedRequest.userDepartment}
-                          </p>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Participants Card */}
@@ -687,7 +687,7 @@ const EventRequests = () => {
                           ? "bg-slate-900/30 text-gray-300" 
                           : "bg-white/50 text-gray-600"
                       )}>
-                        {selectedRequest.requirements && selectedRequest.requirements.slice(0, 3).map((req, index) => {
+                        {selectedRequest.requirements && selectedRequest.requirements.slice(0, 2).map((req, index) => {
                           const requirement = typeof req === 'string' ? { name: req } : req;
                           return (
                             <div
@@ -724,7 +724,7 @@ const EventRequests = () => {
                           );
                         })}
                         
-                        {selectedRequest.requirements && selectedRequest.requirements.length > 3 && (
+                        {selectedRequest.requirements && selectedRequest.requirements.length > 2 && (
                           <>
                             <div className={cn(
                               "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
@@ -842,28 +842,16 @@ const EventRequests = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className={cn(
-                                  "text-sm font-medium transition-colors hover:bg-transparent",
-                                  isDarkMode 
-                                    ? "text-blue-400 hover:text-blue-300" 
-                                    : "text-blue-600 hover:text-blue-700"
-                                )}
+                                className="bg-black hover:bg-gray-800 text-white gap-1.5"
                                 onClick={() => window.open(file.url, '_blank')}
                               >
-                                <Eye className="h-4 w-4 mr-1" />
+                                <Eye className="h-4 w-4" />
                                 View
                               </Button>
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className={cn(
-                                  "text-sm font-medium transition-colors hover:bg-transparent",
-                                  isDarkMode 
-                                    ? "text-blue-400 hover:text-blue-300" 
-                                    : "text-blue-600 hover:text-blue-700"
-                                )}
+                                className="bg-black hover:bg-gray-800 text-white gap-1.5"
                                 onClick={async () => {
                                   try {
                                     await downloadFile(file.url, file.name);

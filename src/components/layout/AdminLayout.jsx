@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -17,6 +17,7 @@ import {
   ChevronRight,
   User,
   Building2,
+  BarChart3,
 } from "lucide-react";
 
 const AdminLayout = ({ children, userData }) => {
@@ -58,6 +59,11 @@ const AdminLayout = ({ children, userData }) => {
       title: "Departments",
       icon: <Building2 className="h-6 w-6" />,
       href: "/admin/departments",
+    },
+    {
+      title: "Reports",
+      icon: <BarChart3 className="h-6 w-6" />,
+      href: "/admin/reports",
     },
   ];
 
@@ -237,7 +243,13 @@ const AdminLayout = ({ children, userData }) => {
         isDarkMode ? "bg-[#0F172A]" : "bg-gray-50"
       )}>
         <div className="p-8">
-          {children}
+          {React.Children.map(children, child => {
+            // Pass userData to all child components
+            if (React.isValidElement(child)) {
+              return React.cloneElement(child, { userData });
+            }
+            return child;
+          })}
         </div>
       </div>
     </div>

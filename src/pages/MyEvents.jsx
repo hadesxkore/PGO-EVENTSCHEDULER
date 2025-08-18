@@ -665,7 +665,7 @@ const MyEvents = () => {
                         ? "bg-slate-900/50 text-gray-300" 
                         : "bg-gray-50 text-gray-600"
                     )}>
-                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 3).map((req, index) => {
+                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 2).map((req, index) => {
                         const requirement = typeof req === 'string' ? { name: req } : req;
                         return (
                           <div
@@ -702,7 +702,7 @@ const MyEvents = () => {
                         );
                       })}
                       
-                      {selectedEvent.requirements && selectedEvent.requirements.length > 3 && (
+                      {selectedEvent.requirements && selectedEvent.requirements.length > 2 && (
                         <>
                           <div className={cn(
                             "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
@@ -773,14 +773,8 @@ const MyEvents = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <Button
-                              variant="outline"
                               size="sm"
-                              className={cn(
-                                "gap-2",
-                                isDarkMode 
-                                  ? "border-slate-700 hover:bg-slate-700" 
-                                  : "hover:bg-gray-100"
-                              )}
+                              className="gap-2 bg-black hover:bg-gray-800 text-white"
                               onClick={() => {
                                 const viewUrl = getCloudinaryFileUrl(file.url);
                                 window.open(viewUrl, '_blank');
@@ -790,14 +784,8 @@ const MyEvents = () => {
                               View
                             </Button>
                             <Button
-                              variant="outline"
                               size="sm"
-                              className={cn(
-                                "gap-2",
-                                isDarkMode 
-                                  ? "border-slate-700 hover:bg-slate-700" 
-                                  : "hover:bg-gray-100"
-                              )}
+                              className="gap-2 bg-black hover:bg-gray-800 text-white"
                               onClick={async () => {
                                 try {
                                   await downloadFile(file.url, file.name);

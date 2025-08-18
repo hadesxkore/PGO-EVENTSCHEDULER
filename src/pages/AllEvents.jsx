@@ -65,8 +65,8 @@ const localizer = dateFnsLocalizer({
 });
 
 const statusColors = {
-  approved: "bg-emerald-50/90 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-300",
-  rejected: "bg-rose-50/90 text-rose-800 dark:bg-rose-400/20 dark:text-rose-300"
+  approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/30 dark:text-emerald-300",
+  rejected: "bg-rose-100 text-rose-800 dark:bg-rose-400/30 dark:text-rose-300"
 };
 
 // Helper function to get initials from full name
@@ -79,7 +79,8 @@ const getInitials = (fullName) => {
   return fullName[0].toUpperCase();
 };
 
-const AllEvents = () => {
+const AllEvents = ({ userData }) => {
+  console.log('AllEvents component userData:', userData); // Debug log
   const { isDarkMode } = useTheme();
   const { 
     allEvents,
@@ -234,6 +235,19 @@ const AllEvents = () => {
       );
       const isMultipleEvents = eventsOnSameDay.length > 1;
       const remainingEvents = eventsOnSameDay.length - 1;
+      
+      // Check if event is clickable (only if user created it)
+      const isClickable = props.event.userId === userData?.uid;
+      
+      // Debug log to check user and event data
+      console.log('Event click check:', {
+        eventUserId: props.event.userId,
+        eventUserEmail: props.event.userEmail,
+        currentUserId: userData?.uid,
+        currentUserEmail: userData?.email,
+        isClickable,
+        event: props.event
+      });
 
       // If user is Admin, they can see all events
       const isFromUserDepartment = role === "Admin" || (currentUser && userDepartment === props.event.department);
@@ -543,7 +557,11 @@ const AllEvents = () => {
         <div className="relative">
           <Calendar
             localizer={localizer}
-            events={filteredEvents}
+            events={filteredEvents.map(event => ({
+              ...event,
+              userId: event.userId,  // Ensure these fields are explicitly passed
+              userEmail: event.userEmail
+            }))}
             startAccessor="start"
             endAccessor="end"
             style={{ height: 800 }}
@@ -746,7 +764,7 @@ const AllEvents = () => {
                         ? "bg-slate-900/50 text-gray-300" 
                         : "bg-gray-50 text-gray-600"
                     )}>
-                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 3).map((req, index) => {
+                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 2).map((req, index) => {
                         const requirement = typeof req === 'string' ? { name: req } : req;
                         return (
                           <div
@@ -783,7 +801,7 @@ const AllEvents = () => {
                         );
                       })}
                       
-                      {selectedEvent.requirements && selectedEvent.requirements.length > 3 && (
+                      {selectedEvent.requirements && selectedEvent.requirements.length > 2 && (
                         <>
                           <div className={cn(
                             "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",

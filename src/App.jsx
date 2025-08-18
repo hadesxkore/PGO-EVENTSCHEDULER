@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import EventRequests from "./pages/admin/EventRequests";
 import Users from "./pages/admin/Users";
 import Departments from "./pages/admin/Departments";
+import Reports from "./pages/admin/Reports";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
@@ -37,6 +38,7 @@ function App() {
                 <Route path="/admin/event-requests" element={<EventRequests />} />
                 <Route path="/admin/users" element={<Users />} />
                 <Route path="/admin/departments" element={<Departments />} />
+                <Route path="/admin/reports" element={<Reports />} />
                 <Route path="/admin/all-events" element={<AllEvents />} />
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />

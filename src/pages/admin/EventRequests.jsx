@@ -407,28 +407,33 @@ const EventRequests = () => {
                       className={cn(
                         "transition-colors",
                         isDarkMode 
-                          ? "border-slate-700 hover:bg-slate-800/30" 
-                          : "border-gray-100 hover:bg-gray-50/80",
+                          ? "border-slate-700" 
+                          : "border-gray-100",
+                        isSelectMode && (isDarkMode
+                          ? "hover:bg-blue-500/10 cursor-pointer"
+                          : "hover:bg-blue-50 cursor-pointer"),
                         selectedEvents.includes(event) && (isDarkMode 
-                          ? "bg-slate-800/50" 
-                          : "bg-blue-50/50"
+                          ? "bg-blue-500/20 hover:bg-blue-500/30" 
+                          : "bg-blue-100 hover:bg-blue-200"
                         )
                       )}
+                      onClick={() => {
+                        if (isSelectMode) {
+                          setSelectedEvents(prev =>
+                            prev.includes(event)
+                              ? prev.filter(e => e !== event)
+                              : [...prev, event]
+                          );
+                        }
+                      }}
                     >
                       <TableCell className="py-4">
                         <div className="flex items-center gap-3">
                           {isSelectMode && (
                             <Checkbox
                               checked={selectedEvents.includes(event)}
-                              onCheckedChange={(checked) => {
-                                setSelectedEvents(prev =>
-                                  checked
-                                    ? [...prev, event]
-                                    : prev.filter(e => e !== event)
-                                );
-                              }}
-                              onClick={(e) => e.stopPropagation()}
                               className={cn(
+                                "pointer-events-none",
                                 isDarkMode 
                                   ? "border-slate-700 data-[state=checked]:bg-blue-600" 
                                   : "border-gray-200 data-[state=checked]:bg-blue-500"

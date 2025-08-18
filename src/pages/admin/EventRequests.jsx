@@ -176,10 +176,7 @@ const EventRequests = () => {
                   >
                     {({ loading }) => (
                       <Button
-                        className={cn(
-                          "gap-2 shadow-sm",
-                          isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                        )}
+                                              className="gap-2 shadow-sm bg-black hover:bg-gray-800 text-white"
                         disabled={loading}
                       >
                         <FileOutput className="h-4 w-4" />
@@ -206,10 +203,7 @@ const EventRequests = () => {
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
-                    className={cn(
-                      "gap-2 shadow-sm",
-                      isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                    )}
+                    className="bg-black hover:bg-gray-800 text-white gap-2 shadow-sm"
                   >
                     <FileOutput className="h-4 w-4" />
                     Generate Report
@@ -236,10 +230,7 @@ const EventRequests = () => {
                     >
                       {({ loading }) => (
                         <Button
-                          className={cn(
-                            "w-full gap-2",
-                            isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                          )}
+                          className="w-full gap-2 bg-black hover:bg-gray-800 text-white"
                           disabled={loading}
                         >
                           <FileOutput className="h-4 w-4" />
@@ -414,7 +405,7 @@ const EventRequests = () => {
                     <TableRow 
                       key={event.id} 
                       className={cn(
-                        "cursor-pointer transition-colors",
+                        "transition-colors",
                         isDarkMode 
                           ? "border-slate-700 hover:bg-slate-800/30" 
                           : "border-gray-100 hover:bg-gray-50/80",
@@ -423,10 +414,6 @@ const EventRequests = () => {
                           : "bg-blue-50/50"
                         )
                       )}
-                      onClick={() => {
-                        setSelectedRequest(event);
-                        setIsViewDialogOpen(true);
-                      }}
                     >
                       <TableCell className="py-4">
                         <div className="flex items-center gap-3">
@@ -502,6 +489,18 @@ const EventRequests = () => {
                       </TableCell>
                                             <TableCell className="py-4">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[100px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRequest(event);
+                              setIsViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Details
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button

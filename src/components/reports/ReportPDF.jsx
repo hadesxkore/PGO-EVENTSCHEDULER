@@ -9,38 +9,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 16,
+    width: 60,
+    height: 60,
+    marginRight: 15,
   },
   headerText: {
-    textAlign: 'center',
-    width: '100%',
+    flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1a1a1a',
-    marginBottom: 8,
-    textAlign: 'center',
-    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#4a4a4a',
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   date: {
     fontSize: 10,
     color: '#666666',
-    marginTop: 12,
-    textAlign: 'center',
+    marginTop: 10,
   },
   section: {
     marginTop: 20,
@@ -118,14 +113,12 @@ const ReportPDF = ({ reportData, selectedPeriod }) => {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ alignItems: 'center' }}>
-            <Image src={bataanLogo} style={styles.logo} />
-            <View style={styles.headerText}>
-              <Text style={styles.title}>Provincial Government of Bataan</Text>
-              <Text style={styles.subtitle}>Event Management System Report</Text>
-              <Text style={styles.subtitle}>{periodText} Report</Text>
-              <Text style={styles.date}>Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</Text>
-            </View>
+          <Image src={bataanLogo} style={styles.logo} />
+          <View style={styles.headerText}>
+            <Text style={styles.title}>Provincial Government of Bataan</Text>
+            <Text style={styles.subtitle}>Event Management System Report</Text>
+            <Text style={styles.subtitle}>{periodText} Report</Text>
+            <Text style={styles.date}>Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}</Text>
           </View>
         </View>
 

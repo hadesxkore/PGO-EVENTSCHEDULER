@@ -65,13 +65,17 @@ export const getCloudinaryFileUrl = (url, { download = false } = {}) => {
   const baseUrl = `https://res.cloudinary.com/${CLOUD_NAME}`;
 
   if (download) {
-    // For PDFs and documents
-    if (['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(fileExtension)) {
+    // Handle different file types appropriately
+    if (fileExtension === 'pdf') {
+      // For PDFs, we need to use the 'image' resource type with fl_attachment
+      return `${baseUrl}/image/upload/fl_attachment/v1/${filePath}`;
+    } else if (['doc', 'docx', 'xls', 'xlsx'].includes(fileExtension)) {
+      // For other documents, use raw resource type
+      return `${baseUrl}/raw/upload/fl_attachment/v1/${filePath}`;
+    } else {
+      // For images and other files
       return `${baseUrl}/image/upload/fl_attachment/v1/${filePath}`;
     }
-    
-    // For images and other files
-    return `${baseUrl}/image/upload/fl_attachment,fl_force_download/v1/${filePath}`;
   }
 
   // For viewing, return the original URL

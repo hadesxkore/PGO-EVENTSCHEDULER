@@ -172,17 +172,15 @@ const RequestEvent = () => {
       inputValue = e.clipboardData.getData('text/plain');
     }
     
-    // Convert to plain text
-    const plainText = inputValue
+    // Only sanitize the input for basic safety while preserving spaces
+    const sanitizedText = inputValue
       .normalize('NFKD')  // Decompose characters
       .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
-      .replace(/[^\x20-\x7E]/g, ' ')  // Replace non-ASCII with space
-      .replace(/\s+/g, ' ')  // Normalize spaces
-      .trim();
+      .replace(/[^\x20-\x7E]/g, ' ');  // Replace non-ASCII with space
     
     setFormData(prev => ({
       ...prev,
-      [name]: plainText
+      [name]: sanitizedText
     }));
   };
 

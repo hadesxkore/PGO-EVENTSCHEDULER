@@ -17,10 +17,13 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  Menu,
+  X,
 } from "lucide-react";
 
 const MainLayout = ({ children, userData }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,12 +69,36 @@ const MainLayout = ({ children, userData }) => {
       "min-h-screen w-full",
       isDarkMode ? "dark bg-[#0F172A] text-gray-100" : "bg-gray-50 text-gray-900"
     )}>
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-10 w-10 rounded-lg",
+            isDarkMode ? "bg-slate-800 text-white" : "bg-white text-gray-700",
+            "shadow-lg hover:scale-110 transition-transform"
+          )}
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
+        </Button>
+      </div>
+
       {/* Sidebar */}
       <div className={cn(
-        "fixed left-0 top-0 h-full transition-all duration-300 z-50 flex flex-col",
+        "fixed left-0 top-0 h-full transition-all duration-300 z-40 flex flex-col",
         isDarkMode ? "bg-[#1E293B] border-gray-700" : "bg-white border-gray-200",
         "border-r shadow-sm",
-        collapsed ? "w-24" : "w-80"
+        // Desktop styles
+        "hidden lg:flex",
+        collapsed ? "lg:w-24" : "lg:w-80",
+        // Mobile styles
+        isMobileMenuOpen ? "flex w-[280px]" : "w-0"
       )}>
         {/* Logo Area */}
         <div className={cn(
@@ -89,7 +116,7 @@ const MainLayout = ({ children, userData }) => {
             {!collapsed && (
               <div className="flex flex-col gap-1">
                 <h1 className="text-xl font-bold tracking-tight">
-                  PGO Events
+                  Event Scheduler
                 </h1>
               </div>
             )}
@@ -241,13 +268,25 @@ const MainLayout = ({ children, userData }) => {
         </Button>
       </div>
 
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
       <div className={cn(
         "transition-all duration-300 min-h-screen",
-        collapsed ? "ml-24" : "ml-80",
+        // Desktop margins
+        "lg:ml-0",
+        collapsed ? "lg:ml-24" : "lg:ml-80",
+        // Mobile margins
+        "ml-0",
         isDarkMode ? "bg-[#0F172A]" : "bg-gray-50"
       )}>
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {React.Children.map(children, child => {
             // Pass userData to all child components
             if (React.isValidElement(child)) {

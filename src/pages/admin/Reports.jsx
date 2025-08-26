@@ -129,23 +129,15 @@ const Reports = () => {
             >
               {({ loading }) => (
                 <Button
-                  variant="outline"
-                  className="gap-2"
+                  className="gap-2 bg-black hover:bg-gray-800 text-white"
                   disabled={loading}
                 >
                   <Download className="h-4 w-4" />
-                  {loading ? "Preparing PDF..." : "Export Report"}
+                  {loading ? "Preparing PDF..." : "Generate Report"}
                 </Button>
               )}
             </PDFDownloadLink>
-            <Button
-              className="gap-2 bg-black hover:bg-gray-800 text-white"
-              onClick={fetchReportData}
-              disabled={loading}
-            >
-              <BarChart3 className="h-4 w-4" />
-              {loading ? "Generating..." : "Generate Report"}
-            </Button>
+
           </div>
         </div>
       </motion.div>

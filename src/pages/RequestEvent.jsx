@@ -83,7 +83,6 @@ const RequestEvent = () => {
     requestor: "",
     location: "",
     participants: "",
-    duration: "",
     contactNumber: "",
     contactEmail: "",
   });
@@ -111,11 +110,79 @@ const RequestEvent = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const stripFormatting = (text) => {
+    if (!text) return '';
+    
+    try {
+      // Convert mathematical alphanumeric symbols to regular characters
+      const normalizeText = (str) => {
+        // Mathematical bold
+        str = str.replace(/[\uD835][\uDC00-\uDC35]/g, c => String.fromCharCode(c.charCodeAt(1) - 0xDC00 + 0x41));
+        // Mathematical italic
+        str = str.replace(/[\uD835][\uDC34-\uDC69]/g, c => String.fromCharCode(c.charCodeAt(1) - 0xDC34 + 0x41));
+        // Mathematical bold italic
+        str = str.replace(/[\uD835][\uDC68-\uDC9D]/g, c => String.fromCharCode(c.charCodeAt(1) - 0xDC68 + 0x41));
+        // Mathematical script
+        str = str.replace(/[\uD835][\uDC9C-\uDCD1]/g, c => String.fromCharCode(c.charCodeAt(1) - 0xDC9C + 0x41));
+        // Other mathematical variants
+        str = str.replace(/[\uD835][\uDCD0-\uDD05]/g, c => String.fromCharCode(c.charCodeAt(1) - 0xDCD0 + 0x41));
+        
+        return str;
+      };
+
+      // First normalize any special mathematical characters
+      let processedText = normalizeText(text);
+
+      // If the text has HTML, process it
+      if (/<[^>]*>/.test(processedText) || /&[^;]+;/.test(processedText)) {
+        const temp = document.createElement('div');
+        temp.innerHTML = processedText;
+        processedText = temp.textContent || temp.innerText;
+      }
+
+      // Clean up spaces and trim
+      processedText = processedText.replace(/\s+/g, ' ').trim();
+
+      // Convert to regular ASCII characters where possible
+      return processedText
+        .normalize('NFKD')  // Decompose characters
+        .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
+        .replace(/[^\x20-\x7E]/g, c => {  // Replace any remaining non-ASCII with closest ASCII
+          const simple = c.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+          return simple.match(/[a-zA-Z0-9\s.,!?-]/) ? simple : c;
+        });
+
+    } catch (error) {
+      console.error('Error sanitizing text:', error);
+      // If all else fails, try basic normalization
+      return text.toString()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Get the actual input value, handling both paste and regular input
+    let inputValue = value;
+    if (e.type === 'paste') {
+      e.preventDefault();
+      inputValue = e.clipboardData.getData('text/plain');
+    }
+    
+    // Convert to plain text
+    const plainText = inputValue
+      .normalize('NFKD')  // Decompose characters
+      .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
+      .replace(/[^\x20-\x7E]/g, ' ')  // Replace non-ASCII with space
+      .replace(/\s+/g, ' ')  // Normalize spaces
+      .trim();
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: plainText
     }));
   };
 
@@ -126,7 +193,7 @@ const RequestEvent = () => {
       setIsSubmitting(true);
 
       // Validate required fields
-      const requiredFields = ['title', 'requestor', 'location', 'participants', 'duration'];
+      const requiredFields = ['title', 'requestor', 'location', 'participants'];
       const missingFields = requiredFields.filter(field => !formData[field]);
       
       if (missingFields.length > 0) {
@@ -295,6 +362,10 @@ const RequestEvent = () => {
                       required
                       value={formData.title}
                       onChange={handleInputChange}
+                      onPaste={(e) => {
+                        // Let the paste happen naturally
+                        handleInputChange(e);
+                      }}
                       placeholder="Enter event title"
                     className={cn(
                       "rounded-lg h-12 text-base px-4",
@@ -1222,75 +1293,6 @@ const RequestEvent = () => {
                     </select>
                   </div>
                 </div>
-              </div>
-
-              {/* Duration Selection */}
-              <div className="space-y-2">
-                <Label className={cn(
-                  "text-sm font-medium", 
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                )}>
-                  Duration
-                </Label>
-                <Select
-                  value={formData.duration}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}
-                >
-                  <SelectTrigger className={cn(
-                    "h-10",
-                    isDarkMode 
-                      ? "bg-slate-900 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}>
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent className={cn( 
-                    isDarkMode 
-                      ? "bg-slate-900 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}>
-                    <SelectItem value="30" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>30 minutes</SelectItem>
-                    <SelectItem value="60" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>1 hour</SelectItem>
-                    <SelectItem value="90" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>1.5 hours</SelectItem>
-                    <SelectItem value="120" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>2 hours</SelectItem>
-                    <SelectItem value="180" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>3 hours</SelectItem>
-                    <SelectItem value="240" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>4 hours</SelectItem>
-                    <SelectItem value="300" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>5 hours</SelectItem>
-                    <SelectItem value="360" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>6 hours</SelectItem>
-                    <SelectItem value="420" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>7 hours</SelectItem>
-                    <SelectItem value="480" className={cn(
-                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>8 hours</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Contact Details */}

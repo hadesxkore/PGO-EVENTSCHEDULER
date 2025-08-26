@@ -440,13 +440,17 @@ const EventRequests = () => {
                               )}
                             />
                           )}
-                          <div className={cn(
-                            "inline-block px-3 py-2 rounded-md text-sm font-medium",
-                            isDarkMode 
-                              ? "bg-blue-500/10 text-blue-300" 
-                              : "bg-blue-50 text-blue-700"
-                          )}>
-                            {event.title}
+                          <div className="max-w-[250px]">
+                            <span className={cn(
+                              "px-3 py-2 rounded-md inline-block font-medium whitespace-nowrap overflow-hidden text-ellipsis",
+                              isDarkMode 
+                                ? "bg-blue-500/10 text-blue-300" 
+                                : "bg-blue-50 text-blue-700"
+                            )} title={event.title}>
+                              {event.title.length > 35 
+                                ? `${event.title.substring(0, 35)}...` 
+                                : event.title}
+                            </span>
                           </div>
                         </div>
                       </TableCell>

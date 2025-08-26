@@ -281,7 +281,6 @@ const MyEvents = () => {
                       <TableHead className="w-[180px] py-4 font-semibold">Event Title</TableHead>
                       <TableHead className="text-center font-semibold">Requestor</TableHead>
                       <TableHead className="text-center font-semibold">Date & Time</TableHead>
-                      <TableHead className="text-center font-semibold">Duration</TableHead>
                       <TableHead className="text-center font-semibold">Location</TableHead>
                       <TableHead className="text-center font-semibold">Participants</TableHead>
                       <TableHead className="text-center font-semibold">Actions</TableHead>
@@ -298,14 +297,18 @@ const MyEvents = () => {
                         )}
                       >
                         <TableCell>
-                          <span className={cn(
-                            "px-3 py-1.5 rounded-md inline-block font-medium",
-                            isDarkMode 
-                              ? "bg-blue-500/10 text-blue-400" 
-                              : "bg-blue-50 text-blue-600"
-                          )}>
-                            {event.title}
-                          </span>
+                          <div className="max-w-[250px]">
+                            <span className={cn(
+                              "px-3 py-1.5 rounded-md inline-block font-medium whitespace-nowrap overflow-hidden text-ellipsis",
+                              isDarkMode 
+                                ? "bg-blue-500/10 text-blue-400" 
+                                : "bg-blue-50 text-blue-600"
+                            )} title={event.title}>
+                              {event.title.length > 35 
+                                ? `${event.title.substring(0, 35)}...` 
+                                : event.title}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div>
@@ -331,16 +334,7 @@ const MyEvents = () => {
                             )}>{format(new Date(event.date.seconds * 1000), "h:mm a")}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className={cn(
-                            "px-3 py-1.5 rounded-md text-sm font-medium inline-block",
-                            isDarkMode 
-                              ? "bg-purple-500/10 text-purple-400" 
-                              : "bg-purple-50 text-purple-600"
-                          )}>
-                            {event.duration} mins
-                          </div>
-                        </TableCell>
+
                         <TableCell className="text-center">
                           <p className={cn(
                             "text-xs",

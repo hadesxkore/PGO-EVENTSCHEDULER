@@ -1,5 +1,12 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  setPersistence, 
+  browserLocalPersistence,
+  sendEmailVerification
+} from "firebase/auth";
 import { getFirestore, doc, setDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
@@ -19,17 +26,41 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
 
+// Configure auth persistence
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("Firebase persistence set to LOCAL");
+  })
+  .catch((error) => {
+    console.error("Error setting persistence:", error);
+  });
+
 // Auth functions
+// Helper function to send verification email
+export const sendVerificationEmail = async (user) => {
+  try {
+    await sendEmailVerification(user);
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    throw error;
+  }
+};
+
 export const registerUser = async (email, password, userData) => {
   try {
     // Create auth user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
+    // Send email verification
+    await sendVerificationEmail(user);
+
     // Store additional user data in Firestore
     await setDoc(doc(db, "users", user.uid), {
       ...userData,
-      status: 'active',  // Set status as active by default
+      status: 'pending',  // Set status as pending until email is verified
+      emailVerified: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -60,10 +91,25 @@ export const loginUser = async (username, password) => {
     // Now login with the email and password
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     
+    // Check if email is verified
+    if (!userCredential.user.emailVerified) {
+      throw new Error("Please verify your email before logging in");
+    }
+
+    // Update user's emailVerified status in Firestore if needed
+    if (!userData.emailVerified) {
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        ...userData,
+        emailVerified: true,
+        status: 'active',
+        updatedAt: serverTimestamp()
+      });
+    }
+    
     return { 
       success: true, 
       user: userCredential.user,
-      userData: userData // Include additional user data
+      userData: { ...userData, emailVerified: true, status: 'active' }
     };
   } catch (error) {
     console.error("Error in loginUser:", error);
@@ -72,6 +118,9 @@ export const loginUser = async (username, password) => {
     }
     if (error.code === "auth/wrong-password") {
       throw new Error("Invalid username or password");
+    }
+    if (error.message === "Please verify your email before logging in") {
+      throw error;
     }
     throw error;
   }

@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { registerUser } from "../../lib/firebase/firebase";
 import { getAllDepartments } from "../../lib/firebase/departments";
+import EmailVerification from "./EmailVerification";
 
 
 
@@ -23,6 +24,7 @@ const SignUpForm = ({ onSignUpSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -98,24 +100,22 @@ const SignUpForm = ({ onSignUpSuccess }) => {
         role: "user" // Default role
       };
 
-      await registerUser(formData.email, formData.password, userData);
+      const { user } = await registerUser(formData.email, formData.password, userData);
       
-      toast.success("Account Created Successfully!", {
+      toast.success("Account Created!", {
         className: "bg-white dark:bg-slate-800 border-green-500/20",
         description: (
           <div className="flex flex-col gap-1">
             <p className="font-medium">Welcome {formData.firstName} {formData.lastName}!</p>
-            <p className="text-xs text-gray-500">Redirecting you to login...</p>
+            <p className="text-xs text-gray-500">Please check your email to verify your account.</p>
           </div>
         ),
-        duration: 2000,
+        duration: 4000,
         icon: <Check className="h-5 w-5 text-green-500" />,
       });
-      
-      // Wait for 2 seconds before switching to login form
-      setTimeout(() => {
-        onSignUpSuccess();
-      }, 2000);
+
+      // Show verification screen
+      setShowVerification(true);
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Sign Up Failed", {
@@ -132,6 +132,18 @@ const SignUpForm = ({ onSignUpSuccess }) => {
       setIsLoading(false);
     }
   };
+
+  if (showVerification) {
+    return (
+      <EmailVerification
+        email={formData.email}
+        onBack={() => {
+          setShowVerification(false);
+          onSignUpSuccess();
+        }}
+      />
+    );
+  }
 
   return (
     <motion.form
@@ -306,6 +318,8 @@ const SignUpForm = ({ onSignUpSuccess }) => {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : "Create Account"}
       </Button>
+
+
     </motion.form>
   );
 };

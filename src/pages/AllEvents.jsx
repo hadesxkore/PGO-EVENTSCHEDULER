@@ -919,15 +919,27 @@ const AllEvents = ({ userData }) => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
                       className={cn(
-                        "p-4 rounded-xl backdrop-blur-sm cursor-pointer transition-all duration-200",
-                        isDarkMode 
-                          ? "bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800/70" 
-                          : "bg-gray-50/80 border border-gray-100 hover:bg-gray-100/80"
+                        "p-4 rounded-xl backdrop-blur-sm transition-all duration-200",
+                        role === "Admin" || event.userId === userData?.uid
+                          ? (isDarkMode 
+                              ? "bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800/70 cursor-pointer" 
+                              : "bg-gray-50/80 border border-gray-100 hover:bg-gray-100/80 cursor-pointer")
+                          : (isDarkMode
+                              ? "bg-slate-800/30 border border-slate-700/30 opacity-60 cursor-not-allowed"
+                              : "bg-gray-50/50 border border-gray-100/50 opacity-60 cursor-not-allowed")
                       )}
                       onClick={() => {
-                        setSelectedEvent(event);
-                        setDayEventsDialogOpen(false);
-                        setIsViewDialogOpen(true);
+                        // Check if user is admin or owner of the event
+                        if (role === "Admin" || event.userId === userData?.uid) {
+                          setSelectedEvent(event);
+                          setDayEventsDialogOpen(false);
+                          setIsViewDialogOpen(true);
+                        } else {
+                          toast.error("Access Denied", {
+                            description: "You can only view details of events you own.",
+                            icon: <Lock className="h-5 w-5" />,
+                          });
+                        }
                       }}
                     >
                       <div className="flex items-center gap-3 mb-2">

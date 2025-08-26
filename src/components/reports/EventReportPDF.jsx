@@ -2,6 +2,37 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 import { format } from 'date-fns';
 import bataanLogo from '/images/bataanlogo.png';
 
+// Utility function to sanitize text for PDF
+const sanitizeText = (text) => {
+  if (!text) return '';
+  
+  try {
+    // Convert to string if not already
+    const textStr = String(text);
+    
+    // Remove any HTML tags first
+    const withoutTags = textStr.replace(/<[^>]*>/g, '');
+    
+    // Decode HTML entities
+    const decoded = withoutTags
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/');
+    
+    // Keep only printable characters and basic punctuation
+    const cleaned = decoded.replace(/[^\w\s.,!?-]/g, '');
+    
+    return cleaned.trim();
+  } catch (error) {
+    console.error('Error sanitizing text:', error);
+    return String(text).trim() || '';
+  }
+};
+
 const styles = StyleSheet.create({
   page: {
     padding: 40,
@@ -121,7 +152,11 @@ const EventReportPDF = ({ events }) => {
 
           {/* Single event per page */}
           <View style={[styles.eventContainer, { borderBottom: 'none' }]}>
-            <Text style={styles.eventTitle}>{event.title.toUpperCase()}</Text>
+            <Text style={styles.eventTitle}>
+              {(event.title && typeof event.title === 'string') 
+                ? sanitizeText(event.title).toUpperCase() 
+                : 'UNTITLED EVENT'}
+            </Text>
             
             {/* Basic Information */}
             <View style={styles.infoSection}>

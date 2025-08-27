@@ -1,30 +1,46 @@
 import webpush from 'web-push';
 
 function initializeWebPush() {
-  const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
-  const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!publicVapidKey || !privateVapidKey) {
-    throw new Error('VAPID keys are not set in environment variables');
-  }
-
   try {
+    // Log environment for debugging
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Available env vars:', Object.keys(process.env));
+    
+    const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
+    const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
+
+    console.log('VAPID keys status:', {
+      publicKeyExists: !!publicVapidKey,
+      privateKeyExists: !!privateVapidKey,
+      publicKeyLength: publicVapidKey?.length,
+      privateKeyLength: privateVapidKey?.length
+    });
+
+    if (!publicVapidKey || !privateVapidKey) {
+      throw new Error('VAPID keys are missing. Please check environment variables.');
+    }
+
     webpush.setVapidDetails(
-      'mailto:pgoevenscheduler@gmail.com', // Update this with your email
+      'mailto:pgoevenscheduler@gmail.com',
       publicVapidKey,
       privateVapidKey
     );
-    console.log('Web Push initialized successfully');
+
+    // Test VAPID setup
+    const testKeys = webpush.generateVAPIDKeys();
+    console.log('VAPID setup test successful');
+    
+    return {
+      publicKey: publicVapidKey,
+      privateKey: privateVapidKey
+    };
   } catch (error) {
-    console.error('Error setting VAPID details:', error);
+    console.error('Error in initializeWebPush:', error);
     throw new Error('Failed to initialize web push: ' + error.message);
   }
 }
 
 export default async function handler(req, res) {
-  try {
-    // Initialize web push for each request
-    initializeWebPush();
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://pgo-eventscheduler.vercel.app');
@@ -42,8 +58,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Initialize web push for each request
-    initializeWebPush();
+    // Initialize web push and get VAPID keys
+    const vapidKeys = initializeWebPush();
 
     // Parse request body
     let subscription, message;
@@ -80,10 +96,36 @@ export default async function handler(req, res) {
         subscription = JSON.parse(subscription);
       }
 
-      // Extract endpoint and keys from the subscription object
-      const endpoint = subscription.endpoint || '';
-      const p256dh = subscription.keys?.p256dh || subscription.applicationServerKey;
-      const auth = subscription.keys?.auth;
+      // Handle Windows notification endpoint
+      let endpoint = subscription.endpoint || '';
+      
+      // Extract keys based on browser type
+      let p256dh, auth;
+      
+      if (endpoint.includes('notify.windows.com')) {
+        // Windows notification endpoint
+        console.log('Detected Windows notification endpoint');
+        p256dh = subscription.applicationServerKey || subscription.keys?.p256dh;
+        auth = subscription.keys?.auth;
+        
+        // Windows endpoints sometimes need special handling
+        if (!p256dh && subscription.options?.applicationServerKey) {
+          p256dh = subscription.options.applicationServerKey;
+        }
+      } else {
+        // Standard web push endpoint
+        p256dh = subscription.keys?.p256dh;
+        auth = subscription.keys?.auth;
+      }
+
+      // Log extracted values
+      console.log('Extracted subscription details:', {
+        endpoint,
+        hasP256dh: !!p256dh,
+        hasAuth: !!auth,
+        p256dhLength: p256dh?.length,
+        authLength: auth?.length
+      });
 
       // Reconstruct the subscription object in the correct format
       subscription = {

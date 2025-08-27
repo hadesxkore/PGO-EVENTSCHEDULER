@@ -55,11 +55,45 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid subscription data' });
     }
 
-    // Ensure message is a string
-    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    // Prepare notification payload
+    let notificationPayload;
+    
+    // If message is already a string, try to parse it as JSON
+    if (typeof message === 'string') {
+      try {
+        notificationPayload = JSON.parse(message);
+      } catch {
+        // If parsing fails, create a basic notification structure
+        notificationPayload = {
+          title: 'New Notification',
+          body: message
+        };
+      }
+    } else {
+      // If message is an object, use it directly
+      notificationPayload = message;
+    }
 
+    // Ensure required fields exist
+    notificationPayload = {
+      title: notificationPayload.title || 'New Notification',
+      body: notificationPayload.body || String(message),
+      icon: notificationPayload.icon || '/images/bataanlogo.png',
+      badge: notificationPayload.badge || '/images/bataanlogo.png',
+      tag: notificationPayload.tag || 'default',
+      data: {
+        url: 'https://pgo-eventscheduler.vercel.app',
+        ...notificationPayload.data
+      }
+    };
+
+    console.log('Sending notification with payload:', notificationPayload);
+    
+    // Convert final payload to string
+    const payloadString = JSON.stringify(notificationPayload);
+    
     // Send notification
-    await webpush.sendNotification(subscription, messageString);
+    await webpush.sendNotification(subscription, payloadString);
     console.log('Notification sent successfully');
 
     res.status(200).json({ success: true });

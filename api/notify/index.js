@@ -49,23 +49,73 @@ export default async function handler(req, res) {
     let subscription, message;
     try {
       ({ subscription, message } = req.body);
+      console.log('Raw request body:', req.body);
     } catch (error) {
-      console.error('Error parsing request body:', error);
-      return res.status(400).json({ error: 'Invalid request body format' });
+      console.error('Error parsing request body:', error, 'Raw body:', req.body);
+      return res.status(400).json({ error: 'Invalid request body format', details: error.message });
     }
 
     // Log the received data
-    console.log('Received request body:', { subscription, message });
+    console.log('Received request data:', {
+      subscription: JSON.stringify(subscription, null, 2),
+      message: JSON.stringify(message, null, 2)
+    });
 
     if (!subscription || !message) {
       console.error('Missing subscription or message in request body');
-      return res.status(400).json({ error: 'Missing subscription or message' });
+      return res.status(400).json({ 
+        error: 'Missing subscription or message',
+        received: { 
+          hasSubscription: !!subscription, 
+          hasMessage: !!message,
+          body: req.body 
+        }
+      });
+    }
+
+    // Normalize subscription object
+    try {
+      // Check if subscription is a string (sometimes happens with stringified objects)
+      if (typeof subscription === 'string') {
+        subscription = JSON.parse(subscription);
+      }
+
+      // Extract endpoint and keys from the subscription object
+      const endpoint = subscription.endpoint || '';
+      const p256dh = subscription.keys?.p256dh || subscription.applicationServerKey;
+      const auth = subscription.keys?.auth;
+
+      // Reconstruct the subscription object in the correct format
+      subscription = {
+        endpoint,
+        keys: {
+          p256dh,
+          auth
+        }
+      };
+
+      console.log('Normalized subscription:', subscription);
+    } catch (error) {
+      console.error('Error normalizing subscription:', error);
+      return res.status(400).json({ 
+        error: 'Invalid subscription format', 
+        details: error.message,
+        received: subscription 
+      });
     }
 
     // Validate subscription
     if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
-      console.error('Invalid subscription data:', subscription);
-      return res.status(400).json({ error: 'Invalid subscription data' });
+      console.error('Invalid subscription data after normalization:', subscription);
+      return res.status(400).json({ 
+        error: 'Invalid subscription data', 
+        missing: {
+          endpoint: !subscription.endpoint,
+          p256dh: !subscription.keys?.p256dh,
+          auth: !subscription.keys?.auth
+        },
+        received: subscription
+      });
     }
 
     // Prepare notification payload

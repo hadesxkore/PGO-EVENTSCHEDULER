@@ -28,9 +28,22 @@
         "Access-Control-Allow-Origin": "https://pgo-eventscheduler.vercel.app",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true"
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Max-Age": "86400"
       },
-      "dest": "/api/notify"
+      "dest": "/api/notify/index"
+    },
+    {
+      "src": "/api/notify/(.*)",
+      "methods": ["POST", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "https://pgo-eventscheduler.vercel.app",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Max-Age": "86400"
+      },
+      "dest": "/api/notify/index"
     },
     {
       "src": "/api/(.*)",

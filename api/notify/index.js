@@ -203,28 +203,93 @@ export default async function handler(req, res) {
       // Convert final payload to string
       const payloadString = JSON.stringify(notificationPayload);
       
+      try {
+      console.log('About to send notification with subscription:', {
+        endpoint: subscription.endpoint,
+        hasKeys: !!subscription.keys,
+        p256dhExists: !!subscription.keys?.p256dh,
+        authExists: !!subscription.keys?.auth,
+        payloadLength: payloadString.length
+      });
+
       // Send notification
       await webpush.sendNotification(subscription, payloadString);
       console.log('Notification sent successfully');
 
       return res.status(200).json({ success: true });
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Error sending notification:', {
+        error: error.message,
+        stack: error.stack,
+        statusCode: error.statusCode,
+        headers: error.headers,
+        endpoint: subscription?.endpoint,
+        body: error.body
+      });
+
       // Check for specific error types
       if (error.statusCode === 410) {
-        return res.status(410).json({ error: 'Subscription has expired or is no longer valid' });
+        return res.status(410).json({ 
+          error: 'Subscription has expired or is no longer valid',
+          endpoint: subscription?.endpoint,
+          details: error.body
+        });
       } else if (error.statusCode === 404) {
-        return res.status(404).json({ error: 'Push subscription not found' });
+        return res.status(404).json({ 
+          error: 'Push subscription not found',
+          endpoint: subscription?.endpoint,
+          details: error.body
+        });
       } else if (error.statusCode === 400) {
-        return res.status(400).json({ error: 'Invalid push subscription' });
+        return res.status(400).json({ 
+          error: 'Invalid push subscription',
+          endpoint: subscription?.endpoint,
+          details: error.body
+        });
+      } else if (error.statusCode === 429) {
+        return res.status(429).json({ 
+          error: 'Too many requests',
+          endpoint: subscription?.endpoint,
+          details: error.body
+        });
+      } else if (error.statusCode === 413) {
+        return res.status(413).json({ 
+          error: 'Payload too large',
+          endpoint: subscription?.endpoint,
+          details: error.body
+        });
       }
-      throw error; // Re-throw for general error handling
+
+      // For other errors, return detailed error information
+      return res.status(500).json({
+        error: 'Failed to send notification',
+        message: error.message,
+        statusCode: error.statusCode,
+        endpoint: subscription?.endpoint,
+        details: error.body,
+        subscription: {
+          endpoint: subscription?.endpoint,
+          hasKeys: !!subscription?.keys,
+          p256dhExists: !!subscription?.keys?.p256dh,
+          authExists: !!subscription?.keys?.auth
+        },
+        vapidInfo: {
+          publicKeyExists: !!process.env.NEXT_PUBLIC_VAPID_KEY,
+          privateKeyExists: !!process.env.VAPID_PRIVATE_KEY
+        }
+      });
     }
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error('Unhandled error:', {
+      error: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
+    
     return res.status(500).json({ 
-      error: 'Failed to send notification', 
-      details: error.message,
+      error: 'Failed to process notification request', 
+      message: error.message,
+      type: error.constructor.name,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }

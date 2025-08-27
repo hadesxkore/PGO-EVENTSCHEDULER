@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { auth, db } from "../lib/firebase/firebase";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, Timestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { uploadFile, formatFileSize } from "../lib/cloudinary";
 import useEventStore from "../store/eventStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
+import { getAllDepartments } from "../lib/firebase/departments";
 import { Button } from "../components/ui/button";
 import { forwardRef } from "react";
 import { Input } from "../components/ui/input";
@@ -87,18 +88,7 @@ const RequestEvent = () => {
     contactEmail: "",
   });
 
-  const [requirements, setRequirements] = useState({
-    chairs: false,
-    tables: false,
-    soundSystem: false,
-    led: false,
-    food: false,
-    projector: false,
-  });
 
-  const [customRequirements, setCustomRequirements] = useState([]);
-  const [requirementNotes, setRequirementNotes] = useState({});
-  const [customRequirementNotes, setCustomRequirementNotes] = useState({});
 
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState("10:30");
@@ -109,6 +99,64 @@ const RequestEvent = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [departmentRequirements, setDepartmentRequirements] = useState({});
+  const [departmentRequirementNotes, setDepartmentRequirementNotes] = useState({});
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+  const [currentDepartment, setCurrentDepartment] = useState(null);
+  const [newRequirement, setNewRequirement] = useState("");
+
+  // Fetch departments on component mount
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        // Get current user's department
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          toast.error("User not authenticated");
+          return;
+        }
+
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          toast.error("User data not found");
+          return;
+        }
+
+        const userData = userDocSnap.data();
+        const userDepartment = userData.department;
+
+        const result = await getAllDepartments();
+        if (result.success) {
+          // Get user counts for each department and filter out user's own department
+          const departmentsWithUsers = await Promise.all(
+            result.departments
+              .filter(dept => dept.name !== userDepartment) // Filter out user's department
+              .map(async (dept) => {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('department', '==', dept.name));
+                const querySnapshot = await getDocs(q);
+                return {
+                  ...dept,
+                  userCount: querySnapshot.size
+                };
+              })
+          );
+          setDepartments(departmentsWithUsers.filter(dept => dept.userCount > 0));
+        } else {
+          toast.error("Failed to fetch departments");
+        }
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        toast.error("An error occurred while fetching departments");
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const stripFormatting = (text) => {
     if (!text) return '';
@@ -199,13 +247,6 @@ const RequestEvent = () => {
         return;
       }
 
-      // Check if at least one requirement is selected
-      const hasRequirements = Object.values(requirements).some(value => value) || 
-        customRequirements.length > 0;
-      if (!hasRequirements) {
-        toast.error("Please select at least one requirement");
-        return;
-      }
 
       // Get current Firebase user
       const currentUser = auth.currentUser;
@@ -231,26 +272,24 @@ const RequestEvent = () => {
       eventDate.setHours(parseInt(hours), parseInt(minutes));
       const eventTimestamp = Timestamp.fromDate(eventDate);
 
-      // Format requirements with notes
-      const selectedRequirements = Object.entries(requirements)
-        .filter(([_, value]) => value)
-        .map(([key, _]) => {
-          const name = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-          const note = requirementNotes[key];
-          return note ? { name, note } : name;
-        });
-
-      // Format custom requirements with notes
-      const formattedCustomRequirements = customRequirements.map(req => {
-        const note = customRequirementNotes[req];
-        return note ? { name: req, note } : req;
+      // Create event request data
+      // Format department requirements with notes
+      const formattedDepartmentRequirements = selectedDepartments.map(deptId => {
+        const requirements = departmentRequirements[deptId] || [];
+        return {
+          departmentId: deptId,
+          departmentName: departments.find(d => d.id === deptId)?.name,
+          requirements: requirements.map(req => {
+            const note = departmentRequirementNotes[`${deptId}-${req}`];
+            return note ? { name: req, note } : req;
+          })
+        };
       });
 
-      // Create event request data
       const eventDataWithUser = {
         ...formData,
         date: eventTimestamp,
-        requirements: [...selectedRequirements, ...formattedCustomRequirements],
+        departmentRequirements: formattedDepartmentRequirements,
         attachments: attachments.map(file => ({
           name: file.name,
           size: file.size,
@@ -398,8 +437,9 @@ const RequestEvent = () => {
                 </div>
               </div>
 
-              {/* Location and Participants */}
+              {/* Location and Number of Participants */}
               <div className="grid grid-cols-2 gap-4">
+                {/* Location */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Location
@@ -423,6 +463,7 @@ const RequestEvent = () => {
                   </div>
                 </div>
 
+                {/* Number of Participants */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Number of Participants
@@ -448,530 +489,7 @@ const RequestEvent = () => {
                 </div>
               </div>
 
-              {/* Program Requirements */}
-              <div className="space-y-3">
-                                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-3">
-                    <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                      Requirements
-                    </Label>
-                    <span className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
-                      • Add custom requirements if not in the list
-                    </span>
-                    <span className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
-                      • Hover to add notes for specific requirements
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                                        <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="chairs"
-                          checked={requirements.chairs}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, chairs: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="chairs"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          Chairs
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.chairs && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                                                <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for Chairs</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                <textarea
-                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.chairs || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      chairs: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="tables"
-                          checked={requirements.tables}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, tables: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="tables"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          Tables
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.tables && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for Tables</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                                <textarea
-                                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.tables || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      tables: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="soundSystem"
-                          checked={requirements.soundSystem}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, soundSystem: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="soundSystem"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          Sound System
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.soundSystem && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for Sound System</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                                <textarea
-                                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.soundSystem || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      soundSystem: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="led"
-                          checked={requirements.led}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, led: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="led"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          LED
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.led && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for LED</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                                <textarea
-                                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.led || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      led: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="food"
-                          checked={requirements.food}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, food: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="food"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          Food
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.food && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for Food</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                                <textarea
-                                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.food || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      food: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="projector"
-                          checked={requirements.projector}
-                          onCheckedChange={(checked) => {
-                            setRequirements(prev => ({ ...prev, projector: checked }));
-                          }}
-                          className={cn(
-                            "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
-                            isDarkMode ? "border-gray-700" : "border-gray-200"
-                          )}
-                        />
-                        <label
-                          htmlFor="projector"
-                          className={cn(
-                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-                            isDarkMode ? "text-gray-200" : "text-gray-900"
-                          )}
-                        >
-                          Projector
-                        </label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "px-2 opacity-0 group-hover:opacity-100 transition-opacity",
-                              requirementNotes.projector && "opacity-100 text-blue-500"
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-base font-semibold tracking-tight text-black">Add Note for Projector</h4>
-                              <p className="text-sm text-gray-500">
-                                Add any specific details or requirements.
-                              </p>
-                            </div>
-                            <div className="grid gap-2">
-                              <div className="grid grid-cols-3 items-center gap-4">
-                                <textarea
-                                  className={cn(
-                                    "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  )}
-                                  placeholder="Add your note here..."
-                                  value={requirementNotes.projector || ""}
-                                  onChange={(e) => {
-                                    setRequirementNotes(prev => ({
-                                      ...prev,
-                                      projector: e.target.value
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Custom Requirements */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                                        <Input
-                      type="text"
-                      placeholder="Add custom requirement"
-                      className={cn(
-                        "flex-1",
-                    isDarkMode 
-                          ? "bg-slate-900 border-slate-700" 
-                          : "bg-white border-gray-200"
-                      )}
-                      id="custom-requirement-input"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && e.target.value.trim()) {
-                          setCustomRequirements(prev => [...prev, e.target.value.trim()]);
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      className="bg-black hover:bg-gray-800 transition-colors"
-                      onClick={() => {
-                        const input = document.getElementById('custom-requirement-input');
-                        if (input && input.value.trim()) {
-                          setCustomRequirements(prev => [...prev, input.value.trim()]);
-                          input.value = '';
-                          input.focus();
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
-                  {customRequirements.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {customRequirements.map((req, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              "flex items-center gap-1 py-1.5 px-3",
-                              isDarkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-100 hover:bg-gray-200"
-                            )}
-                          >
-                            {req}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Also remove the note when removing the requirement
-                                setCustomRequirementNotes(prev => {
-                                  const newNotes = { ...prev };
-                                  delete newNotes[req];
-                                  return newNotes;
-                                });
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== index));
-                              }}
-                              className="ml-1 rounded-full p-0.5 hover:bg-gray-400/20 transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                  "px-2",
-                                  customRequirementNotes[req] ? "text-blue-500" : "text-gray-400 hover:text-gray-500"
-                                )}
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 bg-white p-4 shadow-md border border-gray-200" align="start">
-                              <div className="grid gap-4">
-                                <div className="space-y-2">
-                                  <h4 className="text-base font-semibold tracking-tight text-black">Add Note for {req}</h4>
-                                  <p className="text-sm text-gray-500">
-                                    Add any specific details or requirements.
-                                  </p>
-                                </div>
-                                <div className="grid gap-2">
-                                  <div className="grid grid-cols-3 items-center gap-4">
-                                    <textarea
-                                      className={cn(
-                                        "col-span-3 flex min-h-[80px] w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                      )}
-                                      placeholder="Add your note here..."
-                                      value={customRequirementNotes[req] || ""}
-                                      onChange={(e) => {
-                                        setCustomRequirementNotes(prev => ({
-                                          ...prev,
-                                          [req]: e.target.value
-                                        }));
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
 
               {/* Attachments */}
               <div className="space-y-2">
@@ -1184,6 +702,91 @@ const RequestEvent = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tag Departments Card */}
+          <div className={cn(
+            "rounded-xl p-6 shadow-sm mt-5",
+            isDarkMode ? "bg-slate-800" : "bg-white"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-2",
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            )}>Tag Departments</h2>
+            <p className={cn(
+              "text-sm mb-6",
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            )}>Select departments to notify about this event's requirements and coordinate resources needed.</p>
+            
+            <div className="space-y-4">
+              <div className="space-y-3">
+                {departments.map((dept) => (
+                  <div key={dept.id} className="flex items-center justify-between group">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`dept-${dept.id}`}
+                        checked={selectedDepartments.includes(dept.id)}
+                                                  onCheckedChange={(checked) => {
+                            if (checked) {
+                              // When checking, show the modal with any existing requirements
+                              setCurrentDepartment(dept.id);
+                              // Don't automatically add to selectedDepartments - wait for save
+                              setShowRequirementsModal(true);
+                            } else {
+                              // When unchecking, confirm before removing
+                              if (departmentRequirements[dept.id]?.length > 0) {
+                                if (window.confirm('Are you sure you want to remove all requirements and notes for this department?')) {
+                                  setSelectedDepartments(prev => prev.filter(id => id !== dept.id));
+                                  // Clean up requirements and notes
+                                  setDepartmentRequirements(prev => {
+                                    const newReqs = { ...prev };
+                                    delete newReqs[dept.id];
+                                    return newReqs;
+                                  });
+                                  setDepartmentRequirementNotes(prev => {
+                                    const newNotes = { ...prev };
+                                    Object.keys(newNotes).forEach(key => {
+                                      if (key.startsWith(`${dept.id}-`)) {
+                                        delete newNotes[key];
+                                      }
+                                    });
+                                    return newNotes;
+                                  });
+                                } else {
+                                  // If user cancels, keep the checkbox checked
+                                  e.preventDefault();
+                                }
+                              } else {
+                                // If no requirements, just remove from selection
+                                setSelectedDepartments(prev => prev.filter(id => id !== dept.id));
+                              }
+                            }
+                          }}
+                        className={cn(
+                          "data-[state=checked]:bg-black data-[state=checked]:border-black text-white",
+                          isDarkMode ? "border-gray-700" : "border-gray-200"
+                        )}
+                      />
+                      <label
+                        htmlFor={`dept-${dept.id}`}
+                        className={cn(
+                          "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        )}
+                      >
+                        {dept.name}
+                      </label>
+                    </div>
+                    <Badge variant="secondary" className={cn(
+                      "text-xs",
+                      isDarkMode ? "bg-slate-700" : "bg-gray-100"
+                    )}>
+                      {dept.userCount || 0} users
+                    </Badge>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1453,8 +1056,246 @@ const RequestEvent = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Department Requirements Modal */}
+      <Dialog open={showRequirementsModal} onOpenChange={(open) => {
+        if (!open) {
+          // Only close if there are no unsaved changes
+          if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0) {
+            toast.error("Please save your changes before closing");
+            return;
+          }
+          setShowRequirementsModal(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] p-0 border-0">
+          <div className={cn(
+            "p-8 rounded-xl",
+            isDarkMode ? "bg-zinc-900" : "bg-white"
+          )}>
+            <div className="flex flex-col gap-8">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className={cn(
+                    "text-2xl font-bold tracking-tight",
+                    isDarkMode ? "text-white" : "text-zinc-900"
+                  )}>
+                    Requirements for {currentDepartment ? departments.find(d => d.id === currentDepartment)?.name : ''}
+                  </h3>
+                  <p className={cn(
+                    "text-sm mt-2",
+                    isDarkMode ? "text-zinc-400" : "text-zinc-500"
+                  )}>
+                    Add specific requirements and notes for this department.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0) {
+                      // Save the current state
+                      const savedRequirements = departmentRequirements[currentDepartment];
+                      const savedNotes = {};
+                      savedRequirements.forEach(req => {
+                        const noteKey = `${currentDepartment}-${req}`;
+                        if (departmentRequirementNotes[noteKey]) {
+                          savedNotes[noteKey] = departmentRequirementNotes[noteKey];
+                        }
+                      });
+                      
+                      // Update the selected departments if not already selected
+                      if (!selectedDepartments.includes(currentDepartment)) {
+                        setSelectedDepartments(prev => [...prev, currentDepartment]);
+                      }
+                      
+                      toast.success("Requirements and notes saved successfully");
+                      setShowRequirementsModal(false);
+                    } else {
+                      toast.error("Please add at least one requirement before saving");
+                    }
+                  }}
+                  className={cn(
+                    "px-6 h-10 rounded-lg font-medium transition-colors",
+                    isDarkMode 
+                      ? "bg-white text-black hover:bg-zinc-200" 
+                      : "bg-black text-white hover:bg-zinc-800"
+                  )}
+                >
+                  Save Changes
+                </Button>
+              </div>
+
+              {/* Main Requirements Card */}
+              <div className={cn(
+                "rounded-xl border",
+                isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              )}>
+                {/* Card Header with Input */}
+                <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="text"
+                      placeholder="Add new requirement"
+                      value={newRequirement}
+                      onChange={(e) => setNewRequirement(e.target.value)}
+                      className={cn(
+                        "flex-1 h-11 px-4 text-base rounded-lg transition-colors",
+                        isDarkMode 
+                          ? "bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-zinc-600" 
+                          : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
+                      )}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newRequirement.trim() && currentDepartment) {
+                          setDepartmentRequirements(prev => ({
+                            ...prev,
+                            [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
+                          }));
+                          setNewRequirement('');
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      className={cn(
+                        "h-11 px-6 rounded-lg font-medium transition-colors",
+                        isDarkMode 
+                          ? "bg-white text-black hover:bg-zinc-200" 
+                          : "bg-black text-white hover:bg-zinc-800"
+                      )}
+                      onClick={() => {
+                        if (newRequirement.trim() && currentDepartment) {
+                          setDepartmentRequirements(prev => ({
+                            ...prev,
+                            [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
+                          }));
+                          setNewRequirement('');
+                        }
+                      }}
+                    >
+                      Add Requirement
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Requirements List */}
+                <div className="p-6">
+                  <div className="space-y-3">
+                    {currentDepartment && (departmentRequirements[currentDepartment] || []).length > 0 ? (
+                      departmentRequirements[currentDepartment].map((req, index) => (
+                        <div 
+                          key={index} 
+                          className={cn(
+                            "group flex items-center justify-between p-4 rounded-lg border transition-all",
+                            isDarkMode 
+                              ? "bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800" 
+                              : "bg-zinc-50/50 border-zinc-200 hover:bg-zinc-50"
+                          )}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <span className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-zinc-100" : "text-zinc-700"
+                            )}>{req}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-9 px-2.5 rounded-lg transition-colors",
+                                    departmentRequirementNotes[`${currentDepartment}-${req}`] 
+                                      ? isDarkMode ? "bg-blue-500/10 text-blue-500" : "bg-blue-50 text-blue-600"
+                                      : isDarkMode ? "text-zinc-400 hover:text-white hover:bg-zinc-700" : "text-zinc-600 hover:text-black hover:bg-zinc-100"
+                                  )}
+                                >
+                                  <FileText className="h-4 w-4 mr-1.5" />
+                                  <span className="text-xs font-medium">Notes</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent 
+                                className={cn(
+                                  "w-80 p-0 rounded-xl border shadow-lg",
+                                  isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+                                )} 
+                                align="end"
+                              >
+                                <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+                                  <h4 className={cn(
+                                    "text-sm font-semibold",
+                                    isDarkMode ? "text-white" : "text-zinc-900"
+                                  )}>Add Note</h4>
+                                </div>
+                                <div className="p-4">
+                                  <textarea
+                                    className={cn(
+                                      "w-full min-h-[120px] rounded-lg p-3 text-sm resize-none transition-colors",
+                                      isDarkMode 
+                                        ? "bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 border-zinc-700 focus:border-zinc-600" 
+                                        : "bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 border-zinc-200 focus:border-zinc-300"
+                                    )}
+                                    placeholder="Add notes for this requirement..."
+                                    value={departmentRequirementNotes[`${currentDepartment}-${req}`] || ''}
+                                    onChange={(e) => {
+                                      setDepartmentRequirementNotes(prev => ({
+                                        ...prev,
+                                        [`${currentDepartment}-${req}`]: e.target.value
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-9 w-9 rounded-lg transition-colors",
+                                isDarkMode 
+                                  ? "text-zinc-400 hover:text-white hover:bg-zinc-700" 
+                                  : "text-zinc-600 hover:text-black hover:bg-zinc-100"
+                              )}
+                              onClick={() => {
+                                setDepartmentRequirements(prev => ({
+                                  ...prev,
+                                  [currentDepartment]: prev[currentDepartment].filter((_, i) => i !== index)
+                                }));
+                                // Clean up notes
+                                const noteKey = `${currentDepartment}-${req}`;
+                                setDepartmentRequirementNotes(prev => {
+                                  const newNotes = { ...prev };
+                                  delete newNotes[noteKey];
+                                  return newNotes;
+                                });
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className={cn(
+                        "text-center py-12 rounded-lg border-2 border-dashed",
+                        isDarkMode 
+                          ? "border-zinc-800 text-zinc-400" 
+                          : "border-zinc-200 text-zinc-500"
+                      )}>
+                        <p className="text-sm font-medium">No requirements added yet</p>
+                        <p className="text-xs mt-1">Add your first requirement above</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
+
 
 export default RequestEvent;

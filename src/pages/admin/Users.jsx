@@ -15,7 +15,21 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  Bell,
+  Calendar,
+  Tag,
 } from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,27 +118,104 @@ const Users = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [taggedEvents, setTaggedEvents] = useState([]);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      // Get user's department
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      const userDepartment = userDoc.data()?.department;
+
+      if (!userDepartment) {
+        console.warn("User department not found");
+        return;
+      }
+
+      // Fetch events where the user's department is tagged
+      const eventsRef = collection(db, "events");
+      const eventsQuery = query(eventsRef);
+      const eventsSnapshot = await getDocs(eventsQuery);
+
+      const taggedEvents = [];
+      const upcomingEvents = [];
+
+      eventsSnapshot.forEach((doc) => {
+        const eventData = doc.data();
+        const eventId = doc.id;
+
+        // Check if event has department requirements
+        if (eventData.departmentRequirements) {
+          // Check if user's department is tagged
+          const isTagged = eventData.departmentRequirements.some(
+            dept => dept.departmentName === userDepartment
+          );
+
+          if (isTagged) {
+            taggedEvents.push({
+              id: eventId,
+              title: eventData.title,
+              date: eventData.date,
+              department: eventData.department,
+              requirements: eventData.departmentRequirements.find(
+                dept => dept.departmentName === userDepartment
+              )?.requirements || []
+            });
+          }
+        }
+
+        // Check if it's an upcoming event
+        const eventDate = new Date(eventData.date.seconds * 1000);
+        if (eventDate > new Date()) {
+          upcomingEvents.push({
+            id: eventId,
+            title: eventData.title,
+            date: eventData.date,
+            department: eventData.department
+          });
+        }
+      });
+
+      setUpcomingEvents(upcomingEvents);
+      setTaggedEvents(taggedEvents);
+      setHasUnreadNotifications(upcomingEvents.length > 0 || taggedEvents.length > 0);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast.error("Failed to fetch notifications");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [usersResult, activeCount, adminCount] = await Promise.all([
-          getAllUsers(),
-          getActiveUsers(),
-          getAdminUsers()
-        ]);
+        await Promise.all([
+          fetchNotifications(),
+          (async () => {
+            const [usersResult, activeCount, adminCount] = await Promise.all([
+              getAllUsers(),
+              getActiveUsers(),
+              getAdminUsers()
+            ]);
 
-        if (usersResult.success) {
-          setUsers(usersResult.users);
-          setActiveUsersCount(activeCount);
-          setAdminUsersCount(adminCount);
-        } else {
-          toast.error("Failed to fetch users");
-        }
+            if (usersResult.success) {
+              setUsers(usersResult.users);
+              setActiveUsersCount(activeCount);
+              setAdminUsersCount(adminCount);
+            } else {
+              toast.error("Failed to fetch users");
+            }
+          })()
+        ]);
       } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error("An error occurred while fetching users");
+        console.error('Error fetching data:', error);
+        toast.error("An error occurred while fetching data");
       } finally {
         setLoading(false);
       }
@@ -246,10 +337,342 @@ const Users = () => {
             Manage and monitor user accounts
           </p>
         </div>
-        <Button className="bg-black hover:bg-gray-800 text-white gap-2">
-          <UserPlus className="h-4 w-4" />
-          Add User
-        </Button>
+        <div className="flex items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className={cn(
+                  "relative rounded-xl border-0",
+                  isDarkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-100 hover:bg-gray-200"
+                )}
+              >
+                <Bell className="h-5 w-5" />
+                {hasUnreadNotifications && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className={cn(
+                "w-96 p-0 border-0",
+                isDarkMode ? "bg-slate-900" : "bg-white"
+              )}
+              align="end"
+            >
+              <Tabs defaultValue="all" className="w-full">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h4 className={cn(
+                    "font-semibold",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>Notifications</h4>
+                </div>
+                <div className="px-4 pb-2">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger 
+                      value="all" 
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "data-[state=active]:bg-black data-[state=active]:text-white",
+                        "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
+                        isDarkMode 
+                          ? "bg-slate-800 text-gray-400 hover:text-white" 
+                          : "bg-gray-100 text-gray-600 hover:text-black"
+                      )}
+                    >
+                      <Bell className="h-4 w-4" />
+                      <span>All</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="upcoming" 
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "data-[state=active]:bg-black data-[state=active]:text-white",
+                        "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
+                        isDarkMode 
+                          ? "bg-slate-800 text-gray-400 hover:text-white" 
+                          : "bg-gray-100 text-gray-600 hover:text-black"
+                      )}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span>Upcoming</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="tagged" 
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "data-[state=active]:bg-black data-[state=active]:text-white",
+                        "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
+                        isDarkMode 
+                          ? "bg-slate-800 text-gray-400 hover:text-white" 
+                          : "bg-gray-100 text-gray-600 hover:text-black"
+                      )}
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span>Tagged</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="all" className="p-0 m-0">
+                  <ScrollArea className="h-[300px]">
+                    <div className="p-4 space-y-4">
+                      {upcomingEvents.length === 0 && taggedEvents.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>No notifications</p>
+                        </div>
+                      ) : (
+                        <>
+                          {upcomingEvents.map((event, index) => (
+                            <div
+                              key={`upcoming-${index}`}
+                              className={cn(
+                                "rounded-lg p-3 transition-colors",
+                                isDarkMode 
+                                  ? "bg-slate-800/50 hover:bg-slate-800" 
+                                  : "bg-gray-50 hover:bg-gray-100"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={cn(
+                                  "p-2 rounded-md",
+                                  isDarkMode ? "bg-slate-700" : "bg-white"
+                                )}>
+                                  <Calendar className="h-4 w-4 text-blue-500" />
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <p className={cn(
+                                    "text-sm font-medium",
+                                    isDarkMode ? "text-gray-200" : "text-gray-900"
+                                  )}>{event.title}</p>
+                                  <p className={cn(
+                                    "text-xs",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {format(new Date(event.date.seconds * 1000), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {taggedEvents.map((event, index) => (
+                            <div
+                              key={`tagged-${index}`}
+                              className={cn(
+                                "rounded-lg p-3 transition-colors",
+                                isDarkMode 
+                                  ? "bg-slate-800/50 hover:bg-slate-800" 
+                                  : "bg-gray-50 hover:bg-gray-100"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={cn(
+                                  "p-2 rounded-md",
+                                  isDarkMode ? "bg-slate-700" : "bg-white"
+                                )}>
+                                  <Tag className="h-4 w-4 text-purple-500" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <div>
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>{event.title}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant="secondary" className={cn(
+                                        "text-xs",
+                                        isDarkMode ? "bg-slate-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                                      )}>
+                                        {event.department}
+                                      </Badge>
+                                      <span className={cn(
+                                        "text-xs",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        tagged your department
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {event.requirements && event.requirements.length > 0 && (
+                                    <div className={cn(
+                                      "rounded-lg p-2 space-y-2",
+                                      isDarkMode ? "bg-slate-800" : "bg-gray-50"
+                                    )}>
+                                      {event.requirements.map((req, idx) => (
+                                        <div key={idx} className="space-y-1">
+                                          <p className={cn(
+                                            "text-xs font-medium",
+                                            isDarkMode ? "text-gray-200" : "text-gray-900"
+                                          )}>
+                                            {req.name}
+                                          </p>
+                                          {req.note && (
+                                            <p className={cn(
+                                              "text-xs",
+                                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                                            )}>
+                                              Note: {req.note}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="upcoming" className="p-0 m-0">
+                  <ScrollArea className="h-[300px]">
+                    <div className="p-4 space-y-4">
+                      {upcomingEvents.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>No upcoming events</p>
+                        </div>
+                      ) : (
+                        upcomingEvents.map((event, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "rounded-lg p-3 transition-colors",
+                              isDarkMode 
+                                ? "bg-slate-800/50 hover:bg-slate-800" 
+                                : "bg-gray-50 hover:bg-gray-100"
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={cn(
+                                "p-2 rounded-md",
+                                isDarkMode ? "bg-slate-700" : "bg-white"
+                              )}>
+                                <Calendar className="h-4 w-4 text-blue-500" />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <p className={cn(
+                                  "text-sm font-medium",
+                                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                                )}>{event.title}</p>
+                                <p className={cn(
+                                  "text-xs",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  {format(new Date(event.date.seconds * 1000), "MMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="tagged" className="p-0 m-0">
+                  <ScrollArea className="h-[300px]">
+                    <div className="p-4 space-y-4">
+                      {taggedEvents.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>No department tags</p>
+                        </div>
+                      ) : (
+                        taggedEvents.map((event, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "rounded-lg p-3 transition-colors",
+                              isDarkMode 
+                                ? "bg-slate-800/50 hover:bg-slate-800" 
+                                : "bg-gray-50 hover:bg-gray-100"
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={cn(
+                                "p-2 rounded-md",
+                                isDarkMode ? "bg-slate-700" : "bg-white"
+                              )}>
+                                <Tag className="h-4 w-4 text-purple-500" />
+                              </div>
+                                                              <div className="flex-1 space-y-2">
+                                  <div>
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>{event.title}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant="secondary" className={cn(
+                                        "text-xs",
+                                        isDarkMode ? "bg-slate-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                                      )}>
+                                        {event.department}
+                                      </Badge>
+                                      <span className={cn(
+                                        "text-xs",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        tagged your department
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {event.requirements && event.requirements.length > 0 && (
+                                    <div className={cn(
+                                      "rounded-lg p-2 space-y-2",
+                                      isDarkMode ? "bg-slate-800" : "bg-gray-50"
+                                    )}>
+                                      {event.requirements.map((req, idx) => (
+                                        <div key={idx} className="space-y-1">
+                                          <p className={cn(
+                                            "text-xs font-medium",
+                                            isDarkMode ? "text-gray-200" : "text-gray-900"
+                                          )}>
+                                            {req.name}
+                                          </p>
+                                          {req.note && (
+                                            <p className={cn(
+                                              "text-xs",
+                                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                                            )}>
+                                              Note: {req.note}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            </PopoverContent>
+          </Popover>
+
+          <Button className="bg-black hover:bg-gray-800 text-white gap-2">
+            <UserPlus className="h-4 w-4" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}

@@ -35,6 +35,31 @@ export const getUserDashboardStats = async (uid) => {
       id: doc.id,
       ...doc.data()
     }));
+
+    // Get events where user's department is tagged
+    const allEventsQuery = query(eventsRef);
+    const allEventsSnapshot = await getDocs(allEventsQuery);
+    const taggedEvents = allEventsSnapshot.docs
+      .map(doc => {
+        const eventData = doc.data();
+        // Check if event has department requirements and user's department is tagged
+        if (eventData.departmentRequirements) {
+          const isTagged = eventData.departmentRequirements.some(
+            dept => dept.departmentName === userDepartment
+          );
+          if (isTagged) {
+            return {
+              id: doc.id,
+              ...eventData,
+              requirements: eventData.departmentRequirements.find(
+                dept => dept.departmentName === userDepartment
+              )?.requirements || []
+            };
+          }
+        }
+        return null;
+      })
+      .filter(event => event !== null);
     
     // Get department events (events from user's department)
     const departmentEventsQuery = query(
@@ -91,6 +116,13 @@ export const getUserDashboardStats = async (uid) => {
           title: event.title,
           date: event.date.toDate(),
           duration: event.duration
+        })),
+        taggedEventsList: taggedEvents.map(event => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          department: event.department,
+          requirements: event.requirements
         }))
       }
     };

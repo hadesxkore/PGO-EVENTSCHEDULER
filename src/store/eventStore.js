@@ -26,7 +26,8 @@ const useEventStore = create((set, get) => ({
     nextEventIn: null,
     thisWeekEvents: 0,
     thisWeekHours: 0,
-    upcomingEventsList: []
+    upcomingEventsList: [],
+    taggedEventsList: []
   },
   
   // Cache configuration

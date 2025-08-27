@@ -659,44 +659,57 @@ const MyEvents = () => {
                         ? "bg-slate-900/50 text-gray-300" 
                         : "bg-gray-50 text-gray-600"
                     )}>
-                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 2).map((req, index) => {
-                        const requirement = typeof req === 'string' ? { name: req } : req;
-                        return (
-                          <div
-                            key={index}
-                            className={cn(
-                              "mb-3 last:mb-0 flex items-start gap-2",
-                              isDarkMode ? "text-gray-300" : "text-gray-600"
-                            )}
-                          >
-                            <div className={cn(
-                              "p-1.5 rounded-md mt-0.5",
-                              isDarkMode ? "bg-slate-800" : "bg-white",
-                              "shadow-sm"
-                            )}>
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            </div>
-                            <div>
-                              <span className={cn(
-                                "font-semibold block",
-                                isDarkMode ? "text-gray-200" : "text-gray-700"
-                              )}>
-                                {requirement.name}
-                              </span>
-                              {requirement.note && (
-                                <span className={cn(
-                                  "text-xs block mt-0.5",
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                      {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
+                        <div key={deptIndex} className="mb-4 last:mb-0">
+                          <h4 className={cn(
+                            "text-sm font-medium mb-2",
+                            isDarkMode ? "text-gray-200" : "text-gray-700"
+                          )}>
+                            {dept.departmentName}
+                          </h4>
+                          {dept.requirements.slice(0, 2).map((req, reqIndex) => {
+                            const requirement = typeof req === 'string' ? { name: req } : req;
+                            return (
+                              <div
+                                key={`${deptIndex}-${reqIndex}`}
+                                className={cn(
+                                  "mb-2 last:mb-0 flex items-start gap-2",
+                                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                                )}
+                              >
+                                <div className={cn(
+                                  "p-1.5 rounded-md mt-0.5",
+                                  isDarkMode ? "bg-slate-800" : "bg-white",
+                                  "shadow-sm"
                                 )}>
-                                  {requirement.note}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                </div>
+                                <div>
+                                  <span className={cn(
+                                    "font-semibold block",
+                                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                                  )}>
+                                    {requirement.name}
+                                  </span>
+                                  {requirement.note && (
+                                    <span className={cn(
+                                      "text-xs block mt-0.5",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      {requirement.note}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                       
-                      {selectedEvent.requirements && selectedEvent.requirements.length > 2 && (
+                      {selectedEvent.departmentRequirements && (
+                        selectedEvent.departmentRequirements.length > 2 || 
+                        selectedEvent.departmentRequirements.some(dept => dept.requirements.length > 2)
+                      ) && (
                         <>
                           <div className={cn(
                             "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
@@ -841,41 +854,65 @@ const MyEvents = () => {
 
               {/* Requirements List */}
               <div className="space-y-4">
-                {selectedEvent.requirements.map((req, index) => {
-                  const requirement = typeof req === 'string' ? { name: req } : req;
-                  return (
-                    <div
-                      key={index}
-                      className={cn(
-                        "rounded-lg p-4",
-                        isDarkMode ? "bg-black" : "bg-gray-50"
-                      )}
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          isDarkMode ? "bg-slate-800" : "bg-white"
-                        )}>
-                          <FileText className="h-5 w-5 text-blue-500" />
-                        </div>
-                        <h3 className={cn(
-                          "font-semibold",
-                          isDarkMode ? "text-white" : "text-gray-900"
-                        )}>
-                          {requirement.name}
-                        </h3>
-                      </div>
-                      {requirement.note && (
-                        <div className={cn(
-                          "mt-2 pl-11 text-sm",
-                          isDarkMode ? "text-gray-400" : "text-gray-600"
-                        )}>
-                          {requirement.note}
-                        </div>
-                      )}
+                {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
+                  selectedEvent.departmentRequirements.map((dept, deptIndex) => (
+                    <div key={deptIndex} className="space-y-4">
+                      <h3 className={cn(
+                        "text-lg font-semibold",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>
+                        {dept.departmentName}
+                      </h3>
+                      {dept.requirements.map((req, reqIndex) => {
+                        const requirement = typeof req === 'string' ? { name: req } : req;
+                        return (
+                          <div
+                            key={`${deptIndex}-${reqIndex}`}
+                            className={cn(
+                              "rounded-lg p-4",
+                              isDarkMode ? "bg-black" : "bg-gray-50"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDarkMode ? "bg-slate-800" : "bg-white"
+                              )}>
+                                <FileText className="h-5 w-5 text-blue-500" />
+                              </div>
+                              <h3 className={cn(
+                                "font-semibold",
+                                isDarkMode ? "text-white" : "text-gray-900"
+                              )}>
+                                {requirement.name}
+                              </h3>
+                            </div>
+                            {requirement.note && (
+                              <div className={cn(
+                                "mt-2 pl-11 text-sm",
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {requirement.note}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  )
-                })}
+                  ))
+                ) : (
+                  <div className={cn(
+                    "rounded-lg p-6 text-center",
+                    isDarkMode ? "bg-black" : "bg-gray-50"
+                  )}>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      No requirements specified for this event
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

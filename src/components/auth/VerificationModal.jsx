@@ -83,3 +83,4 @@ const VerificationModal = ({ isOpen, onClose, email, onResendEmail, isResending 
 export default VerificationModal;
 
 
+

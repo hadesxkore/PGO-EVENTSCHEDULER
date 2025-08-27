@@ -11,19 +11,11 @@ webpush.setVapidDetails(
 );
 
 export default async function handler(req, res) {
-  // Handle CORS
-  const origin = req.headers.origin || '';
-  const allowedOrigins = [
-    'https://pgo-eventscheduler.vercel.app',
-    'http://localhost:5173'
-  ];
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', 'https://pgo-eventscheduler.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle preflight request
   if (req.method === 'OPTIONS') {

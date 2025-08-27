@@ -128,20 +128,35 @@ const Dashboard = () => {
       if (!result.success) {
         toast.error(result.error || "Failed to fetch dashboard data");
       }
+    };
 
-      // Register for push notifications
-      const subscription = await registerNotifications();
-      if (subscription) {
-        await saveSubscription(subscription, currentUser.uid);
+    const setupNotifications = async () => {
+      try {
+        // Request notification permission
+        if ('Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            console.log('Notification permission not granted');
+            return;
+          }
+        }
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        // Register for push notifications
+        const subscription = await registerNotifications();
+        if (subscription) {
+          await saveSubscription(subscription, currentUser.uid);
+          console.log('Push notification setup complete');
+        }
+      } catch (error) {
+        console.error('Error setting up notifications:', error);
       }
     };
 
     loadDashboardData();
-
-    // Request notification permission
-    if ('Notification' in window) {
-      Notification.requestPermission();
-    }
+    setupNotifications();
   }, [fetchDashboardData]);
 
   // Show error toast if there's an error
@@ -183,7 +198,10 @@ const Dashboard = () => {
             .join('\n\n') || 'No requirements specified';
 
           // Send push notification
-          const response = await fetch("/api/notify", {
+          const apiUrl = import.meta.env.PROD 
+            ? '/api/notify'  // Production (Vercel)
+            : 'http://localhost:3000/notify'; // Development
+          const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

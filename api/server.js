@@ -1,8 +1,21 @@
+import express from 'express';
+import cors from 'cors';
 import webpush from 'web-push';
 
+const app = express();
+
+// Enable CORS
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
+
+// Parse JSON bodies
+app.use(express.json());
+
 // VAPID keys
-const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_KEY || 'BOpjx_PHy27axBmWt1MrslSk8opTltGDSP-o9vi8w1q987213BRKcFErNAv4cy4HETXePK5VKNM9xqdpkacSzBc';
-const privateVapidKey = process.env.VAPID_PRIVATE_KEY || '2PFJx4cixf_SgHHt3-3wQLQhFbqLcUerC-zyIbRPsJQ';
+const publicVapidKey = 'BOpjx_PHy27axBmWt1MrslSk8opTltGDSP-o9vi8w1q987213BRKcFErNAv4cy4HETXePK5VKNM9xqdpkacSzBc';
+const privateVapidKey = '2PFJx4cixf_SgHHt3-3wQLQhFbqLcUerC-zyIbRPsJQ';
 
 webpush.setVapidDetails(
   'mailto:eventscheduler@example.com',
@@ -10,31 +23,8 @@ webpush.setVapidDetails(
   privateVapidKey
 );
 
-export default async function handler(req, res) {
-  // Handle CORS
-  const origin = req.headers.origin || '';
-  const allowedOrigins = [
-    'https://pgo-eventscheduler.vercel.app',
-    'http://localhost:5173'
-  ];
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Handle preflight request
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+// Notification endpoint
+app.post('/notify', async (req, res) => {
   try {
     const { subscription, message } = req.body;
 
@@ -60,4 +50,10 @@ export default async function handler(req, res) {
     console.error('Error sending notification:', error);
     res.status(500).json({ error: 'Failed to send notification', details: error.message });
   }
-}
+});
+
+// Start server
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`API server running on http://localhost:${PORT}`);
+});

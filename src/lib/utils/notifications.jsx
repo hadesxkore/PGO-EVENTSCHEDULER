@@ -1,103 +1,8 @@
-import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 
-const publicVapidKey = 'BD3nX9SXZXrI4NDg7Crj95M8Da7hVvANI0Ux0V9164NTBYahxJK_3QQMppCaZCXrSLQyATDQcSTEauU-LuzKWFs';
+const publicVapidKey = 'BOpjx_PHy27axBmWt1MrslSk8opTltGDSP-o9vi8w1q987213BRKcFErNAv4cy4HETXePK5VKNM9xqdpkacSzBc';
 
-export async function registerNotifications() {
-  try {
-    // Check if the browser supports service workers and push notifications
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.log('Push notifications are not supported');
-      return false;
-    }
-
-    // Request notification permission
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Notification permission denied');
-      return false;
-    }
-
-    // Register service worker
-    let registration;
-    try {
-      // First, try to get existing registration
-      registration = await navigator.serviceWorker.getRegistration();
-      
-      if (!registration) {
-        // If no registration exists, register new service worker
-        registration = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/'
-        });
-        console.log('New Service Worker registered');
-      } else {
-        console.log('Using existing Service Worker');
-      }
-
-      // Wait for the service worker to be ready
-      if (registration.installing) {
-        console.log('Service Worker installing');
-        await new Promise(resolve => {
-          registration.installing.addEventListener('statechange', (e) => {
-            if (e.target.state === 'activated') {
-              console.log('Service Worker activated');
-              resolve();
-            }
-          });
-        });
-      }
-
-      // Force update the service worker
-      await registration.update();
-      console.log('Service Worker updated');
-
-      // Unsubscribe from any existing subscriptions
-      const existingSubscription = await registration.pushManager.getSubscription();
-      if (existingSubscription) {
-        await existingSubscription.unsubscribe();
-      }
-
-      // Create a new subscription
-      const applicationServerKey = urlBase64ToUint8Array(publicVapidKey);
-      console.log('Application Server Key:', applicationServerKey);
-      
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
-      });
-
-      // Get the raw key data
-      const rawKey = subscription.getKey ? {
-        p256dh: subscription.getKey('p256dh'),
-        auth: subscription.getKey('auth')
-      } : null;
-
-      // Format the keys properly
-      const keys = rawKey ? {
-        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(rawKey.p256dh))),
-        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(rawKey.auth)))
-      } : null;
-
-      // Create a properly formatted subscription object
-      const formattedSubscription = {
-        endpoint: subscription.endpoint,
-        keys: keys,
-        expirationTime: subscription.expirationTime
-      };
-
-      console.log('Formatted subscription:', formattedSubscription);
-      return formattedSubscription;
-    } catch (error) {
-      console.error('Error registering for notifications:', error);
-      return false;
-    }
-  } catch (error) {
-    console.error('Error in registerNotifications:', error);
-    return false;
-  }
-}
-
-// Function to convert VAPID key to correct format
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
@@ -113,72 +18,74 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// Store subscription in Firestore
-export async function saveSubscription(subscription, userId) {
+export async function registerNotifications() {
   try {
-    // Ensure subscription data is valid
-    if (!subscription || !subscription.endpoint || !subscription.keys) {
-      throw new Error('Invalid subscription data');
+    console.log('Registering service worker...');
+    
+    // Check if service worker is supported
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Service Worker not supported');
     }
 
-    // Convert subscription object to a Firestore-compatible format
-    const subscriptionData = {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.keys.p256dh || null,
-        auth: subscription.keys.auth || null
-      },
-      userId,
-      createdAt: new Date()
-    };
+    // Check if Push API is supported
+    if (!('PushManager' in window)) {
+      throw new Error('Push API not supported');
+    }
 
-    // Log the data being saved
-    console.log('Saving subscription data:', subscriptionData);
+    // Wait for service worker installation
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    console.log('Service Worker registered');
 
-    // Save to your subscriptions collection in Firestore
-    const subscriptionDoc = doc(db, 'push_subscriptions', userId);
-    await setDoc(subscriptionDoc, subscriptionData);
-    console.log('Subscription saved successfully');
-    return true;
+    // Wait for the service worker to be ready
+    await navigator.serviceWorker.ready;
+
+    // Get existing subscription
+    let subscription = await registration.pushManager.getSubscription();
+
+    // If no subscription exists, create one
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+      });
+      console.log('Created new push subscription:', subscription);
+    } else {
+      console.log('Using existing push subscription:', subscription);
+    }
+
+    return subscription;
   } catch (error) {
-    console.error('Error saving subscription:', error);
-    console.error('Subscription object:', subscription);
-    return false;
+    console.error('Error registering for notifications:', error);
+    throw error;
   }
 }
 
-// Send notification to specific users
-export async function sendNotification(userIds, message) {
+export async function saveSubscription(subscription, userId) {
   try {
-    // Get all subscriptions for the specified users
-    const subscriptionsSnapshot = await getDocs(
-      query(collection(db, 'push_subscriptions'), where('userId', 'in', userIds))
-    );
+    if (!subscription || !subscription.endpoint) {
+      throw new Error('Invalid subscription data');
+    }
 
-    const notifications = [];
-    subscriptionsSnapshot.forEach(doc => {
-      const subscription = doc.data();
-      notifications.push(
-        fetch('/api/notify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            subscription: {
-              endpoint: subscription.endpoint,
-              keys: subscription.keys
-            },
-            message
-          })
-        })
-      );
+    // Extract keys from the subscription
+    const { endpoint } = subscription;
+    const p256dh = subscription.getKey ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))) : null;
+    const auth = subscription.getKey ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))) : null;
+
+    // Save to Firestore
+    const subscriptionRef = doc(collection(db, 'push_subscriptions'), userId);
+    await setDoc(subscriptionRef, {
+      endpoint,
+      keys: {
+        p256dh,
+        auth
+      },
+      userId,
+      timestamp: new Date().toISOString()
     });
 
-    await Promise.all(notifications);
-    return true;
+    console.log('Subscription saved successfully');
   } catch (error) {
-    console.error('Error sending notifications:', error);
-    return false;
+    console.error('Error saving subscription:', error);
+    throw error;
   }
 }

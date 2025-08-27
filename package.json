@@ -8,7 +8,7 @@
     "build": "chmod +x ./node_modules/.bin/vite && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "api": "node api/server.js"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",

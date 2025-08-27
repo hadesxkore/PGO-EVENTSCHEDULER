@@ -1,32 +1,41 @@
-// Service Worker for Push Notifications
-self.addEventListener('install', (event) => {
+// Service Worker installation
+self.addEventListener('install', event => {
   console.log('Service Worker installing...');
-  self.skipWaiting(); // Activate worker immediately
+  // Skip waiting to activate immediately
+  event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating...');
-  event.waitUntil(clients.claim()); // Take control immediately
+// Service Worker activation
+self.addEventListener('activate', event => {
+  console.log('Service Worker activated');
+  // Take control of all pages immediately
+  event.waitUntil(clients.claim());
 });
 
-self.addEventListener('push', async (event) => {
-  console.log('Push event received');
-
+// Handle push notifications
+self.addEventListener('push', event => {
   try {
-    // Parse the notification data
+    console.log('Push event received:', event.data.text());
     const data = JSON.parse(event.data.text());
-    console.log('Notification data:', data);
+    console.log('Parsed notification data:', data);
 
-    // Show the notification
-    await self.registration.showNotification(data.title, {
+    const options = {
       body: data.body,
-      icon: data.icon,
-      badge: data.badge,
-      vibrate: [200, 100, 200],
-      tag: data.data?.event?.id || new Date().getTime(),
+      icon: data.icon || '/images/bataanlogo.png',
+      badge: data.badge || '/images/bataanlogo.png',
+      vibrate: [100, 50, 100],
+      tag: data.tag || 'default',
       renotify: true,
       requireInteraction: true,
       silent: false,
+      timestamp: data.timestamp ? new Date(data.timestamp).getTime() : Date.now(),
+      data: {
+        ...data.data,
+        url: data.data?.url || (self.registration.scope.includes('localhost') 
+          ? 'http://localhost:5173'
+          : 'https://pgo-eventscheduler.vercel.app'),
+        event: data.data?.event || null
+      },
       actions: [
         {
           action: 'view',
@@ -36,45 +45,54 @@ self.addEventListener('push', async (event) => {
           action: 'close',
           title: 'Close'
         }
-      ],
-      data: data.data
-    });
+      ]
+    };
 
-    console.log('Notification shown successfully');
+    console.log('Showing notification with options:', options);
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
   } catch (error) {
-    console.error('Error in push event:', error);
-    
-    // Show fallback notification if something goes wrong
-    await self.registration.showNotification('New Event Notification', {
-      body: event.data ? event.data.text() : 'You have a new event notification',
-      icon: '/images/bataanlogo.png',
-      requireInteraction: true,
-      silent: false
-    });
+    console.error('Error showing notification:', error);
+    // Show a basic notification if JSON parsing fails
+    event.waitUntil(
+      self.registration.showNotification('New Notification', {
+        body: event.data.text(),
+        icon: '/images/bataanlogo.png',
+        requireInteraction: true
+      })
+    );
   }
 });
 
-self.addEventListener('notificationclick', (event) => {
+// Handle notification clicks
+self.addEventListener('notificationclick', event => {
   console.log('Notification clicked:', event);
-
-  // Close the notification
   event.notification.close();
 
-  // Handle action buttons
-  if (event.action === 'view') {
-    // Open or focus the app window
+  if (event.action === 'view' || !event.action) {
+    // Get the notification data
+    const data = event.notification.data;
+    const baseUrl = data?.url || '/';
+    const eventData = data?.event;
+    
+    // If we have event data, construct URL to show event details
+    const url = eventData ? `${baseUrl}/dashboard?event=${eventData.id}` : baseUrl;
+
+    // Focus existing window or open new one
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then((clientList) => {
-          // If a window is already open, focus it
-          for (const client of clientList) {
-            if (client.url === '/' && 'focus' in client) {
+        .then(windowClients => {
+          // Check if there is already a window/tab open with the target URL
+          for (var i = 0; i < windowClients.length; i++) {
+            var client = windowClients[i];
+            if (client.url === url && 'focus' in client) {
               return client.focus();
             }
           }
-          // If no window is open, open a new one
+          // If no window/tab is open, open a new one
           if (clients.openWindow) {
-            return clients.openWindow('/');
+            return clients.openWindow(url);
           }
         })
     );
@@ -82,6 +100,6 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // Handle notification close
-self.addEventListener('notificationclose', (event) => {
-  console.log('Notification closed:', event);
+self.addEventListener('notificationclose', event => {
+  console.log('Notification closed', event.notification);
 });

@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import enUS from 'date-fns/locale/en-US'
 
@@ -122,7 +123,10 @@ const AllEvents = ({ userData }) => {
 
       // If we found valid user data
       if (userData && userData.role) {
-        setCurrentUser({ email: userData.email });
+        setCurrentUser({ 
+          email: userData.email,
+          uid: userData.uid || userData.id // Include uid if available
+        });
         setRole(userData.role);
         
         // For non-admin users, set department if it exists
@@ -602,7 +606,7 @@ const AllEvents = ({ userData }) => {
           description="View event details and requirements"
         >
           {selectedEvent && (
-            <div>
+            <ScrollArea className="h-[80vh]">
               {/* Content Section */}
               <div className="p-4">
                 {/* Title and Department Section */}
@@ -764,44 +768,104 @@ const AllEvents = ({ userData }) => {
                         ? "bg-slate-900/50 text-gray-300" 
                         : "bg-gray-50 text-gray-600"
                     )}>
-                      {selectedEvent.requirements && selectedEvent.requirements.slice(0, 2).map((req, index) => {
-                        const requirement = typeof req === 'string' ? { name: req } : req;
-                        return (
-                          <div
-                            key={index}
-                            className={cn(
-                              "mb-3 last:mb-0 flex items-start gap-2",
-                              isDarkMode ? "text-gray-300" : "text-gray-600"
-                            )}
-                          >
-                            <div className={cn(
-                              "p-1.5 rounded-md mt-0.5",
-                              isDarkMode ? "bg-slate-800" : "bg-white",
-                              "shadow-sm"
-                            )}>
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            </div>
-                            <div>
-                              <span className={cn(
-                                "font-semibold block",
+                      {selectedEvent.departmentRequirements ? (
+                        selectedEvent.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
+                          <div key={deptIndex} className="mb-4 last:mb-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className={cn(
+                                "text-sm font-medium",
                                 isDarkMode ? "text-gray-200" : "text-gray-700"
                               )}>
-                                {requirement.name}
-                              </span>
-                              {requirement.note && (
-                                <span className={cn(
-                                  "text-xs block mt-0.5",
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                {dept.departmentName}
+                              </h4>
+                              {dept.classification && (
+                                <Badge variant="outline" className={cn(
+                                  "font-medium px-2 py-0.5 text-xs",
+                                  isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
                                 )}>
-                                  {requirement.note}
-                                </span>
+                                  {dept.classification}
+                                </Badge>
                               )}
                             </div>
+                            {dept.requirements.slice(0, 2).map((req, reqIndex) => {
+                              const requirement = typeof req === 'string' ? { name: req } : req;
+                              return (
+                                <div
+                                  key={`${deptIndex}-${reqIndex}`}
+                                  className={cn(
+                                    "mb-2 last:mb-0 flex items-start gap-2",
+                                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "p-1.5 rounded-md mt-0.5",
+                                    isDarkMode ? "bg-slate-800" : "bg-white",
+                                    "shadow-sm"
+                                  )}>
+                                    <FileText className="h-4 w-4 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <span className={cn(
+                                      "font-semibold block",
+                                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                                    )}>
+                                      {requirement.name}
+                                    </span>
+                                    {requirement.note && (
+                                      <span className={cn(
+                                        "text-xs block mt-0.5",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        {requirement.note}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        selectedEvent.requirements && selectedEvent.requirements.slice(0, 2).map((req, index) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div
+                              key={index}
+                              className={cn(
+                                "mb-3 last:mb-0 flex items-start gap-2",
+                                isDarkMode ? "text-gray-300" : "text-gray-600"
+                              )}
+                            >
+                              <div className={cn(
+                                "p-1.5 rounded-md mt-0.5",
+                                isDarkMode ? "bg-slate-800" : "bg-white",
+                                "shadow-sm"
+                              )}>
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              </div>
+                              <div>
+                                <span className={cn(
+                                  "font-semibold block",
+                                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                                )}>
+                                  {requirement.name}
+                                </span>
+                                {requirement.note && (
+                                  <span className={cn(
+                                    "text-xs block mt-0.5",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {requirement.note}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                       
-                      {selectedEvent.requirements && selectedEvent.requirements.length > 2 && (
+                      {((selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 2) ||
+                        (selectedEvent.requirements && selectedEvent.requirements.length > 2)) && (
                         <>
                           <div className={cn(
                             "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
@@ -818,6 +882,38 @@ const AllEvents = ({ userData }) => {
                         </>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Classifications Card */}
+                <div className={cn(
+                  "rounded-xl p-5 border mb-4",
+                  isDarkMode 
+                    ? "bg-slate-800/50 border-slate-700" 
+                    : "bg-white border-gray-100"
+                )}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn(
+                      "p-2.5 rounded-lg",
+                      isDarkMode ? "bg-indigo-500/10" : "bg-indigo-50"
+                    )}>
+                      <FileText className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    <h3 className={cn(
+                      "font-semibold",
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    )}>Classifications</h3>
+                  </div>
+                  <div className={cn(
+                    "rounded-lg p-4",
+                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
+                  )}>
+                    <p className={cn(
+                      "text-base leading-relaxed whitespace-pre-wrap",
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>
+                      {selectedEvent.classifications || "No classifications provided"}
+                    </p>
                   </div>
                 </div>
 
@@ -857,7 +953,7 @@ const AllEvents = ({ userData }) => {
 
 
               </div>
-            </div>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
@@ -920,7 +1016,7 @@ const AllEvents = ({ userData }) => {
                       transition={{ delay: index * 0.1 }}
                       className={cn(
                         "p-4 rounded-xl backdrop-blur-sm transition-all duration-200",
-                        role === "Admin" || event.userId === userData?.uid
+                        role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email
                           ? (isDarkMode 
                               ? "bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800/70 cursor-pointer" 
                               : "bg-gray-50/80 border border-gray-100 hover:bg-gray-100/80 cursor-pointer")
@@ -929,8 +1025,18 @@ const AllEvents = ({ userData }) => {
                               : "bg-gray-50/50 border border-gray-100/50 opacity-60 cursor-not-allowed")
                       )}
                       onClick={() => {
+                        // Debug log to check user and event data
+                        console.log('Event click check in +1 modal:', {
+                          eventUserId: event.userId,
+                          eventUserEmail: event.userEmail,
+                          currentUserId: currentUser?.uid,
+                          currentUserEmail: currentUser?.email,
+                          role: role,
+                          isOwner: role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email
+                        });
+                        
                         // Check if user is admin or owner of the event
-                        if (role === "Admin" || event.userId === userData?.uid) {
+                        if (role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email) {
                           setSelectedEvent(event);
                           setDayEventsDialogOpen(false);
                           setIsViewDialogOpen(true);
@@ -997,19 +1103,29 @@ const AllEvents = ({ userData }) => {
 
       {/* Requirements Dialog */}
       <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
-        <DialogContent 
-          className={cn(
-            "sm:max-w-[800px] border-none shadow-lg p-6",
-            isDarkMode ? "bg-slate-900" : "bg-white"
-          )}
-          description="View detailed requirements for the event"
-        >
+        <DialogContent className={cn(
+          "sm:max-w-[800px] border-none shadow-lg p-6",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "absolute right-4 top-4 h-8 w-8 p-0 rounded-full",
+              isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+            )}
+            onClick={() => setIsRequirementsDialogOpen(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+
           {selectedEvent && (
             <div className="space-y-6">
               {/* Header */}
               <div>
                 <DialogTitle className={cn(
-                  "text-xl font-bold tracking-tight",
+                  "text-xl font-bold tracking-tight pr-8",
                   isDarkMode ? "text-white" : "text-gray-900"
                 )}>
                   Event Requirements
@@ -1021,56 +1137,72 @@ const AllEvents = ({ userData }) => {
 
               {/* Requirements List */}
               <div className="space-y-4">
-                {selectedEvent.requirements && selectedEvent.requirements.length > 0 ? (
-                  selectedEvent.requirements.map((req, index) => {
-                    const requirement = typeof req === 'string' ? { name: req } : req;
-                    return (
-                      <div
-                        key={index}
-                        className={cn(
-                          "rounded-xl p-5 border transition-all duration-200 hover:shadow-md",
-                          isDarkMode 
-                            ? "bg-slate-900 border-slate-700 hover:border-slate-600" 
-                            : "bg-white border-gray-200 hover:border-gray-300"
-                        )}
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className={cn(
-                            "p-3 rounded-lg flex-shrink-0",
-                            isDarkMode ? "bg-slate-800" : "bg-gray-50"
-                          )}>
-                            <FileText className="h-6 w-6 text-blue-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className={cn(
-                              "text-lg font-semibold mb-2",
-                              isDarkMode ? "text-white" : "text-gray-900"
-                            )}>
-                              {requirement.name}
-                            </h3>
-                            {requirement.note && (
-                              <p className={cn(
-                                "text-sm leading-relaxed",
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              )}>
-                                {requirement.note}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
+                  selectedEvent.departmentRequirements.map((dept, deptIndex) => (
+                    <div key={deptIndex} className="space-y-4">
+                      <h3 className={cn(
+                        "text-lg font-semibold",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>
+                        {dept.departmentName}
+                      </h3>
+                      <div className={cn(
+                        "grid gap-3",
+                        {
+                          'grid-cols-1': dept.requirements.length <= 4,
+                          'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
+                          'grid-cols-3': dept.requirements.length > 8
+                        }
+                      )}>
+                        {dept.requirements.map((req, reqIndex) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div
+                              key={`${deptIndex}-${reqIndex}`}
+                              className={cn(
+                                "rounded-lg p-3",
+                                isDarkMode ? "bg-black" : "bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={cn(
+                                  "p-1.5 rounded-lg shrink-0",
+                                  isDarkMode ? "bg-slate-800" : "bg-white"
+                                )}>
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                </div>
+                                <h3 className={cn(
+                                  "font-semibold text-sm",
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                )}>
+                                  {requirement.name}
+                                </h3>
+                              </div>
+                              {requirement.note && (
+                                <div className={cn(
+                                  "mt-2 pl-8 text-xs",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  {requirement.note}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 ) : (
                   <div className={cn(
-                    "rounded-xl p-8 text-center border-2 border-dashed",
-                    isDarkMode 
-                      ? "bg-slate-900 border-slate-700 text-gray-400" 
-                      : "bg-white border-gray-200 text-gray-500"
+                    "rounded-lg p-6 text-center",
+                    isDarkMode ? "bg-black" : "bg-gray-50"
                   )}>
-                    <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p className="text-lg font-medium mb-1">No Requirements</p>
-                    <p className="text-sm">No requirements specified for this event</p>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      No requirements specified for this event
+                    </p>
                   </div>
                 )}
               </div>

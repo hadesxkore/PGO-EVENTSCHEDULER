@@ -36,6 +36,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogPortal,
+  DialogOverlay
 } from "../components/ui/dialog";
 
 import {
@@ -45,6 +47,7 @@ import {
   MapPin,
   FileText,
   Send,
+  Building2,
   Plus,
   User,
   X,
@@ -66,6 +69,54 @@ const RequestEvent = () => {
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
 
+  // Form state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    requestor: "",
+    location: "",
+    participants: "",
+    vip: "",
+    contactNumber: "",
+    contactEmail: "",
+    classifications: "",
+  });
+
+  // Process flow state
+  const [completedSteps, setCompletedSteps] = useState({
+    eventDetails: false,
+    attachments: false,
+    tagDepartments: false,
+    requirements: false,
+    schedule: false,
+    readyToSubmit: false
+  });
+
+  // Date and time state
+  const [date, setDate] = useState(new Date());
+  const [time, setTime] = useState("10:30");
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
+
+  // Attachments state
+  const [attachments, setAttachments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [skipAttachments, setSkipAttachments] = useState(false);
+
+  // Departments and requirements state
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [departmentRequirements, setDepartmentRequirements] = useState({});
+  const [departmentRequirementNotes, setDepartmentRequirementNotes] = useState({});
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+  const [showConfirmCloseModal, setShowConfirmCloseModal] = useState(false);
+  const [currentDepartment, setCurrentDepartment] = useState(null);
+  const [newRequirement, setNewRequirement] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
   useEffect(() => {
     // Check if user is authenticated
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -78,34 +129,52 @@ const RequestEvent = () => {
     return () => unsubscribe();
   }, [navigate]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    requestor: "",
-    location: "",
-    participants: "",
-    contactNumber: "",
-    contactEmail: "",
-  });
+  // Check form completion for each section
 
+  useEffect(() => {
+    // Check Event Details completion
+    const isEventDetailsComplete = 
+      formData.title && 
+      formData.requestor && 
+      formData.location && 
+      formData.participants &&
+      formData.vip &&
+      formData.classifications;
 
+    // Check Attachments completion
+    const isAttachmentsComplete = skipAttachments || (attachments && attachments.length > 0);
 
-  const [date, setDate] = useState(new Date());
-  const [time, setTime] = useState("10:30");
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [showYearPicker, setShowYearPicker] = useState(false);
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
-  const [attachments, setAttachments] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [departments, setDepartments] = useState([]);
-  const [selectedDepartments, setSelectedDepartments] = useState([]);
-  const [departmentRequirements, setDepartmentRequirements] = useState({});
-  const [departmentRequirementNotes, setDepartmentRequirementNotes] = useState({});
-  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
-  const [currentDepartment, setCurrentDepartment] = useState(null);
-  const [newRequirement, setNewRequirement] = useState("");
+    // Check Tag Departments completion - requires event details and either attachments or skip attachments
+    const isTagDepartmentsComplete = selectedDepartments.length > 0 && isEventDetailsComplete && isAttachmentsComplete;
+
+    // Check Requirements completion
+    const isRequirementsComplete = selectedDepartments.some(deptId => 
+      departmentRequirements[deptId] && departmentRequirements[deptId].length > 0
+    ) && isTagDepartmentsComplete;
+
+    // Check Schedule completion
+    const isScheduleComplete = 
+      date && 
+      time && 
+      formData.contactNumber && 
+      formData.contactEmail;
+
+    const isReadyToSubmit = isEventDetailsComplete && 
+      isAttachmentsComplete && 
+      isTagDepartmentsComplete && 
+      isRequirementsComplete && 
+      isScheduleComplete;
+
+    setCompletedSteps({
+      eventDetails: isEventDetailsComplete,
+      attachments: isAttachmentsComplete,
+      tagDepartments: isTagDepartmentsComplete,
+      requirements: isRequirementsComplete,
+      schedule: isScheduleComplete,
+      readyToSubmit: isReadyToSubmit
+    });
+  }, [formData, selectedDepartments, date, time, attachments, departmentRequirements, skipAttachments]);
+
 
   // Fetch departments on component mount
   useEffect(() => {
@@ -281,7 +350,7 @@ const RequestEvent = () => {
           departmentName: departments.find(d => d.id === deptId)?.name,
           requirements: requirements.map(req => {
             const note = departmentRequirementNotes[`${deptId}-${req}`];
-            return note ? { name: req, note } : req;
+            return note ? { name: req, note } : { name: req };
           })
         };
       });
@@ -355,18 +424,231 @@ const RequestEvent = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-6xl mx-auto px-6 py-6"
+      className="max-w-6xl mx-auto px-6 pt-2 pb-6"
     >
       {/* Header */}
-      <motion.div variants={item} className="mb-6">
+      <motion.div variants={item} className="mb-8">
         <h1 className={cn(
           "text-3xl font-bold",
           isDarkMode ? "text-white" : "text-gray-900"
         )}>Request Event</h1>
         <p className={cn(
-          "text-base mt-2",
+          "text-base mt-1 mb-6",
           isDarkMode ? "text-gray-400" : "text-gray-500"
         )}>Create a new event request for approval.</p>
+
+        {/* Process Flow */}
+        <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between max-w-4xl mx-auto px-4 gap-4 sm:gap-0">
+          {/* Event Details Step */}
+          <div className="flex items-center sm:flex-col sm:items-center relative z-10">
+            <div className={cn(
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:mb-1.5 transition-colors duration-200",
+              completedSteps.eventDetails
+                ? "bg-black"
+                : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <FileText className={cn(
+                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                completedSteps.eventDetails
+                  ? "text-white"
+                  : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-[10px] sm:text-xs font-medium ml-2 sm:ml-0",
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Event Details</span>
+          </div>
+
+          {/* Connecting Line 1 */}
+          <div className="hidden sm:block flex-1 h-[1px] relative -mx-1">
+            <div className={cn(
+              "absolute inset-0",
+              isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+            )} />
+            <div className={cn(
+              "absolute inset-0 transition-all duration-200",
+              completedSteps.eventDetails ? "bg-black" : "w-0"
+            )} />
+          </div>
+
+          {/* Attachments Step */}
+          <div className="flex flex-col items-center relative z-10">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              completedSteps.attachments
+                ? "bg-black"
+                : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <FileText className={cn(
+                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                completedSteps.attachments
+                  ? "text-white"
+                  : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-xs font-medium",
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Attachments</span>
+          </div>
+
+          {/* Connecting Line 2 */}
+          <div className="flex-1 h-[1px] relative -mx-1">
+            <div className={cn(
+              "absolute inset-0",
+              isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+            )} />
+            <div className={cn(
+              "absolute inset-0 transition-all duration-200",
+              (completedSteps.eventDetails && completedSteps.attachments) ? "bg-black" : "w-0"
+            )} />
+          </div>
+
+          {/* Tag Departments Step */}
+          <div className="flex flex-col items-center relative z-10">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              completedSteps.tagDepartments
+                ? "bg-black"
+                : (!completedSteps.eventDetails || !completedSteps.attachments)
+                  ? isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+                  : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <Building2 className={cn(
+                "w-4 h-4",
+                completedSteps.tagDepartments
+                  ? "text-white"
+                  : (!completedSteps.eventDetails || !completedSteps.attachments)
+                    ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                    : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-xs font-medium",
+              (!completedSteps.eventDetails || !completedSteps.attachments)
+                ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                : isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Tag Departments</span>
+          </div>
+
+          {/* Connecting Line 3 */}
+          <div className="flex-1 h-[1px] relative -mx-1">
+            <div className={cn(
+              "absolute inset-0",
+              isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+            )} />
+            <div className={cn(
+              "absolute inset-0 transition-all duration-200",
+              (completedSteps.eventDetails && completedSteps.attachments && completedSteps.tagDepartments) ? "bg-black" : "w-0"
+            )} />
+          </div>
+
+          {/* Requirements Step */}
+          <div className="flex flex-col items-center relative z-10">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              completedSteps.requirements
+                ? "bg-black"
+                : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
+                  ? isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+                  : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <FileText className={cn(
+                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                completedSteps.requirements
+                  ? "text-white"
+                  : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
+                    ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                    : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-xs font-medium",
+              (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
+                ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                : isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Requirements</span>
+          </div>
+
+          {/* Connecting Line 4 */}
+          <div className="flex-1 h-[1px] relative -mx-1">
+            <div className={cn(
+              "absolute inset-0",
+              isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+            )} />
+            <div className={cn(
+              "absolute inset-0 transition-all duration-200",
+              (completedSteps.eventDetails && completedSteps.attachments && completedSteps.tagDepartments && completedSteps.requirements) ? "bg-black" : "w-0"
+            )} />
+          </div>
+
+          {/* Schedule Step */}
+          <div className="flex flex-col items-center relative z-10">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              completedSteps.schedule
+                ? "bg-black"
+                : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
+                  ? isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+                  : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <CalendarIcon className={cn(
+                "w-4 h-4",
+                completedSteps.schedule
+                  ? "text-white"
+                  : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
+                    ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                    : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-xs font-medium",
+              (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
+                ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                : isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Schedule</span>
+          </div>
+
+          {/* Connecting Line 5 */}
+          <div className="flex-1 h-[1px] relative -mx-1">
+            <div className={cn(
+              "absolute inset-0",
+              isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+            )} />
+            <div className={cn(
+              "absolute inset-0 transition-all duration-200",
+              (completedSteps.eventDetails && completedSteps.attachments && completedSteps.tagDepartments && completedSteps.requirements && completedSteps.schedule) ? "bg-black" : "w-0"
+            )} />
+          </div>
+
+          {/* Ready to Submit Step */}
+          <div className="flex flex-col items-center relative z-10">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              completedSteps.readyToSubmit
+                ? "bg-black"
+                : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
+                  ? isDarkMode ? "bg-zinc-700" : "bg-gray-200"
+                  : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
+            )}>
+              <Send className={cn(
+                "w-4 h-4",
+                completedSteps.readyToSubmit
+                  ? "text-white"
+                  : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
+                    ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                    : isDarkMode ? "text-gray-300" : "text-gray-600"
+              )} />
+            </div>
+            <span className={cn(
+              "text-xs font-medium",
+              (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
+                ? isDarkMode ? "text-gray-500" : "text-gray-400"
+                : isDarkMode ? "text-gray-300" : "text-gray-600"
+            )}>Ready to Submit</span>
+          </div>
+        </div>
       </motion.div>
 
       {/* Main Form */}
@@ -381,10 +663,18 @@ const RequestEvent = () => {
             "rounded-xl p-6 shadow-sm",
             isDarkMode ? "bg-slate-800" : "bg-white"
           )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-6",
-              isDarkMode ? "text-gray-100" : "text-gray-900"
-            )}>Event Details</h2>
+            <div className="flex items-center gap-3 mb-6">
+              <Badge variant="outline" className={cn(
+                "px-3 py-1 rounded-full text-sm font-semibold",
+                isDarkMode ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-600"
+              )}>
+                Step 1
+              </Badge>
+              <h2 className={cn(
+                "text-2xl font-bold",
+                isDarkMode ? "text-gray-100" : "text-gray-900"
+              )}>Event Details</h2>
+            </div>
             
             <div className="space-y-6">
               {/* Title and Requestor */}
@@ -437,10 +727,10 @@ const RequestEvent = () => {
                 </div>
               </div>
 
-              {/* Location and Number of Participants */}
-              <div className="grid grid-cols-2 gap-4">
+                              {/* Location and Number of Participants */}
+              <div className="grid grid-cols-3 gap-4">
                 {/* Location */}
-                <div className="space-y-2">
+                <div className="col-span-1 space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Location
                   </Label>
@@ -477,7 +767,31 @@ const RequestEvent = () => {
                       type="number"
                       required
                       min="1"
-                      placeholder="Expected number of attendees"
+                      placeholder="Expected attendees"
+                      className={cn(
+                        "pl-12 rounded-lg h-12 text-base",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700" 
+                          : "bg-white border-gray-200"
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* VIP */}
+                <div className="space-y-2">
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    Number of VIP
+                  </Label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      name="vip"
+                      value={formData.vip}
+                      onChange={handleInputChange}
+                      type="number"
+                      min="0"
+                      placeholder="Number of VIPs"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
                         isDarkMode 
@@ -491,11 +805,57 @@ const RequestEvent = () => {
 
 
 
-              {/* Attachments */}
+              {/* Classifications */}
               <div className="space-y-2">
                 <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                  Attachments
+                  Classifications
                 </Label>
+                <textarea
+                  name="classifications"
+                  value={formData.classifications}
+                  onChange={handleInputChange}
+                  placeholder="Enter event classifications..."
+                  className={cn(
+                    "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border-2",
+                    isDarkMode 
+                      ? "bg-slate-900 border-gray-600 text-white placeholder:text-zinc-500" 
+                      : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                  )}
+                />
+              </div>
+
+              {/* Attachments */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    Attachments
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="skip-attachments"
+                      checked={skipAttachments}
+                      onCheckedChange={(checked) => {
+                        setSkipAttachments(checked);
+                        setCompletedSteps(prev => ({
+                          ...prev,
+                          attachments: checked
+                        }));
+                      }}
+                      className={cn(
+                        isDarkMode ? "border-gray-700" : "border-gray-200"
+                      )}
+                    />
+                    <Label 
+                      htmlFor="skip-attachments" 
+                      className={cn(
+                        "text-sm cursor-pointer",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}
+                    >
+                      No attachments needed
+                    </Label>
+                  </div>
+                </div>
                 <input
                   type="file"
                   id="file-upload"
@@ -560,161 +920,131 @@ const RequestEvent = () => {
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
 
-                <div 
-                  className={cn(
-                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
-                    isDarkMode 
-                      ? "border-slate-700 bg-slate-900 hover:bg-slate-800" 
-                      : "border-gray-200 bg-gray-50 hover:bg-gray-100",
-                    "relative"
-                  )}
-                  onClick={() => document.getElementById('file-upload').click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const files = Array.from(e.dataTransfer.files);
-                    const maxSize = 10 * 1024 * 1024; // 10MB
-                    const allowedTypes = [
-                      'application/pdf',
-                      'application/msword',
-                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                      'image/jpeg',
-                      'image/png'
-                    ];
-
-                    // Validate files
-                    const invalidFiles = files.filter(
-                      file => !allowedTypes.includes(file.type) || file.size > maxSize
-                    );
-
-                    if (invalidFiles.length > 0) {
-                      toast.error("Some files are not supported or exceed 10MB limit");
-                      return;
-                    }
-
-                    // Start upload process
-                    setIsUploading(true);
-                    setUploadProgress(0);
-                    
-                    // Upload files with progress
-                    const totalFiles = files.length;
-                    let completedFiles = 0;
-                    
-                    const uploadPromises = files.map(async (file) => {
-                      const result = await uploadFile(file);
-                      if (result.success) {
-                        completedFiles++;
-                        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-                        return {
-                          name: file.name,
-                          size: file.size,
-                          type: file.type,
-                          url: result.url,
-                          publicId: result.publicId
-                        };
-                      }
-                      toast.error(`Failed to upload ${file.name}`);
-                      return null;
-                    });
-
-                    const results = await Promise.all(uploadPromises);
-                    const successfulUploads = results.filter(result => result !== null);
-                    setAttachments(prev => [...prev, ...successfulUploads]);
-                    
-                    // End upload process
-                    setTimeout(() => {
-                      setIsUploading(false);
-                      setUploadProgress(0);
-                    }, 500); // Small delay to show 100% completion
-                  }}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <FileText className={cn(
-                      "h-8 w-8",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )} />
-                    <div className="text-base">
-                      <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                        Drag & drop files here or{" "}
-                      </span>
-                      <Button
-                        variant="link"
-                        className="text-blue-500 hover:text-blue-600 p-0 h-auto font-medium"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          document.getElementById('file-upload').click();
-                        }}
-                      >
-                        browse
-                      </Button>
-                    </div>
+                <div className="flex items-start gap-4">
+                  {/* Upload Button */}
+                  <div className="shrink-0">
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "h-9 px-4 flex items-center gap-2",
+                        isDarkMode 
+                          ? "border-gray-600 hover:bg-slate-800" 
+                          : "border-gray-300 hover:bg-gray-100"
+                      )}
+                      onClick={() => document.getElementById('file-upload').click()}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Upload Files</span>
+                    </Button>
                     <p className={cn(
-                      "text-xs",
+                      "text-[11px] mt-1",
                       isDarkMode ? "text-gray-500" : "text-gray-400"
                     )}>
-                      Supported formats: PDF, DOC, DOCX, JPG, PNG (max 10MB)
+                      PDF, DOC, JPG, PNG (max 10MB)
                     </p>
                   </div>
-                </div>
 
-                {/* Uploaded Files */}
-                {attachments.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {attachments.map((file, index) => (
-                      <div
-                        key={index}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border",
-                          isDarkMode ? "border-slate-700 bg-slate-800" : "border-gray-200 bg-gray-50"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-blue-500" />
-                          <div>
-                            <p className={cn(
-                              "text-sm font-medium",
-                              isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{file.name}</p>
-                            <p className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>{formatFileSize(file.size)}</p>
+                  {/* Uploaded Files List */}
+                  <div className="flex-1 min-w-0">
+                    {attachments.length > 0 ? (
+                      <div className={cn(
+                        "rounded-lg border divide-y",
+                        isDarkMode ? "border-gray-600 divide-gray-600" : "border-gray-300 divide-gray-300"
+                      )}>
+                        {attachments.map((file, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "flex items-center justify-between py-1 px-3",
+                              isDarkMode 
+                                ? "hover:bg-slate-800/50" 
+                                : "hover:bg-gray-100/50"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={cn(
+                                "p-1 rounded-md shrink-0",
+                                isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
+                              )}>
+                                <FileText className="h-3 w-3 text-blue-500" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className={cn(
+                                  "text-sm font-medium truncate flex items-center gap-2",
+                                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                                )}>
+                                  <span className="truncate">{file.name}</span>
+                                  <span className={cn(
+                                    "text-[11px] shrink-0",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>({formatFileSize(file.size)})</span>
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-6 w-6 p-0",
+                                isDarkMode ? "hover:bg-slate-700 text-red-400 hover:text-red-500" : "hover:bg-gray-200 text-red-500 hover:text-red-600"
+                              )}
+                              onClick={() => {
+                                setAttachments(prev => prev.filter((_, i) => i !== index));
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            "text-red-500 hover:text-red-600",
-                            isDarkMode && "hover:bg-slate-700"
-                          )}
-                          onClick={() => {
-                            setAttachments(prev => prev.filter((_, i) => i !== index));
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <div className={cn(
+                        "flex items-center justify-center h-9 rounded-lg border border-dashed",
+                        isDarkMode 
+                          ? "border-gray-600 text-gray-400" 
+                          : "border-gray-300 text-gray-500"
+                      )}>
+                        <p className="text-sm">No files uploaded</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Tag Departments Card */}
           <div className={cn(
-            "rounded-xl p-6 shadow-sm mt-5",
-            isDarkMode ? "bg-slate-800" : "bg-white"
+            "rounded-xl p-6 shadow-sm mt-5 relative",
+            isDarkMode ? "bg-slate-800" : "bg-white",
+            (!completedSteps.eventDetails || !completedSteps.attachments) && "pointer-events-none"
           )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-2",
-              isDarkMode ? "text-gray-100" : "text-gray-900"
-            )}>Tag Departments</h2>
+            {/* Blur overlay */}
+            {(!completedSteps.eventDetails || !completedSteps.attachments) && (
+              <div className="absolute inset-0 bg-white/30 dark:bg-black/30 backdrop-blur-[2px] rounded-xl z-10 flex items-center justify-center">
+                <p className={cn(
+                  "text-sm font-medium",
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                )}>
+                  {!completedSteps.eventDetails 
+                    ? "Complete Step 1 to tag departments" 
+                    : "Upload attachments to tag departments"
+                  }
+                </p>
+              </div>
+            )}
+            <div className="flex items-center gap-3 mb-2">
+              <Badge variant="outline" className={cn(
+                "px-3 py-1 rounded-full text-sm font-semibold",
+                isDarkMode ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-600"
+              )}>
+                Step 3
+              </Badge>
+              <h2 className={cn(
+                "text-2xl font-bold",
+                isDarkMode ? "text-gray-100" : "text-gray-900"
+              )}>Tag Departments</h2>
+            </div>
             <p className={cn(
               "text-sm mb-6",
               isDarkMode ? "text-gray-400" : "text-gray-500"
@@ -732,6 +1062,7 @@ const RequestEvent = () => {
                             if (checked) {
                               // When checking, show the modal with any existing requirements
                               setCurrentDepartment(dept.id);
+                              setShowCustomInput(false); // Reset custom input state
                               // Don't automatically add to selectedDepartments - wait for save
                               setShowRequirementsModal(true);
                             } else {
@@ -795,13 +1126,40 @@ const RequestEvent = () => {
         {/* Right Column - Date & Time */}
         <motion.div variants={item} className="space-y-6">
           <div className={cn(
-            "rounded-xl p-6 shadow-sm",
-            isDarkMode ? "bg-slate-800" : "bg-white"
+            "rounded-xl p-6 shadow-sm relative",
+            isDarkMode ? "bg-slate-800" : "bg-white",
+            (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements) && "pointer-events-none"
           )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-6",
-              isDarkMode ? "text-gray-100" : "text-gray-900"
-            )}>Schedule</h2>
+            {/* Blur overlay */}
+            {(!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements) && (
+              <div className="absolute inset-0 bg-white/30 dark:bg-black/30 backdrop-blur-[2px] rounded-xl z-10 flex items-center justify-center">
+                <p className={cn(
+                  "text-sm font-medium",
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                )}>
+                  {!completedSteps.eventDetails 
+                    ? "Complete Step 1 to set schedule"
+                    : !completedSteps.attachments
+                    ? "Upload attachments to set schedule"
+                    : !completedSteps.tagDepartments
+                    ? "Tag departments to set schedule"
+                    : "Set requirements to set schedule"
+                  }
+                </p>
+              </div>
+            )}
+            <div className="flex items-center gap-3 mb-6">
+              <Badge variant="outline" className={cn(
+                "px-3 py-1 rounded-full text-sm font-semibold",
+                isDarkMode ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-600"
+              )}>
+                Step 5
+              </Badge>
+              <h2 className={cn(
+                "text-2xl font-bold",
+                isDarkMode ? "text-gray-100" : "text-gray-900"
+              )}>Schedule</h2>
+            </div>
 
             <div className="space-y-6">
               {/* Date and Time Selection */}
@@ -978,7 +1336,13 @@ const RequestEvent = () => {
               "w-full rounded-lg h-12 text-base flex items-center justify-center gap-2",
               "bg-black hover:bg-gray-800 text-white"
             )}
-            onClick={handleSubmit}
+            onClick={() => {
+              if (!completedSteps.readyToSubmit) {
+                toast.error("Please complete all steps before submitting");
+                return;
+              }
+              handleSubmit();
+            }}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -1058,17 +1422,10 @@ const RequestEvent = () => {
       </Dialog>
 
       {/* Department Requirements Modal */}
-      <Dialog open={showRequirementsModal} onOpenChange={(open) => {
-        if (!open) {
-          // Only close if there are no unsaved changes
-          if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0) {
-            toast.error("Please save your changes before closing");
-            return;
-          }
-          setShowRequirementsModal(false);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[600px] p-0 border-0">
+      <Dialog open={showRequirementsModal} onOpenChange={() => {}} modal>
+        <DialogPortal>
+          <DialogOverlay className="bg-black/50" />
+          <DialogContent className="sm:max-w-[600px] p-0 border-0 !border-none shadow-none !ring-0" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} hideClose>
           <div className={cn(
             "p-8 rounded-xl",
             isDarkMode ? "bg-zinc-900" : "bg-white"
@@ -1090,40 +1447,103 @@ const RequestEvent = () => {
                     Add specific requirements and notes for this department.
                   </p>
                 </div>
-                <Button
-                  onClick={() => {
-                    if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0) {
-                      // Save the current state
-                      const savedRequirements = departmentRequirements[currentDepartment];
-                      const savedNotes = {};
-                      savedRequirements.forEach(req => {
-                        const noteKey = `${currentDepartment}-${req}`;
-                        if (departmentRequirementNotes[noteKey]) {
-                          savedNotes[noteKey] = departmentRequirementNotes[noteKey];
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => {
+                      if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0) {
+                        // Save the current state
+                        const savedRequirements = departmentRequirements[currentDepartment];
+                        const savedNotes = {};
+                        savedRequirements.forEach(req => {
+                          const noteKey = `${currentDepartment}-${req}`;
+                          if (departmentRequirementNotes[noteKey]) {
+                            savedNotes[noteKey] = departmentRequirementNotes[noteKey];
+                          }
+                        });
+                        
+                        // Update the selected departments if not already selected
+                        if (!selectedDepartments.includes(currentDepartment)) {
+                          setSelectedDepartments(prev => [...prev, currentDepartment]);
                         }
-                      });
-                      
-                      // Update the selected departments if not already selected
-                      if (!selectedDepartments.includes(currentDepartment)) {
-                        setSelectedDepartments(prev => [...prev, currentDepartment]);
+                        
+                        toast.success("Requirements and notes saved successfully");
+                        setShowRequirementsModal(false);
+                      } else {
+                        toast.error("Please add at least one requirement before saving");
                       }
-                      
-                      toast.success("Requirements and notes saved successfully");
-                      setShowRequirementsModal(false);
-                    } else {
-                      toast.error("Please add at least one requirement before saving");
-                    }
-                  }}
-                  className={cn(
-                    "px-6 h-10 rounded-lg font-medium transition-colors",
-                    isDarkMode 
-                      ? "bg-white text-black hover:bg-zinc-200" 
-                      : "bg-black text-white hover:bg-zinc-800"
-                  )}
-                >
-                  Save Changes
-                </Button>
+                    }}
+                    className={cn(
+                      "px-6 h-10 rounded-lg font-medium transition-colors",
+                      isDarkMode 
+                        ? "bg-white text-black hover:bg-zinc-200" 
+                        : "bg-black text-white hover:bg-zinc-800"
+                    )}
+                  >
+                    Save Changes
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (currentDepartment && departmentRequirements[currentDepartment]?.length > 0 && !selectedDepartments.includes(currentDepartment)) {
+                        setShowConfirmCloseModal(true);
+                      } else {
+                        setShowRequirementsModal(false);
+                      }
+                    }}
+                    variant="outline"
+                    className={cn(
+                      "px-6 h-10 rounded-lg font-medium transition-colors",
+                      isDarkMode 
+                        ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800" 
+                        : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                    )}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
+
+              {/* Default Requirements Section */}
+              {currentDepartment && departments.find(d => d.id === currentDepartment)?.defaultRequirements?.length > 0 && (
+                <div className={cn(
+                  "pt-4 pb-3 px-6 border-b border-zinc-200 dark:border-zinc-800",
+                  isDarkMode ? "bg-zinc-900/50" : "bg-zinc-50/50"
+                )}>
+                  <div className="flex flex-wrap gap-2">
+                    {departments.find(d => d.id === currentDepartment)?.defaultRequirements.map((req, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 px-3 text-xs rounded-lg transition-colors",
+                          "bg-black text-white hover:bg-zinc-800 border-transparent"
+                        )}
+                        onClick={() => {
+                          if (currentDepartment) {
+                            setDepartmentRequirements(prev => ({
+                              ...prev,
+                              [currentDepartment]: [...(prev[currentDepartment] || []), req]
+                            }));
+                          }
+                        }}
+                      >
+                        + {req}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "h-8 px-3 text-xs rounded-lg transition-colors",
+                        "bg-black text-white hover:bg-zinc-800 border-transparent"
+                      )}
+                      onClick={() => setShowCustomInput(true)}
+                    >
+                      + Others
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Main Requirements Card */}
               <div className={cn(
@@ -1131,87 +1551,101 @@ const RequestEvent = () => {
                 isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
               )}>
                 {/* Card Header with Input */}
-                <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="text"
-                      placeholder="Add new requirement"
-                      value={newRequirement}
-                      onChange={(e) => setNewRequirement(e.target.value)}
-                      className={cn(
-                        "flex-1 h-11 px-4 text-base rounded-lg transition-colors",
-                        isDarkMode 
-                          ? "bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-zinc-600" 
-                          : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
-                      )}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newRequirement.trim() && currentDepartment) {
-                          setDepartmentRequirements(prev => ({
-                            ...prev,
-                            [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
-                          }));
-                          setNewRequirement('');
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      className={cn(
-                        "h-11 px-6 rounded-lg font-medium transition-colors",
-                        isDarkMode 
-                          ? "bg-white text-black hover:bg-zinc-200" 
-                          : "bg-black text-white hover:bg-zinc-800"
-                      )}
-                      onClick={() => {
-                        if (newRequirement.trim() && currentDepartment) {
-                          setDepartmentRequirements(prev => ({
-                            ...prev,
-                            [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
-                          }));
-                          setNewRequirement('');
-                        }
-                      }}
-                    >
-                      Add Requirement
-                    </Button>
+                {showCustomInput && (
+                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="text"
+                        placeholder="Add new requirement"
+                        value={newRequirement}
+                        onChange={(e) => setNewRequirement(e.target.value)}
+                        className={cn(
+                          "flex-1 h-11 px-4 text-base rounded-lg transition-colors",
+                          isDarkMode 
+                            ? "bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-zinc-600" 
+                            : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
+                        )}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newRequirement.trim() && currentDepartment) {
+                            setDepartmentRequirements(prev => ({
+                              ...prev,
+                              [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
+                            }));
+                            setNewRequirement('');
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        className={cn(
+                          "h-11 px-6 rounded-lg font-medium transition-colors",
+                          isDarkMode 
+                            ? "bg-white text-black hover:bg-zinc-200" 
+                            : "bg-black text-white hover:bg-zinc-800"
+                        )}
+                        onClick={() => {
+                          if (newRequirement.trim() && currentDepartment) {
+                            setDepartmentRequirements(prev => ({
+                              ...prev,
+                              [currentDepartment]: [...(prev[currentDepartment] || []), newRequirement.trim()]
+                            }));
+                            setNewRequirement('');
+                          }
+                        }}
+                      >
+                        Add Requirement
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Requirements List */}
                 <div className="p-6">
-                  <div className="space-y-3">
+                  <div className={cn(
+                    "grid gap-3",
+                    {
+                      'grid-cols-1': (departmentRequirements[currentDepartment] || []).length <= 3,
+                      'grid-cols-2': (departmentRequirements[currentDepartment] || []).length > 3 && (departmentRequirements[currentDepartment] || []).length <= 6,
+                      'grid-cols-3': (departmentRequirements[currentDepartment] || []).length > 6
+                    }
+                  )}>
                     {currentDepartment && (departmentRequirements[currentDepartment] || []).length > 0 ? (
                       departmentRequirements[currentDepartment].map((req, index) => (
                         <div 
                           key={index} 
                           className={cn(
-                            "group flex items-center justify-between p-4 rounded-lg border transition-all",
+                            "flex items-center justify-between p-2 rounded-lg border transition-all gap-2",
                             isDarkMode 
                               ? "bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800" 
                               : "bg-zinc-50/50 border-zinc-200 hover:bg-zinc-50"
                           )}
                         >
-                          <div className="flex items-center gap-3 flex-1">
+                          <div className="flex items-center gap-2 min-w-0">
                             <span className={cn(
-                              "text-sm font-medium",
+                              "text-sm font-medium truncate",
                               isDarkMode ? "text-zinc-100" : "text-zinc-700"
                             )}>{req}</span>
+                            {departmentRequirementNotes[`${currentDepartment}-${req}`] && (
+                              <Badge variant="outline" className={cn(
+                                "text-[10px] px-1 py-0 h-4",
+                                isDarkMode ? "border-blue-500/30 bg-blue-500/10 text-blue-400" : "border-blue-200 bg-blue-50 text-blue-600"
+                              )}>
+                                Has notes
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 shrink-0">
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className={cn(
-                                    "h-9 px-2.5 rounded-lg transition-colors",
-                                    departmentRequirementNotes[`${currentDepartment}-${req}`] 
-                                      ? isDarkMode ? "bg-blue-500/10 text-blue-500" : "bg-blue-50 text-blue-600"
-                                      : isDarkMode ? "text-zinc-400 hover:text-white hover:bg-zinc-700" : "text-zinc-600 hover:text-black hover:bg-zinc-100"
+                                    "h-6 w-6 p-0 rounded transition-colors",
+                                    isDarkMode ? "hover:bg-zinc-700" : "hover:bg-zinc-100"
                                   )}
                                 >
-                                  <FileText className="h-4 w-4 mr-1.5" />
-                                  <span className="text-xs font-medium">Notes</span>
+                                  <FileText className="h-3.5 w-3.5" />
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent 
@@ -1251,17 +1685,14 @@ const RequestEvent = () => {
                               variant="ghost"
                               size="sm"
                               className={cn(
-                                "h-9 w-9 rounded-lg transition-colors",
-                                isDarkMode 
-                                  ? "text-zinc-400 hover:text-white hover:bg-zinc-700" 
-                                  : "text-zinc-600 hover:text-black hover:bg-zinc-100"
+                                "h-6 w-6 p-0 rounded transition-colors",
+                                isDarkMode ? "hover:bg-zinc-700 text-red-400 hover:text-red-500" : "hover:bg-zinc-100 text-red-500 hover:text-red-600"
                               )}
                               onClick={() => {
                                 setDepartmentRequirements(prev => ({
                                   ...prev,
                                   [currentDepartment]: prev[currentDepartment].filter((_, i) => i !== index)
                                 }));
-                                // Clean up notes
                                 const noteKey = `${currentDepartment}-${req}`;
                                 setDepartmentRequirementNotes(prev => {
                                   const newNotes = { ...prev };
@@ -1270,7 +1701,7 @@ const RequestEvent = () => {
                                 });
                               }}
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
@@ -1288,6 +1719,92 @@ const RequestEvent = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+        </DialogPortal>
+      </Dialog>
+
+      {/* Confirm Close Modal */}
+      <Dialog open={showConfirmCloseModal} onOpenChange={setShowConfirmCloseModal}>
+        <DialogContent className={cn(
+          "sm:max-w-[360px] shadow-lg",
+          isDarkMode 
+            ? "bg-zinc-900 border border-zinc-800" 
+            : "bg-white border border-zinc-200"
+        )}>
+          <div className="p-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-2.5 rounded-full",
+                  isDarkMode ? "bg-yellow-500/10" : "bg-yellow-50"
+                )}>
+                  <FileText className={cn(
+                    "w-5 h-5",
+                    isDarkMode ? "text-yellow-400" : "text-yellow-600"
+                  )} />
+                </div>
+                <div>
+                  <h3 className={cn(
+                    "text-base font-semibold",
+                    isDarkMode ? "text-gray-100" : "text-gray-900"
+                  )}>
+                    Unsaved Changes
+                  </h3>
+                  <p className={cn(
+                    "text-sm mt-1",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    You have unsaved requirements. Are you sure you want to close without saving?
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmCloseModal(false)}
+                  className={cn(
+                    "px-4 h-9",
+                    isDarkMode 
+                      ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800" 
+                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  )}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Clear requirements for this department if not saved
+                    setDepartmentRequirements(prev => {
+                      const newReqs = { ...prev };
+                      delete newReqs[currentDepartment];
+                      return newReqs;
+                    });
+                    // Clear notes for this department
+                    setDepartmentRequirementNotes(prev => {
+                      const newNotes = { ...prev };
+                      Object.keys(newNotes).forEach(key => {
+                        if (key.startsWith(`${currentDepartment}-`)) {
+                          delete newNotes[key];
+                        }
+                      });
+                      return newNotes;
+                    });
+                    setShowConfirmCloseModal(false);
+                    setShowRequirementsModal(false);
+                  }}
+                  className={cn(
+                    "px-4 h-9",
+                    isDarkMode 
+                      ? "bg-red-500 text-white hover:bg-red-600" 
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  )}
+                >
+                  Close Without Saving
+                </Button>
               </div>
             </div>
           </div>

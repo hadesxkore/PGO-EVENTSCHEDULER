@@ -3,7 +3,7 @@ import { registerNotifications, saveSubscription } from "../lib/utils/notificati
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X, Tag } from "lucide-react";
+import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X, Tag, FileText } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import { 
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -103,8 +103,9 @@ const Dashboard = () => {
     fetchDashboardData 
   } = useEventStore();
 
-  // Add state to track viewed notifications
+  // Add state to track viewed notifications and popover state
   const [viewedNotifications, setViewedNotifications] = useState(new Set());
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   
   // State for managing selected event and dialog
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -130,33 +131,7 @@ const Dashboard = () => {
       }
     };
 
-    const setupNotifications = async () => {
-      try {
-        // Request notification permission
-        if ('Notification' in window) {
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            console.log('Notification permission not granted');
-            return;
-          }
-        }
-
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-
-        // Register for push notifications
-        const subscription = await registerNotifications();
-        if (subscription) {
-          await saveSubscription(subscription, currentUser.uid);
-          console.log('Push notification setup complete');
-        }
-      } catch (error) {
-        console.error('Error setting up notifications:', error);
-      }
-    };
-
     loadDashboardData();
-    setupNotifications();
   }, [fetchDashboardData]);
 
   // Show error toast if there's an error
@@ -166,74 +141,7 @@ const Dashboard = () => {
     }
   }, [error]);
 
-  // Handle automatic notifications for new tagged events
-  useEffect(() => {
-    const sendNotifications = async () => {
-      if (!dashboardData.taggedEventsList?.length) return;
 
-      try {
-        // Request notification permission if not granted
-        if (Notification.permission !== "granted") {
-          const permission = await Notification.requestPermission();
-          if (permission !== "granted") return;
-        }
-
-        // Register for notifications
-        const subscription = await registerNotifications();
-        if (!subscription) return;
-
-        // Show notifications for new tagged events
-        for (const taggedEvent of dashboardData.taggedEventsList) {
-          // Skip if notification was already viewed
-          if (viewedNotifications.has(`tagged-${taggedEvent.id || taggedEvent.title}`)) continue;
-
-          // Format requirements text
-          const requirementsText = taggedEvent.departmentRequirements
-            ?.map(dept => {
-              const reqs = dept.requirements
-                .map(req => `${req.name}${req.note ? `: ${req.note}` : ''}`)
-                .join('\n');
-              return `${dept.departmentName}:\n${reqs}`;
-            })
-            .join('\n\n') || 'No requirements specified';
-
-          // Send push notification
-          const apiUrl = import.meta.env.PROD 
-            ? '/api/notify'  // Production (Vercel)
-            : 'http://localhost:3000/notify'; // Development
-          const response = await fetch(apiUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              subscription,
-              message: JSON.stringify({
-                title: "New Event Tag",
-                body: `${taggedEvent.title}\n\nFrom: ${taggedEvent.department}\n\nRequirements:\n${requirementsText}`,
-                icon: "/images/bataanlogo.png",
-                badge: "/images/bataanlogo.png",
-                timestamp: new Date().getTime(),
-                data: {
-                  type: 'event',
-                  event: taggedEvent,
-                  url: window.location.origin
-                }
-              }),
-            }),
-          });
-
-          if (!response.ok) {
-            console.error("Failed to send notification for event:", taggedEvent.title);
-          }
-        }
-      } catch (error) {
-        console.error("Error sending notifications:", error);
-      }
-    };
-
-    sendNotifications();
-  }, [dashboardData.taggedEventsList, viewedNotifications]);
 
   const stats = [
     {
@@ -309,11 +217,14 @@ const Dashboard = () => {
           variants={item}
           className="flex items-center gap-4"
         >
-          <Popover onOpenChange={(open) => {
-            if (open) {
-              markNotificationsAsRead();
-            }
-          }}>
+          <Popover 
+            open={isPopoverOpen}
+            onOpenChange={(open) => {
+              setIsPopoverOpen(open);
+              if (open) {
+                markNotificationsAsRead();
+              }
+            }}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -344,6 +255,18 @@ const Dashboard = () => {
                     "font-semibold",
                     isDarkMode ? "text-white" : "text-gray-900"
                   )}>Notifications</h4>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-8 w-8 p-0 rounded-full",
+                      isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                    )}
+                    onClick={() => setIsPopoverOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </Button>
                 </div>
                 <div className="px-4 pb-2">
                   <TabsList className="grid w-full grid-cols-3">
@@ -781,53 +704,127 @@ const Dashboard = () => {
       </motion.div>
       {/* Event Details Modal */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 gap-0 border-none bg-white">
-          <DialogHeader className="px-6 pt-4 pb-0">
-            <DialogTitle className="sr-only">Event Details</DialogTitle>
-          </DialogHeader>
+        <DialogContent className={cn(
+          "sm:max-w-[500px] p-0 gap-0 border shadow-lg",
+          isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200"
+        )}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "absolute right-4 top-4 h-8 w-8 p-0 rounded-full",
+              isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+            )}
+            onClick={() => setIsDialogOpen(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+
           {selectedEvent && (
-            console.log("Selected Event Data:", selectedEvent),
-            <Card className="border-none shadow-none bg-white">
-              <CardHeader className="px-6 pt-0 pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {selectedEvent.title}
-                  </h3>
-                  <Badge variant="secondary" className="shrink-0">
+            <>
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="space-y-1">
+                  <Badge variant="outline" className={cn(
+                    "font-medium",
+                    isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
+                  )}>
                     {selectedEvent.department}
                   </Badge>
+                  <h2 className={cn(
+                    "text-lg font-semibold tracking-tight",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    {selectedEvent.title}
+                  </h2>
                 </div>
-              </CardHeader>
+              </div>
 
-              <CardContent className="space-y-6 px-6">
+              <div className="p-4 space-y-4">
                 {/* Requirements and Notes */}
-                <div className="space-y-4">
-                  <div className="text-sm font-medium text-gray-900">Requirements & Notes</div>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "p-1.5 rounded",
+                    isDarkMode ? "bg-pink-500/10" : "bg-pink-50"
+                  )}>
+                    <FileText className="h-4 w-4 text-pink-500" />
+                  </div>
+                  <h3 className={cn(
+                    "font-semibold",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>Requirements</h3>
+                </div>
+                <div className={cn(
+                  "rounded-lg p-4",
+                  isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
+                )}>
                   <div className="space-y-2">
-                    {Array.isArray(selectedEvent.requirements) && selectedEvent.requirements.map((req, index) => (
-                      <div 
-                        key={index}
-                        className="py-3 px-4 rounded-lg bg-gray-50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-gray-700">
-                            {req.name}
+                      {/* Handle simple requirements array */}
+                      {Array.isArray(selectedEvent.requirements) && selectedEvent.requirements.length > 0 && (
+                        selectedEvent.requirements.map((req, index) => (
+                          <div 
+                            key={index}
+                            className={cn(
+                              "flex items-center gap-2 py-2",
+                              index !== 0 && "border-t",
+                              isDarkMode ? "border-gray-700" : "border-gray-200"
+                            )}
+                          >
+                            <div className={cn(
+                              "p-1.5 rounded-md shrink-0",
+                              isDarkMode ? "bg-slate-800" : "bg-white"
+                            )}>
+                              <FileText className="h-3.5 w-3.5 text-blue-500" />
+                            </div>
+                            <div className={cn(
+                              "text-sm",
+                              isDarkMode ? "text-gray-300" : "text-gray-700"
+                            )}>
+                              {req}
+                            </div>
                           </div>
-                          {req.note && (
-                            <Badge variant="outline" className="ml-2">
-                              Notes
-                            </Badge>
-                          )}
-                        </div>
-                        {req.note && (
-                          <div className="mt-2 text-sm text-gray-600 pl-3 border-l-2 border-gray-200">
-                            {req.note}
-                          </div>
-                        )}
+                        ))
+                      )}
+                    
+                    {/* Handle departmentRequirements structure */}
+                    {selectedEvent.departmentRequirements?.map((dept, deptIndex) => (
+                      <div key={deptIndex} className="space-y-2">
+                        <div className="text-sm font-medium text-gray-700">{dept.departmentName}</div>
+                        {dept.requirements.map((req, reqIndex) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div 
+                              key={`${deptIndex}-${reqIndex}`}
+                              className="py-3 px-4 rounded-lg bg-gray-50"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-700">
+                                  {requirement.name}
+                                </div>
+                                {requirement.note && (
+                                  <Badge variant="outline" className="ml-2">
+                                    Notes
+                                  </Badge>
+                                )}
+                              </div>
+                              {requirement.note && (
+                                <div className="mt-2 text-sm text-gray-600 pl-3 border-l-2 border-gray-200">
+                                  {requirement.note}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ))}
-                    {(!Array.isArray(selectedEvent.requirements) || selectedEvent.requirements.length === 0) && (
-                      <div className="text-sm text-center py-3 text-gray-500">
+                    
+                    {/* Show message if no requirements found in either format */}
+                    {(!selectedEvent.requirements || selectedEvent.requirements.length === 0) && 
+                     (!selectedEvent.departmentRequirements || selectedEvent.departmentRequirements.length === 0) && (
+                      <div className={cn(
+                        "text-sm text-center py-3",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}>
                         No requirements specified
                       </div>
                     )}
@@ -843,8 +840,8 @@ const Dashboard = () => {
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

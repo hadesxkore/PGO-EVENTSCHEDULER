@@ -29,6 +29,7 @@ export async function addDepartment(departmentData) {
     const departmentsRef = collection(db, "departments");
     const docRef = await addDoc(departmentsRef, {
       ...departmentData,
+      defaultRequirements: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -39,6 +40,26 @@ export async function addDepartment(departmentData) {
     };
   } catch (error) {
     console.error("Error adding department:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+export async function updateDepartmentRequirements(departmentId, requirements) {
+  try {
+    const departmentRef = doc(db, "departments", departmentId);
+    await updateDoc(departmentRef, {
+      defaultRequirements: requirements,
+      updatedAt: serverTimestamp()
+    });
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error("Error updating department requirements:", error);
     return {
       success: false,
       error: error.message

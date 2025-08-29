@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import RequestEvent from "./pages/RequestEvent";
 import MyEvents from "./pages/MyEvents";
 import AllEvents from "./pages/AllEvents";
+import Messages from "./pages/Messages";
 import AdminDashboard from "./pages/admin/Dashboard";
 import EventRequests from "./pages/admin/EventRequests";
 import Users from "./pages/admin/Users";
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/request-event" element={<RequestEvent />} />
                 <Route path="/my-events" element={<MyEvents />} />
                 <Route path="/all-events" element={<AllEvents />} />
+                <Route path="/messages" element={<Messages />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

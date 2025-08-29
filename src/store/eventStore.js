@@ -86,7 +86,9 @@ const useEventStore = create((set, get) => ({
             participants: event.participants,
             provisions: event.provisions,
             requirements: event.requirements,
+            departmentRequirements: event.departmentRequirements,
             attachments: event.attachments,
+            classifications: event.classifications,
             userId: event.userId,
             userEmail: event.userEmail,
           };

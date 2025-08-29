@@ -57,7 +57,7 @@ DialogOverlay.displayName = "DialogOverlay";
 const DialogContent = React.forwardRef(({
   className,
   children,
-  showCloseButton = true,
+  showCloseButton = false,
   ...props
 }, ref) => {
   return (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import "./styles.css";
 import { downloadFile } from "@/lib/utils/downloadFile";
 import { getCloudinaryFileUrl } from "@/lib/cloudinary";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -21,6 +22,7 @@ import {
   User,
   Trash2,
   Download,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -446,11 +448,11 @@ const MyEvents = () => {
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className={cn(
-          "sm:max-w-[700px] p-0 border-none overflow-hidden",
+          "sm:max-w-[700px] p-0 border-none",
           isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
           {selectedEvent && (
-            <div>
+            <ScrollArea className="h-[80vh]">
               {/* Content Section */}
               <div className="p-4">
                 {/* Title and Department Section */}
@@ -472,7 +474,7 @@ const MyEvents = () => {
                 </div>
 
                 {/* Event Details Grid */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   {/* Requestor Card */}
                   <div className={cn(
                     "rounded-md p-3 border",
@@ -494,13 +496,13 @@ const MyEvents = () => {
                     </div>
                     <div className="flex flex-col">
                       <p className={cn(
-                        "text-sm font-medium mb-1",
+                        "text-lg font-medium mb-1",
                         isDarkMode ? "text-gray-200" : "text-gray-700"
                       )}>
                         {selectedEvent.requestor}
                       </p>
                       <p className={cn(
-                        "text-xs",
+                        "text-sm",
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       )}>
                         {selectedEvent.department}
@@ -563,13 +565,13 @@ const MyEvents = () => {
                     <div className="space-y-2">
                       <div>
                         <p className={cn(
-                          "text-sm font-medium",
+                          "text-lg font-medium",
                           isDarkMode ? "text-gray-200" : "text-gray-700"
                         )}>
                           {format(new Date(selectedEvent.date.seconds * 1000), "MMMM d, yyyy")}
                         </p>
                         <p className={cn(
-                          "text-xs",
+                          "text-sm",
                           isDarkMode ? "text-gray-400" : "text-gray-500"
                         )}>
                           {format(new Date(selectedEvent.date.seconds * 1000), "h:mm a")}
@@ -615,6 +617,39 @@ const MyEvents = () => {
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     )}>
                       Expected Attendance
+                    </p>
+                  </div>
+
+                  {/* VIP Card */}
+                  <div className={cn(
+                    "rounded-md p-3 border",
+                    isDarkMode 
+                      ? "bg-slate-800/50 border-slate-700" 
+                      : "bg-white border-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        "p-1.5 rounded",
+                        isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
+                      )}>
+                        <User className="h-4 w-4 text-purple-500" />
+                      </div>
+                      <h3 className={cn(
+                        "font-semibold",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>VIP</h3>
+                    </div>
+                    <p className={cn(
+                      "text-lg font-medium mb-1",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      {selectedEvent.vip || 0} VIPs
+                    </p>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      VIP Attendees
                     </p>
                   </div>
                 </div>
@@ -729,9 +764,9 @@ const MyEvents = () => {
                   </div>
                 </div>
 
-                {/* Attachments Card */}
+                {/* Classifications Card */}
                 <div className={cn(
-                  "rounded-xl p-5 border",
+                  "rounded-xl p-5 border mb-4",
                   isDarkMode 
                     ? "bg-slate-800/50 border-slate-700" 
                     : "bg-white border-gray-100"
@@ -739,6 +774,38 @@ const MyEvents = () => {
                   <div className="flex items-center gap-3 mb-4">
                     <div className={cn(
                       "p-2.5 rounded-lg",
+                      isDarkMode ? "bg-indigo-500/10" : "bg-indigo-50"
+                    )}>
+                      <FileText className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    <h3 className={cn(
+                      "font-semibold",
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    )}>Classifications</h3>
+                  </div>
+                  <div className={cn(
+                    "rounded-lg p-4",
+                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
+                  )}>
+                    <p className={cn(
+                      "text-base leading-relaxed whitespace-pre-wrap",
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>
+                      {selectedEvent.classifications || "No classifications provided"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Attachments Card */}
+                <div className={cn(
+                  "rounded-xl p-4 border",
+                  isDarkMode 
+                    ? "bg-slate-800/50 border-slate-700" 
+                    : "bg-white border-gray-100"
+                )}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
                       isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
                     )}>
                       <FileText className="h-5 w-5 text-teal-500" />
@@ -748,85 +815,92 @@ const MyEvents = () => {
                       isDarkMode ? "text-white" : "text-gray-900"
                     )}>Attachments</h3>
                   </div>
-                  {selectedEvent.attachments && selectedEvent.attachments.length > 0 ? (
-                    <div className="space-y-3">
-                      {selectedEvent.attachments.map((file, index) => (
-                        <div
-                          key={index}
-                          className={cn(
-                            "flex items-center justify-between rounded-lg p-3",
-                            isDarkMode 
-                              ? "bg-slate-900/50 hover:bg-slate-900/80" 
-                              : "bg-gray-50 hover:bg-gray-100"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "p-2 rounded-lg",
-                              isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
-                            )}>
-                              <FileText className="h-4 w-4 text-teal-500" />
+                  <div className={cn(
+                    "rounded-lg mt-2",
+                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
+                  )}>
+                    {selectedEvent.attachments && selectedEvent.attachments.length > 0 ? (
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {selectedEvent.attachments.map((file, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "flex items-center justify-between py-2 px-3",
+                              "first:rounded-t-lg last:rounded-b-lg",
+                              isDarkMode 
+                                ? "hover:bg-slate-900/80" 
+                                : "hover:bg-gray-100"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={cn(
+                                "p-1.5 rounded-md shrink-0",
+                                isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
+                              )}>
+                                <FileText className="h-3.5 w-3.5 text-teal-500" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className={cn(
+                                  "text-sm font-medium truncate",
+                                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                                )}>{file.name}</p>
+                                <p className={cn(
+                                  "text-xs",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>{(file.size / 1024).toFixed(1)} KB</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className={cn(
-                                "text-sm font-medium",
-                                isDarkMode ? "text-gray-200" : "text-gray-900"
-                              )}>{file.name}</p>
-                              <p className={cn(
-                                "text-xs",
-                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                              )}>{(file.size / 1024).toFixed(1)} KB</p>
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className={cn(
+                                  "h-7 w-7 p-0",
+                                  isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-200"
+                                )}
+                                onClick={() => {
+                                  const viewUrl = getCloudinaryFileUrl(file.url);
+                                  window.open(viewUrl, '_blank');
+                                }}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className={cn(
+                                  "h-7 w-7 p-0",
+                                  isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-200"
+                                )}
+                                onClick={async () => {
+                                  try {
+                                    await downloadFile(file.url, file.name);
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    toast.error('Failed to download file');
+                                  }
+                                }}
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              className="gap-2 bg-black hover:bg-gray-800 text-white"
-                              onClick={() => {
-                                const viewUrl = getCloudinaryFileUrl(file.url);
-                                window.open(viewUrl, '_blank');
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="gap-2 bg-black hover:bg-gray-800 text-white"
-                              onClick={async () => {
-                                try {
-                                  await downloadFile(file.url, file.name);
-                                } catch (error) {
-                                  console.error('Download error:', error);
-                                  toast.error('Failed to download file');
-                                }
-                              }}
-                            >
-                              <Download className="h-4 w-4" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      "rounded-lg p-4 text-center",
-                      isDarkMode 
-                        ? "bg-slate-900/50" 
-                        : "bg-gray-50"
-                    )}>
-                      <p className={cn(
-                        "text-xs",
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      )}>
-                        No attachments uploaded for this event
-                      </p>
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-3 px-4 text-center">
+                        <p className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          No attachments uploaded for this event
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
@@ -837,12 +911,25 @@ const MyEvents = () => {
           "sm:max-w-[800px] border-none shadow-lg p-6",
           isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "absolute right-4 top-4 h-8 w-8 p-0 rounded-full",
+              isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+            )}
+            onClick={() => setIsRequirementsDialogOpen(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+
           {selectedEvent && (
             <div className="space-y-6">
               {/* Header */}
               <div>
                 <DialogTitle className={cn(
-                  "text-xl font-bold tracking-tight",
+                  "text-xl font-bold tracking-tight pr-8",
                   isDarkMode ? "text-white" : "text-gray-900"
                 )}>
                   Event Requirements
@@ -863,41 +950,50 @@ const MyEvents = () => {
                       )}>
                         {dept.departmentName}
                       </h3>
-                      {dept.requirements.map((req, reqIndex) => {
-                        const requirement = typeof req === 'string' ? { name: req } : req;
-                        return (
-                          <div
-                            key={`${deptIndex}-${reqIndex}`}
-                            className={cn(
-                              "rounded-lg p-4",
-                              isDarkMode ? "bg-black" : "bg-gray-50"
-                            )}
-                          >
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className={cn(
-                                "p-2 rounded-lg",
-                                isDarkMode ? "bg-slate-800" : "bg-white"
-                              )}>
-                                <FileText className="h-5 w-5 text-blue-500" />
+                      <div className={cn(
+                        "grid gap-3",
+                        {
+                          'grid-cols-1': dept.requirements.length <= 4,
+                          'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
+                          'grid-cols-3': dept.requirements.length > 8
+                        }
+                      )}>
+                        {dept.requirements.map((req, reqIndex) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div
+                              key={`${deptIndex}-${reqIndex}`}
+                              className={cn(
+                                "rounded-lg p-3",
+                                isDarkMode ? "bg-black" : "bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={cn(
+                                  "p-1.5 rounded-lg shrink-0",
+                                  isDarkMode ? "bg-slate-800" : "bg-white"
+                                )}>
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                </div>
+                                <h3 className={cn(
+                                  "font-semibold text-sm",
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                )}>
+                                  {requirement.name}
+                                </h3>
                               </div>
-                              <h3 className={cn(
-                                "font-semibold",
-                                isDarkMode ? "text-white" : "text-gray-900"
-                              )}>
-                                {requirement.name}
-                              </h3>
+                              {requirement.note && (
+                                <div className={cn(
+                                  "mt-2 pl-8 text-xs",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  {requirement.note}
+                                </div>
+                              )}
                             </div>
-                            {requirement.note && (
-                              <div className={cn(
-                                "mt-2 pl-11 text-sm",
-                                isDarkMode ? "text-gray-400" : "text-gray-600"
-                              )}>
-                                {requirement.note}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   ))
                 ) : (

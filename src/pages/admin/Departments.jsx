@@ -11,6 +11,8 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  ListChecks,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -78,6 +80,9 @@ const Departments = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+  const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
+  const [newRequirement, setNewRequirement] = useState("");
+  const [departmentRequirements, setDepartmentRequirements] = useState([]);
 
   useEffect(() => {
     fetchDepartments();
@@ -375,6 +380,20 @@ const Departments = () => {
                       <Button
                         size="sm"
                         className={cn(
+                          "h-8 px-2 text-xs gap-1 bg-blue-500 hover:bg-blue-600 text-white"
+                        )}
+                        onClick={() => {
+                          setSelectedDepartment(department);
+                          setDepartmentRequirements(department.defaultRequirements || []);
+                          setIsRequirementsDialogOpen(true);
+                        }}
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                        Requirements
+                      </Button>
+                      <Button
+                        size="sm"
+                        className={cn(
                           "h-8 px-2 text-xs gap-1 bg-black hover:bg-gray-800 text-white"
                         )}
                         onClick={() => {
@@ -569,6 +588,138 @@ const Departments = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Requirements Dialog */}
+      <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[600px] border-none shadow-lg",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <ListChecks className="h-5 w-5" />
+              Default Requirements for {selectedDepartment?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Add default requirements that users can quickly select when requesting events.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-4">
+            {/* Add New Requirement */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add new requirement..."
+                value={newRequirement}
+                onChange={(e) => setNewRequirement(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newRequirement.trim()) {
+                    setDepartmentRequirements([...departmentRequirements, newRequirement.trim()]);
+                    setNewRequirement('');
+                  }
+                }}
+                className={cn(
+                  isDarkMode ? "bg-slate-800 border-0" : "bg-gray-100 border-0"
+                )}
+              />
+              <Button
+                className="px-4 bg-black hover:bg-gray-800 text-white"
+                onClick={() => {
+                  if (newRequirement.trim()) {
+                    setDepartmentRequirements([...departmentRequirements, newRequirement.trim()]);
+                    setNewRequirement('');
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </div>
+
+            {/* Requirements List */}
+            <div className={cn(
+              "rounded-lg border divide-y",
+              isDarkMode ? "border-slate-700 divide-slate-700" : "border-gray-200 divide-gray-200"
+            )}>
+              {departmentRequirements.length > 0 ? (
+                departmentRequirements.map((req, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex items-center justify-between p-3",
+                      isDarkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-50"
+                    )}
+                  >
+                    <span className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>{req}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0",
+                        isDarkMode 
+                          ? "hover:bg-red-500/10 text-red-400 hover:text-red-300" 
+                          : "hover:bg-red-50 text-red-600 hover:text-red-700"
+                      )}
+                      onClick={() => {
+                        setDepartmentRequirements(departmentRequirements.filter((_, i) => i !== index));
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className={cn(
+                  "p-8 text-center",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )}>
+                  <p className="text-sm">No default requirements added yet.</p>
+                  <p className="text-xs mt-1">Add requirements above to help users quickly select common requirements.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsRequirementsDialogOpen(false)}
+                className={cn(
+                  "border-0",
+                  isDarkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-100 hover:bg-gray-200"
+                )}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-black hover:bg-gray-800 text-white"
+                onClick={async () => {
+                  if (selectedDepartment) {
+                    setIsSubmitting(true);
+                    const result = await updateDepartment(selectedDepartment.id, {
+                      ...selectedDepartment,
+                      defaultRequirements: departmentRequirements
+                    });
+                    if (result.success) {
+                      toast.success("Requirements updated successfully");
+                      fetchDepartments(); // Refresh the departments list
+                      setIsRequirementsDialogOpen(false);
+                    } else {
+                      toast.error("Failed to update requirements");
+                    }
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save Requirements"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

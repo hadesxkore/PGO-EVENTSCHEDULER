@@ -19,6 +19,7 @@ import {
   User,
   Menu,
   X,
+  MessageSquare,
 } from "lucide-react";
 
 const MainLayout = ({ children, userData }) => {
@@ -61,6 +62,11 @@ const MainLayout = ({ children, userData }) => {
       title: "All Events",
       icon: <CalendarDays className="h-6 w-6" />,
       href: "/all-events",
+    },
+    {
+      title: "Messages",
+      icon: <MessageSquare className="h-6 w-6" />,
+      href: "/messages",
     },
   ];
 

@@ -233,7 +233,7 @@ const AllEvents = ({ userData }) => {
   // Custom calendar components
   const components = {
     event: (props) => {
-      const eventTime = format(props.event.start, "h:mm a");
+      const startTime = format(props.event.start, "h:mm a");
       const eventsOnSameDay = filteredEvents.filter(event => 
         format(event.start, 'yyyy-MM-dd') === format(props.event.start, 'yyyy-MM-dd')
       );
@@ -264,7 +264,7 @@ const AllEvents = ({ userData }) => {
             statusColors[props.event.status] || "bg-sky-50 text-sky-700 dark:bg-sky-400/10 dark:text-sky-400",
             !isFromUserDepartment && "cursor-not-allowed opacity-70"
           )}
-          title={`${props.title} - ${eventTime}${!isFromUserDepartment ? ' (View restricted - ' + props.event.department + ' department only)' : ''}`}
+          title={`${props.title} - ${startTime}${!isFromUserDepartment ? ' (View restricted - ' + props.event.department + ' department only)' : ''}`}
         >
           <div className="flex items-center gap-2">
             <Avatar className="h-6 w-6">
@@ -283,7 +283,7 @@ const AllEvents = ({ userData }) => {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             )}>
               <CalendarIcon className="h-3 w-3" />
-              {eventTime}
+              {startTime}
             </div>
             {isMultipleEvents && (
               <Button
@@ -628,7 +628,7 @@ const AllEvents = ({ userData }) => {
                 </div>
 
                 {/* Event Details Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-3 gap-4 mb-4">
                   {/* Requestor */}
                   <div className={cn(
                     "p-4 rounded-xl",
@@ -673,9 +673,18 @@ const AllEvents = ({ userData }) => {
                       "text-sm",
                       isDarkMode ? "text-gray-400" : "text-gray-600"
                     )}>
-                      {format(selectedEvent.start, "MMMM d, yyyy")}
-                      <br />
-                      {format(selectedEvent.start, "h:mm a")}
+                      <div className="mb-2">
+                        <span className="font-medium">Start:</span><br />
+                        {format(selectedEvent.start, "MMMM d, yyyy")}
+                        <br />
+                        {format(selectedEvent.start, "h:mm a")}
+                      </div>
+                      <div>
+                        <span className="font-medium">End:</span><br />
+                        {format(selectedEvent.actualEndDate, "MMMM d, yyyy")}
+                        <br />
+                        {format(selectedEvent.actualEndDate, "h:mm a")}
+                      </div>
                     </p>
                   </div>
 
@@ -724,6 +733,54 @@ const AllEvents = ({ userData }) => {
                       isDarkMode ? "text-gray-400" : "text-gray-600"
                     )}>
                       {selectedEvent.participants} attendees
+                    </p>
+                  </div>
+
+                  {/* VIP */}
+                  <div className={cn(
+                    "p-4 rounded-xl",
+                    isDarkMode 
+                      ? "bg-slate-800/50 border border-slate-700" 
+                      : "bg-gray-50 border border-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="h-4 w-4 text-purple-500" />
+                      <span className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>
+                        VIP
+                      </span>
+                    </div>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    )}>
+                      {selectedEvent.vip || 0} VIPs
+                    </p>
+                  </div>
+
+                  {/* VVIP */}
+                  <div className={cn(
+                    "p-4 rounded-xl",
+                    isDarkMode 
+                      ? "bg-slate-800/50 border border-slate-700" 
+                      : "bg-gray-50 border border-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="h-4 w-4 text-red-500" />
+                      <span className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>
+                        VVIP
+                      </span>
+                    </div>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    )}>
+                      {selectedEvent.vvip || 0} VVIPs
                     </p>
                   </div>
                 </div>

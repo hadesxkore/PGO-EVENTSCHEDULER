@@ -27,14 +27,35 @@ export const getUserDashboardStats = async (uid) => {
     const upcomingEventsQuery = query(
       eventsRef,
       where("userId", "==", uid),
-      where("date", ">=", now),
-      orderBy("date", "asc")
+      orderBy("startDate", "asc")
     );
     const upcomingEventsSnapshot = await getDocs(upcomingEventsQuery);
-    const upcomingEvents = upcomingEventsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const upcomingEvents = upcomingEventsSnapshot.docs
+      .map(doc => {
+        const eventData = doc.data();
+        let eventDate;
+        
+        // Handle different date formats
+        if (eventData.startDate?.seconds) {
+          eventDate = new Date(eventData.startDate.seconds * 1000);
+        } else if (eventData.date?.seconds) {
+          eventDate = new Date(eventData.date.seconds * 1000);
+        } else {
+          console.warn('Invalid date format for event:', eventData);
+          return null;
+        }
+        
+        // Only include future events
+        if (eventDate >= now.toDate()) {
+          return {
+            id: doc.id,
+            ...eventData,
+            parsedDate: eventDate
+          };
+        }
+        return null;
+      })
+      .filter(event => event !== null);
 
     // Get events where user's department is tagged
     const allEventsQuery = query(eventsRef);
@@ -42,6 +63,18 @@ export const getUserDashboardStats = async (uid) => {
     const taggedEvents = allEventsSnapshot.docs
       .map(doc => {
         const eventData = doc.data();
+        let eventDate;
+        
+        // Handle different date formats
+        if (eventData.startDate?.seconds) {
+          eventDate = new Date(eventData.startDate.seconds * 1000);
+        } else if (eventData.date?.seconds) {
+          eventDate = new Date(eventData.date.seconds * 1000);
+        } else {
+          console.warn('Invalid date format for event:', eventData);
+          return null;
+        }
+        
         // Check if event has department requirements and user's department is tagged
         if (eventData.departmentRequirements) {
           const isTagged = eventData.departmentRequirements.some(
@@ -51,6 +84,7 @@ export const getUserDashboardStats = async (uid) => {
             return {
               id: doc.id,
               ...eventData,
+              parsedDate: eventDate,
               requirements: eventData.departmentRequirements.find(
                 dept => dept.departmentName === userDepartment
               )?.requirements || []
@@ -78,7 +112,7 @@ export const getUserDashboardStats = async (uid) => {
     // Get next upcoming event date for trend
     const nextEvent = upcomingEvents[0];
     const daysUntilNext = nextEvent 
-      ? Math.ceil((nextEvent.date.toDate() - now) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((nextEvent.parsedDate - now.toDate()) / (1000 * 60 * 60 * 24))
       : null;
 
     // Get this week's events count
@@ -87,15 +121,47 @@ export const getUserDashboardStats = async (uid) => {
     weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay());
     const weekStart = Timestamp.fromDate(weekStartDate);
     const thisWeekEvents = departmentEventsSnapshot.docs.filter(doc => {
-      const eventDate = doc.data().date.toDate();
-      return eventDate >= weekStart;
+      const eventData = doc.data();
+      let eventDate;
+      
+      // Handle different date formats
+      if (eventData.startDate?.seconds) {
+        eventDate = new Date(eventData.startDate.seconds * 1000);
+      } else if (eventData.date?.seconds) {
+        eventDate = new Date(eventData.date.seconds * 1000);
+      } else if (eventData.startDate instanceof Date) {
+        eventDate = new Date(eventData.startDate);
+      } else if (eventData.date instanceof Date) {
+        eventDate = new Date(eventData.date);
+      } else {
+        console.warn('Invalid date format for event:', eventData);
+        return false;
+      }
+      
+      return eventDate >= weekStartDate;
     }).length;
 
     // Calculate this week's hours
     const thisWeekHours = userEventsSnapshot.docs.reduce((total, doc) => {
-      const eventDate = doc.data().date.toDate();
-      if (eventDate >= weekStart) {
-        const duration = doc.data().duration || 0;
+      const eventData = doc.data();
+      let eventDate;
+      
+      // Handle different date formats
+      if (eventData.startDate?.seconds) {
+        eventDate = new Date(eventData.startDate.seconds * 1000);
+      } else if (eventData.date?.seconds) {
+        eventDate = new Date(eventData.date.seconds * 1000);
+      } else if (eventData.startDate instanceof Date) {
+        eventDate = new Date(eventData.startDate);
+      } else if (eventData.date instanceof Date) {
+        eventDate = new Date(eventData.date);
+      } else {
+        console.warn('Invalid date format for event:', eventData);
+        return total;
+      }
+      
+      if (eventDate >= weekStartDate) {
+        const duration = eventData.duration || 0;
         return total + (duration / 60);
       }
       return total;
@@ -114,13 +180,13 @@ export const getUserDashboardStats = async (uid) => {
         upcomingEventsList: upcomingEvents.slice(0, 5).map(event => ({
           id: event.id,
           title: event.title,
-          date: event.date.toDate(),
+          date: event.parsedDate,
           duration: event.duration
         })),
         taggedEventsList: taggedEvents.map(event => ({
           id: event.id,
           title: event.title,
-          date: event.date,
+          date: event.parsedDate,
           department: event.department,
           requirements: event.requirements
         }))

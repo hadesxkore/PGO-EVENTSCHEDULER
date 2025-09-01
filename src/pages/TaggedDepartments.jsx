@@ -218,7 +218,7 @@ const TaggedDepartments = () => {
           animate={{ opacity: 1 }}
           className="container mt-6"
         >
-          <Tabs defaultValue="created" className="w-full">
+          <Tabs defaultValue={location.state?.selectedTab || "created"} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="created">Created Events</TabsTrigger>
               <TabsTrigger value="tagged">Tagged Events</TabsTrigger>

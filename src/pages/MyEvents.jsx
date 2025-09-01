@@ -5,7 +5,8 @@ import "./styles.css";
 import { downloadFile } from "@/lib/utils/downloadFile";
 import { getCloudinaryFileUrl } from "@/lib/cloudinary";
 import { useTheme } from "@/contexts/ThemeContext";
-import { auth } from "@/lib/firebase/firebase";
+import { auth, db } from "@/lib/firebase/firebase";
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import useEventStore from "@/store/eventStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -20,13 +21,16 @@ import {
   Filter,
   Eye,
   User,
-  Trash2,
   Download,
   X,
+  Pencil,
+  RotateCw,
+  MessageCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -84,9 +88,17 @@ const MyEvents = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
-  const [eventToDelete, setEventToDelete] = useState(null);
+  const [eventToEdit, setEventToEdit] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    location: "",
+    participants: "",
+    vip: "",
+    vvip: "",
+    classifications: "",
+  });
   const itemsPerPage = 10;
 
   // Zustand store
@@ -120,23 +132,70 @@ const MyEvents = () => {
     setEventToDelete(null);
   };
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Function to fetch events
+  const fetchEvents = async (userId) => {
+    try {
+      const eventsRef = collection(db, 'eventRequests');
+      const q = query(eventsRef, where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      
+      const updatedEvents = [];
+      snapshot.forEach((doc) => {
+        updatedEvents.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Sort events by date, most recent first, handling undefined dates
+      const sortedEvents = updatedEvents.sort((a, b) => {
+        if (!a.date?.seconds && !b.date?.seconds) return 0;
+        if (!a.date?.seconds) return 1;
+        if (!b.date?.seconds) return -1;
+        return (b.date.seconds - a.date.seconds);
+      });
+
+      useEventStore.setState({ events: sortedEvents });
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      toast.error("Error fetching events");
+    }
+  };
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    if (!auth.currentUser) return;
+    setIsRefreshing(true);
+    await fetchEvents(auth.currentUser.uid);
+    setIsRefreshing(false);
+  };
+
   useEffect(() => {
+    let unsubscribeAuth;
+    let refreshInterval;
+
     // Check if user is authenticated
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
         toast.error("Please login to view your events");
         clearStore();
         navigate('/');
       } else {
-        fetchUserEvents(user.uid);
+        // Initial fetch
+        fetchEvents(user.uid);
+
+        // Set up refresh interval (every 5 minutes)
+        refreshInterval = setInterval(() => {
+          fetchEvents(user.uid);
+        }, 5 * 60 * 1000); // 5 minutes
       }
     });
 
     return () => {
-      unsubscribe();
+      if (unsubscribeAuth) unsubscribeAuth();
+      if (refreshInterval) clearInterval(refreshInterval);
       clearStore();
     };
-  }, [navigate, fetchUserEvents, clearStore]);
+  }, [navigate, clearStore]);
 
   // Show error toast if there's an error in the store
   useEffect(() => {
@@ -193,13 +252,29 @@ const MyEvents = () => {
               View and manage your event requests
             </p>
           </div>
-          <Button
-            onClick={() => navigate('/request-event')}
-            className="bg-black hover:bg-gray-800 text-white"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Request Event
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              size="icon"
+              disabled={isRefreshing}
+              className={cn(
+                "h-10 w-10",
+                isDarkMode 
+                  ? "border-slate-700 text-gray-300 hover:bg-slate-800" 
+                  : "border-gray-200 text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              <RotateCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            </Button>
+            <Button
+              onClick={() => navigate('/request-event')}
+              className="bg-black hover:bg-gray-800 text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Request Event
+            </Button>
+          </div>
         </div>
       </motion.div>
 
@@ -282,7 +357,8 @@ const MyEvents = () => {
                     )}>
                       <TableHead className="w-[180px] py-4 font-semibold">Event Title</TableHead>
                       <TableHead className="text-center font-semibold">Requestor</TableHead>
-                      <TableHead className="text-center font-semibold">Date & Time</TableHead>
+                      <TableHead className="text-center font-semibold">Start Date</TableHead>
+                      <TableHead className="text-center font-semibold">End Date</TableHead>
                       <TableHead className="text-center font-semibold">Location</TableHead>
                       <TableHead className="text-center font-semibold">Participants</TableHead>
                       <TableHead className="text-center font-semibold">Actions</TableHead>
@@ -329,11 +405,15 @@ const MyEvents = () => {
                             <p className={cn(
                               "text-sm font-medium",
                               isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{format(new Date(event.date.seconds * 1000), "MMM d, yyyy")}</p>
+                            )}>{event.startDate?.seconds ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="space-y-1">
                             <p className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>{format(new Date(event.date.seconds * 1000), "h:mm a")}</p>
+                              "text-sm font-medium",
+                              isDarkMode ? "text-gray-100" : "text-gray-900"
+                            )}>{event.endDate?.seconds ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
                           </div>
                         </TableCell>
 
@@ -356,10 +436,10 @@ const MyEvents = () => {
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Button
-                                                     onClick={() => {
-                         setSelectedEvent(event);
-                         setIsViewDialogOpen(true);
-                       }}
+                              onClick={() => {
+                                setSelectedEvent(event);
+                                setIsViewDialogOpen(true);
+                              }}
                               className="bg-black hover:bg-gray-800 text-white gap-2"
                               size="sm"
                             >
@@ -368,14 +448,39 @@ const MyEvents = () => {
                             </Button>
                             <Button
                               onClick={() => {
-                                setEventToDelete(event);
-                                setIsDeleteDialogOpen(true);
+                                setEventToEdit(event);
+                                setEditFormData({
+                                  title: event.title,
+                                  location: event.location,
+                                  participants: event.participants,
+                                  vip: event.vip || "",
+                                  vvip: event.vvip || "",
+                                  classifications: event.classifications || "",
+                                });
+                                setIsEditDialogOpen(true);
                               }}
                               size="sm"
-                              className="gap-2 bg-red-500 hover:bg-red-600 text-white"
+                              className="gap-2 bg-black hover:bg-gray-800 text-white"
                             >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
+                              <Pencil className="h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => navigate('/messages', {
+                                state: {
+                                  selectedUser: {
+                                    isDepartmentMessage: true,
+                                    department: event.departmentRequirements?.[0]?.departmentName || event.department,
+                                    eventTitle: event.title,
+                                    eventId: event.id
+                                  }
+                                }
+                              })}
+                              size="sm"
+                              className="gap-2 bg-black hover:bg-gray-800 text-white"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              Message
                             </Button>
                           </div>
                         </TableCell>
@@ -650,6 +755,39 @@ const MyEvents = () => {
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     )}>
                       VIP Attendees
+                    </p>
+                  </div>
+
+                  {/* VVIP Card */}
+                  <div className={cn(
+                    "rounded-md p-3 border",
+                    isDarkMode 
+                      ? "bg-slate-800/50 border-slate-700" 
+                      : "bg-white border-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        "p-1.5 rounded",
+                        isDarkMode ? "bg-red-500/10" : "bg-red-50"
+                      )}>
+                        <User className="h-4 w-4 text-red-500" />
+                      </div>
+                      <h3 className={cn(
+                        "font-semibold",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>VVIP</h3>
+                    </div>
+                    <p className={cn(
+                      "text-lg font-medium mb-1",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      {selectedEvent.vvip || 0} VVIPs
+                    </p>
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      VVIP Attendees
                     </p>
                   </div>
                 </div>
@@ -1015,37 +1153,212 @@ const MyEvents = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className={cn(
-          isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white"
+      {/* Edit Event Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[600px] p-6",
+          isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className={isDarkMode ? "text-white" : "text-gray-900"}>
-              Delete Event Request
-            </AlertDialogTitle>
-            <AlertDialogDescription className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-              Are you sure you want to delete this event request? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel 
-              className={cn(
-                "border-0",
-                isDarkMode ? "bg-slate-800 hover:bg-slate-700 text-gray-100" : ""
-              )}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-red-500 hover:bg-red-600 text-white border-0"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <DialogHeader>
+            <DialogTitle className={cn(
+              "text-2xl font-bold tracking-tight",
+              isDarkMode ? "text-white" : "text-gray-900"
+            )}>
+              Edit Event
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 mt-1">
+              Update event details and information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-6 space-y-6">
+            {/* Title */}
+            <div className="space-y-2">
+              <Label className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              )}>
+                Event Title
+              </Label>
+              <Input
+                name="title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                className={cn(
+                  "h-10",
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700" 
+                    : "bg-white border-gray-200"
+                )}
+              />
+            </div>
+
+            {/* Location */}
+            <div className="space-y-2">
+              <Label className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              )}>
+                Location
+              </Label>
+              <Input
+                name="location"
+                value={editFormData.location}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))}
+                className={cn(
+                  "h-10",
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700" 
+                    : "bg-white border-gray-200"
+                )}
+              />
+            </div>
+
+            {/* Participants, VIP, VVIP Grid */}
+            <div className="grid grid-cols-3 gap-4">
+              {/* Participants */}
+              <div className="space-y-2">
+                <Label className={cn(
+                  "text-sm font-medium",
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                )}>
+                  No. of Participants
+                </Label>
+                <Input
+                  name="participants"
+                  type="number"
+                  value={editFormData.participants}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, participants: e.target.value }))}
+                  className={cn(
+                    "h-10",
+                    isDarkMode 
+                      ? "bg-slate-800 border-slate-700" 
+                      : "bg-white border-gray-200"
+                  )}
+                />
+              </div>
+
+              {/* VIP */}
+              <div className="space-y-2">
+                <Label className={cn(
+                  "text-sm font-medium",
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                )}>
+                  No. of VIP
+                </Label>
+                <Input
+                  name="vip"
+                  type="number"
+                  value={editFormData.vip}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, vip: e.target.value }))}
+                  className={cn(
+                    "h-10",
+                    isDarkMode 
+                      ? "bg-slate-800 border-slate-700" 
+                      : "bg-white border-gray-200"
+                  )}
+                />
+              </div>
+
+              {/* VVIP */}
+              <div className="space-y-2">
+                <Label className={cn(
+                  "text-sm font-medium",
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                )}>
+                  No. of VVIP
+                </Label>
+                <Input
+                  name="vvip"
+                  type="number"
+                  value={editFormData.vvip}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, vvip: e.target.value }))}
+                  className={cn(
+                    "h-10",
+                    isDarkMode 
+                      ? "bg-slate-800 border-slate-700" 
+                      : "bg-white border-gray-200"
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              )}>
+                Description
+              </Label>
+              <textarea
+                name="classifications"
+                value={editFormData.classifications}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, classifications: e.target.value }))}
+                className={cn(
+                  "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                    : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                )}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                className={cn(
+                  isDarkMode 
+                    ? "border-slate-700 text-gray-300 hover:bg-slate-800" 
+                    : "border-gray-200 text-gray-700 hover:bg-gray-100"
+                )}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    // Optimistically update the UI
+                    const updatedEvent = {
+                      ...eventToEdit,
+                      ...editFormData,
+                      updatedAt: new Date()
+                    };
+                    
+                    useEventStore.setState(state => ({
+                      events: state.events.map(event => 
+                        event.id === eventToEdit.id ? updatedEvent : event
+                      )
+                    }));
+
+                    setIsEditDialogOpen(false);
+
+                    // Update in Firestore
+                    const docRef = doc(db, "eventRequests", eventToEdit.id);
+                    await updateDoc(docRef, {
+                      ...editFormData,
+                      updatedAt: serverTimestamp()
+                    });
+
+                    toast.success("Event updated successfully");
+                  } catch (error) {
+                    console.error("Error updating event:", error);
+                    toast.error("Failed to update event");
+                    
+                    // Revert optimistic update on error
+                    await fetchEvents(auth.currentUser.uid);
+                  }
+                }}
+                className="bg-black hover:bg-gray-800 text-white"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

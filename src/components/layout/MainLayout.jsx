@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Separator } from "../ui/separator";
+import { Badge } from "../ui/badge";
+import useMessageStore from "../../store/messageStore";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -20,6 +22,7 @@ import {
   Menu,
   X,
   MessageSquare,
+  Building2,
 } from "lucide-react";
 
 const MainLayout = ({ children, userData }) => {
@@ -28,6 +31,38 @@ const MainLayout = ({ children, userData }) => {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Get message store state and actions
+  const { 
+    unreadMessages,
+    currentUser,
+    setCurrentUser,
+    subscribeToLastMessages,
+    fetchTaggedDepartments
+  } = useMessageStore();
+
+  // Subscribe to messages when component mounts
+  useEffect(() => {
+    if (userData?.email) {
+      // Set current user in message store
+      setCurrentUser({
+        email: userData.email,
+        department: userData.department,
+        role: userData.role,
+        uid: userData.uid || userData.id
+      });
+
+      // Subscribe to last messages
+      const unsubscribe = subscribeToLastMessages(userData.email);
+      
+      // Fetch tagged departments
+      fetchTaggedDepartments(userData.email);
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [userData?.email, setCurrentUser, subscribeToLastMessages, fetchTaggedDepartments]);
 
   const handleLogout = () => {
     // Clear any stored user data/tokens
@@ -67,6 +102,11 @@ const MainLayout = ({ children, userData }) => {
       title: "Messages",
       icon: <MessageSquare className="h-6 w-6" />,
       href: "/messages",
+    },
+    {
+      title: "Tagged Departments",
+      icon: <Building2 className="h-6 w-6" />,
+      href: "/tagged-departments",
     },
   ];
 
@@ -202,12 +242,25 @@ const MainLayout = ({ children, userData }) => {
                 onClick={() => navigate(item.href)}
               >
                 <div className={cn(
-                  "flex items-center gap-3",
+                  "flex items-center gap-3 relative",
                   collapsed && "justify-center"
                 )}>
                   {item.icon}
                   {!collapsed && (
                     <span className="text-base font-semibold">{item.title}</span>
+                  )}
+                  {/* Show unread count for Messages button */}
+                  {item.title === "Messages" && Object.values(unreadMessages).some(Boolean) && (
+                    <Badge
+                      variant="default"
+                      className={cn(
+                        "absolute -top-2 -right-6 h-5 min-w-[20px] px-1",
+                        "bg-red-500 text-white border-2",
+                        isDarkMode ? "border-slate-800" : "border-white"
+                      )}
+                    >
+                      {Object.values(unreadMessages).filter(Boolean).length}
+                    </Badge>
                   )}
                 </div>
               </Button>

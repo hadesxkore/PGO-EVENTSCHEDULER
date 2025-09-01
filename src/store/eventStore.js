@@ -70,15 +70,55 @@ const useEventStore = create((set, get) => ({
       if (result.success) {
         // Transform events for calendar
         const transformedEvents = result.requests.map(event => {
-          const startDate = new Date(event.date.seconds * 1000);
-          const endDate = new Date(startDate);
-          endDate.setHours(startDate.getHours() + 1);
+          // Handle date conversion with validation
+          let startDate, endDate;
+          
+          try {
+            // Handle startDate
+            if (event.startDate?.seconds) {
+              startDate = new Date(event.startDate.seconds * 1000);
+            } else if (event.date?.seconds) { // Fallback to old format
+              startDate = new Date(event.date.seconds * 1000);
+            } else if (event.startDate instanceof Date) {
+              startDate = new Date(event.startDate);
+            } else if (typeof event.startDate === 'string') {
+              startDate = new Date(event.startDate);
+            } else {
+              console.warn('Invalid start date format for event:', event);
+              return null;
+            }
 
+            // Handle endDate
+            if (event.endDate?.seconds) {
+              endDate = new Date(event.endDate.seconds * 1000);
+            } else if (event.endDate instanceof Date) {
+              endDate = new Date(event.endDate);
+            } else if (typeof event.endDate === 'string') {
+              endDate = new Date(event.endDate);
+            } else {
+              // If no end date, default to 1 hour after start
+              endDate = new Date(startDate.getTime() + (60 * 60 * 1000));
+            }
+
+            // Validate dates
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              console.warn('Invalid date conversion for event:', event);
+              return null;
+            }
+          } catch (error) {
+            console.error('Error processing event dates:', error, event);
+            return null;
+          }
+
+          // For calendar display, set end time same as start time
+          // This makes events appear at their start time without duration
           return {
             id: event.id,
             title: event.title,
             start: startDate,
-            end: endDate,
+            end: startDate, // Use startDate instead of endDate for calendar display
+            // Store actual end date for modal display
+            actualEndDate: endDate,
             status: event.status,
             requestor: event.requestor,
             department: event.department,
@@ -91,6 +131,8 @@ const useEventStore = create((set, get) => ({
             classifications: event.classifications,
             userId: event.userId,
             userEmail: event.userEmail,
+            vip: event.vip,
+            vvip: event.vvip,
           };
         }).filter(event => event !== null);
 

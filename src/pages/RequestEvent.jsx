@@ -77,6 +77,7 @@ const RequestEvent = () => {
     location: "",
     participants: "",
     vip: "",
+    vvip: "",
     contactNumber: "",
     contactEmail: "",
     classifications: "",
@@ -93,12 +94,12 @@ const RequestEvent = () => {
   });
 
   // Date and time state
-  const [date, setDate] = useState(new Date());
-  const [time, setTime] = useState("10:30");
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [showYearPicker, setShowYearPicker] = useState(false);
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [startTime, setStartTime] = useState("10:30");
+  const [endTime, setEndTime] = useState("11:30");
+  const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
+  const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
 
   // Attachments state
   const [attachments, setAttachments] = useState([]);
@@ -154,8 +155,10 @@ const RequestEvent = () => {
 
     // Check Schedule completion
     const isScheduleComplete = 
-      date && 
-      time && 
+      startDate && 
+      endDate && 
+      startTime && 
+      endTime && 
       formData.contactNumber && 
       formData.contactEmail;
 
@@ -173,7 +176,7 @@ const RequestEvent = () => {
       schedule: isScheduleComplete,
       readyToSubmit: isReadyToSubmit
     });
-  }, [formData, selectedDepartments, date, time, attachments, departmentRequirements, skipAttachments]);
+  }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments]);
 
 
   // Fetch departments on component mount
@@ -335,11 +338,23 @@ const RequestEvent = () => {
 
       const userData = userDocSnap.data();
 
-      // Combine date and time
-      const [hours, minutes] = time.split(':');
-      const eventDate = new Date(date);
-      eventDate.setHours(parseInt(hours), parseInt(minutes));
-      const eventTimestamp = Timestamp.fromDate(eventDate);
+      // Combine start date and time
+      const [startHours, startMinutes] = startTime.split(':');
+      const startEventDate = new Date(startDate);
+      startEventDate.setHours(parseInt(startHours), parseInt(startMinutes));
+      const startTimestamp = Timestamp.fromDate(startEventDate);
+
+      // Combine end date and time
+      const [endHours, endMinutes] = endTime.split(':');
+      const endEventDate = new Date(endDate);
+      endEventDate.setHours(parseInt(endHours), parseInt(endMinutes));
+      const endTimestamp = Timestamp.fromDate(endEventDate);
+
+      // Validate that end date/time is after start date/time
+      if (endEventDate <= startEventDate) {
+        toast.error("End date/time must be after start date/time");
+        return;
+      }
 
       // Create event request data
       // Format department requirements with notes
@@ -357,7 +372,8 @@ const RequestEvent = () => {
 
       const eventDataWithUser = {
         ...formData,
-        date: eventTimestamp,
+        startDate: startTimestamp,
+        endDate: endTimestamp,
         departmentRequirements: formattedDepartmentRequirements,
         attachments: attachments.map(file => ({
           name: file.name,
@@ -728,7 +744,7 @@ const RequestEvent = () => {
               </div>
 
                               {/* Location and Number of Participants */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {/* Location */}
                 <div className="col-span-1 space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
@@ -753,10 +769,10 @@ const RequestEvent = () => {
                   </div>
                 </div>
 
-                {/* Number of Participants */}
+                {/* No. of Participants */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                    Number of Participants
+                    No. of Participants
                   </Label>
                   <div className="relative">
                     <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -801,20 +817,44 @@ const RequestEvent = () => {
                     />
                   </div>
                 </div>
+
+                {/* VVIP */}
+                <div className="space-y-2">
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    Number of VVIP
+                  </Label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      name="vvip"
+                      value={formData.vvip}
+                      onChange={handleInputChange}
+                      type="number"
+                      min="0"
+                      placeholder="Number of VVIPs"
+                      className={cn(
+                        "pl-12 rounded-lg h-12 text-base",
+                        isDarkMode 
+                          ? "bg-slate-900 border-slate-700" 
+                          : "bg-white border-gray-200"
+                      )}
+                    />
+                  </div>
+                </div>
               </div>
 
 
 
-              {/* Classifications */}
+              {/* Description */}
               <div className="space-y-2">
                 <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                  Classifications
+                  Description
                 </Label>
                 <textarea
                   name="classifications"
                   value={formData.classifications}
                   onChange={handleInputChange}
-                  placeholder="Enter event classifications..."
+                  placeholder="Enter event description..."
                   className={cn(
                     "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border-2",
                     isDarkMode 
@@ -1163,93 +1203,180 @@ const RequestEvent = () => {
 
             <div className="space-y-6">
               {/* Date and Time Selection */}
-              <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-6">
+                {/* Start Date and Time */}
                 <div>
                   <Label className={cn(
-                    "text-sm font-medium mb-1.5 block", 
+                    "text-sm font-medium mb-3 block", 
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
-                    Date
+                    Start Date & Time
                   </Label>
-                  <div className="relative">
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-start text-left font-normal text-sm",
-                        "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
-                        !date && "text-muted-foreground",
-                        isDarkMode 
-                          ? "bg-slate-900 border-slate-700 text-gray-100" 
-                          : "bg-white border-gray-200 text-gray-900"
-                      )}
-                      onClick={() => setIsCalendarOpen(true)}
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <CalendarIcon className="h-4 w-4 text-gray-400" />
-                      </div>
-                      {date ? format(date, "MMM dd, yyyy") : <span>Pick a date</span>}
-                    </Button>
-                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                      <PopoverTrigger asChild>
-                        <div className="absolute inset-0" />
-                      </PopoverTrigger>
-                                            <PopoverContent 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          role="combobox"
                           className={cn(
-                            "p-2 w-auto",
+                            "w-full justify-start text-left font-normal text-sm",
+                            "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
+                            !startDate && "text-muted-foreground",
                             isDarkMode 
-                              ? "bg-slate-900 border-slate-700" 
-                              : "bg-white border-gray-200"
+                              ? "bg-slate-900 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
                           )}
-                          align="start"
+                          onClick={() => setIsStartCalendarOpen(true)}
                         >
-                          <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={(newDate) => {
-                              setDate(newDate);
-                              setIsCalendarOpen(false);
-                            }}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                            showOutsideDays={false}
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                          {startDate ? format(startDate, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                        <Popover open={isStartCalendarOpen} onOpenChange={setIsStartCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="absolute inset-0" />
+                          </PopoverTrigger>
+                          <PopoverContent 
                             className={cn(
-                              "rounded-md shadow-none",
-                              isDarkMode && "dark"
+                              "p-2 w-auto",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700" 
+                                : "bg-white border-gray-200"
                             )}
-                          />
-                      </PopoverContent>
-                    </Popover>
+                            align="start"
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={startDate}
+                              onSelect={(newDate) => {
+                                setStartDate(newDate);
+                                setIsStartCalendarOpen(false);
+                              }}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                              showOutsideDays={false}
+                              className={cn(
+                                "rounded-md shadow-none",
+                                isDarkMode && "dark"
+                              )}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <select
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className={cn(
+                            "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
+                            isDarkMode 
+                              ? "bg-slate-900 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                        >
+                          {timeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
+                {/* End Date and Time */}
                 <div>
                   <Label className={cn(
-                    "text-sm font-medium mb-1.5 block", 
+                    "text-sm font-medium mb-3 block", 
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   )}>
-                    Time
+                    End Date & Time
                   </Label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                      <Clock className="h-4 w-4 text-gray-400" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-start text-left font-normal text-sm",
+                            "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
+                            !endDate && "text-muted-foreground",
+                            isDarkMode 
+                              ? "bg-slate-900 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                          onClick={() => setIsEndCalendarOpen(true)}
+                        >
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                          {endDate ? format(endDate, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                        <Popover open={isEndCalendarOpen} onOpenChange={setIsEndCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="absolute inset-0" />
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className={cn(
+                              "p-2 w-auto",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700" 
+                                : "bg-white border-gray-200"
+                            )}
+                            align="start"
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={endDate}
+                              onSelect={(newDate) => {
+                                setEndDate(newDate);
+                                setIsEndCalendarOpen(false);
+                              }}
+                              disabled={(date) => date < startDate}
+                              initialFocus
+                              showOutsideDays={false}
+                              className={cn(
+                                "rounded-md shadow-none",
+                                isDarkMode && "dark"
+                              )}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
-                    <select
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className={cn(
-                        "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
-                        isDarkMode 
-                          ? "bg-slate-900 border-slate-700 text-gray-100" 
-                          : "bg-white border-gray-200 text-gray-900"
-                      )}
-                    >
-                      {timeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+
+                    <div>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <select
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className={cn(
+                            "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
+                            isDarkMode 
+                              ? "bg-slate-900 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                        >
+                          {timeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

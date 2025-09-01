@@ -174,7 +174,7 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
       }
     });
 
-    // Build a map of events and tagging relationships
+            // Build a map of events and tagging relationships
     eventsSnapshot.docs.forEach(doc => {
       const event = doc.data();
       const eventId = doc.id;
@@ -182,17 +182,23 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
       if (event.departmentRequirements && event.departmentRequirements.length > 0) {
         // For each department requirement, record the tagging relationship
         event.departmentRequirements.forEach(dept => {
-          if (dept.departmentName && departments.includes(dept.departmentName)) {
-            // Store who tagged this department
-            const key = `${event.userEmail}_${dept.departmentName}`;
-            taggedByMap.set(key, {
+          if (dept.departmentName) {
+            // Store relationships for both the tagger and tagged department
+            const taggerKey = `${event.userEmail}_${dept.departmentName}`;
+            const taggedKey = `${dept.departmentName}_${event.userEmail}`;
+            
+            const relationshipData = {
               taggerEmail: event.userEmail,
               taggerDepartment: event.department,
               taggedDepartment: dept.departmentName,
               eventId: eventId,
               eventTitle: event.title || event.eventTitle,
               timestamp: event.timestamp
-            });
+            };
+            
+            // Store the relationship for both parties
+            taggedByMap.set(taggerKey, relationshipData);
+            taggedByMap.set(taggedKey, relationshipData);
           }
         });
       }

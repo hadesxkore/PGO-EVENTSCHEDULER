@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Search, Send, Users, Paperclip, Image } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, query, where, getDocs, addDoc, onSnapshot, orderBy, serverTimestamp, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
+import useMessageStore from "@/store/messageStore";
+import { useMessageSubscriptions } from "@/hooks/useMessageSubscriptions";
+import { useLocation } from "react-router-dom";
 
 const getInitials = (department) => {
   if (!department) return "U"; // Default to "U" for User if no department
@@ -20,148 +21,340 @@ const getInitials = (department) => {
 
 const Messages = () => {
   const { isDarkMode } = useTheme();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(location.state?.selectedUser || null);
+  const [message, setMessage] = useState("");
   
+  // Get store state and actions
+  const {
+    users,
+    messages,
+    lastMessages,
+    unreadMessages,
+    currentUser,
+    taggedDepartments,
+    usersWhoTaggedMe,
+    loading,
+    error,
+    setCurrentUser,
+    fetchTaggedDepartments,
+    fetchUsers,
+    sendMessage,
+    markAsRead
+  } = useMessageStore();
+
+  // Use custom hook for subscriptions
+  const { subscribeToChat, cleanup } = useMessageSubscriptions();
+  
+  // Track current chat subscription
+  const currentChatSubscription = useRef(null);
+
   // Handle user selection and clear unread messages
   const handleUserSelect = (user) => {
     setSelectedUser(user);
-    setUnreadMessages(prev => ({
-      ...prev,
-      [user.email]: false
-    }));
+    markAsRead(user.email);
   };
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(false);
 
-  // Get current user from localStorage
+  // Get current user from localStorage and Firestore
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("userData"));
-    if (userData) {
-      setCurrentUser(userData);
-    }
-  }, []);
-
-  // State for tracking last messages
-  const [lastMessages, setLastMessages] = useState({});
-  const [unreadMessages, setUnreadMessages] = useState({});
-
-  // Fetch all users and their last messages
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (!currentUser) return;
-
+    const fetchUserData = async () => {
       try {
-        setLoading(true);
-        const usersRef = collection(db, "users");
-        const usersSnapshot = await getDocs(usersRef);
-        const usersData = usersSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(user => 
-            user.email !== currentUser.email && // Exclude current user
-            user.role !== "Admin" // Exclude admin users
-          );
-        setUsers(usersData);
+        // Get basic user data from localStorage
+        const userDataStr = localStorage.getItem("userData");
+        if (!userDataStr) {
+          console.error("No user data in localStorage");
+          toast.error("Please log in to view messages");
+          return;
+        }
 
-        // Subscribe to last messages for all chats in a single listener
-        const messagesRef = collection(db, "messages");
-        const q = query(
-          messagesRef,
-          where("participants", "array-contains", currentUser.email),
-          orderBy("timestamp", "desc")
-        );
+        const parsed = JSON.parse(userDataStr);
+        if (!parsed?.email) {
+          console.error("Invalid user data format");
+          toast.error("Error loading user data");
+          return;
+        }
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const lastMessagesMap = {};
-          const unreadMap = {};
-          
-          snapshot.docs.forEach(doc => {
-            const message = doc.data();
-            const otherUser = message.participants.find(p => p !== currentUser.email);
-            
-            // Only update if this is a more recent message for this chat
-            if (!lastMessagesMap[otherUser] || 
-                message.timestamp?.toMillis() > lastMessagesMap[otherUser].timestamp?.toMillis()) {
-              lastMessagesMap[otherUser] = message;
-              
-              // Mark as unread if the message is to current user
-              if (message.to === currentUser.email) {
-                unreadMap[otherUser] = true;
-              }
-            }
-          });
+        // Use the user data directly from localStorage
+        const userData = {
+          ...parsed,
+          email: parsed.email,
+          department: parsed.department,
+          role: parsed.role,
+          uid: parsed.uid || parsed.id // Use existing uid/id if available
+        };
 
-          setLastMessages(lastMessagesMap);
-          setUnreadMessages(unreadMap);
-        });
-
-        // Clean up listener when component unmounts or user changes
-        return () => unsubscribe();
+        setCurrentUser(userData);
       } catch (error) {
-        console.error("Error fetching users:", error);
-        toast.error("Error fetching users");
-      } finally {
-        setLoading(false);
+        console.error("Error fetching user data:", error);
+        toast.error("Error loading user data");
       }
     };
 
-    fetchUsers();
-  }, [currentUser]);
+    fetchUserData();
+  }, [setCurrentUser]);
 
-  // Load messages
+  // Fetch tagged departments when current user changes
   useEffect(() => {
-    if (!currentUser || !selectedUser) return;
+    if (currentUser?.email) {
+      fetchTaggedDepartments(currentUser.email);
+    }
+  }, [currentUser?.email, fetchTaggedDepartments]);
 
-    // Create a unique chat ID that will be the same regardless of who started the chat
+  // Fetch users when tagged departments change or when usersWhoTaggedMe changes
+  useEffect(() => {
+    if (taggedDepartments.length > 0 || usersWhoTaggedMe.length > 0) {
+      fetchUsers();
+    }
+  }, [taggedDepartments, usersWhoTaggedMe, fetchUsers]);
+
+  // Create a ref map for user list items
+  const userRefs = useRef({});
+
+  // Handle department-based messaging from MyEvents
+  useEffect(() => {
+    if (location.state?.selectedUser && users.length > 0) {
+      console.log('Location state:', location.state.selectedUser);
+      console.log('Available users:', users);
+      
+      // Function to find and select user
+      const findAndSelectUser = () => {
+        // Find the target user
+        const targetUser = users.find(user => {
+          // If it's a department message, match by department
+          if (location.state.selectedUser.isDepartmentMessage) {
+            const match = user.department === location.state.selectedUser.department;
+            console.log(`Checking user "${user.department}" (type: ${typeof user.department}) against "${location.state.selectedUser.department}" (type: ${typeof location.state.selectedUser.department}): ${match}`);
+            console.log(`User department length: ${user.department?.length}, State department length: ${location.state.selectedUser.department?.length}`);
+            return match;
+          }
+          // Otherwise match by email or id
+          const match = user.email === location.state.selectedUser.email || user.id === location.state.selectedUser.id;
+          console.log(`Checking user ${user.email}/${user.id} against ${location.state.selectedUser.email}/${location.state.selectedUser.id}: ${match}`);
+          return match;
+        });
+        
+        console.log('Target user found:', targetUser);
+        
+        if (targetUser) {
+          // Get the ref for this user's list item
+          const userRef = userRefs.current[targetUser.id];
+          console.log('User ref found:', userRef);
+          
+          if (userRef) {
+            // Scroll the user into view
+            userRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Simulate click on the user item
+            userRef.click();
+            // Add a temporary highlight effect
+            userRef.style.transition = 'background-color 0.3s ease';
+            userRef.style.backgroundColor = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(59, 130, 246, 0.1)';
+            setTimeout(() => {
+              userRef.style.backgroundColor = '';
+            }, 1000);
+          } else {
+            console.log('User ref not found, setting selected user directly');
+            setSelectedUser(targetUser);
+            markAsRead(targetUser.email);
+          }
+        } else {
+          console.log('No target user found in users array');
+          // Try to find by partial department match
+          const partialMatch = users.find(user => 
+            user.department && 
+            location.state.selectedUser.department && 
+            (user.department.toLowerCase().includes(location.state.selectedUser.department.toLowerCase()) ||
+             location.state.selectedUser.department.toLowerCase().includes(user.department.toLowerCase()))
+          );
+          
+          if (partialMatch) {
+            console.log('Found partial match:', partialMatch);
+            setSelectedUser(partialMatch);
+            markAsRead(partialMatch.email);
+          }
+        }
+      };
+      
+      // Try immediately
+      findAndSelectUser();
+      
+      // Also try after a delay to ensure DOM is ready
+      const timer = setTimeout(findAndSelectUser, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location.state?.selectedUser, users, isDarkMode, markAsRead]);
+
+  // Subscribe to chat messages when user selects a chat
+  useEffect(() => {
+    if (!currentUser || !selectedUser) {
+      // Clean up previous subscription if no user is selected
+      if (currentChatSubscription.current) {
+        currentChatSubscription.current();
+        currentChatSubscription.current = null;
+      }
+      return;
+    }
+
     const chatId = [currentUser.email, selectedUser.email].sort().join("_");
-    const messagesRef = collection(db, "messages"); // Single collection for all messages
-    const q = query(
-      messagesRef,
-      where("chatId", "==", chatId),
-      orderBy("timestamp", "asc")
-    );
+    
+    // Clean up previous subscription
+    if (currentChatSubscription.current) {
+      currentChatSubscription.current();
+    }
+    
+    // Subscribe to new chat
+    currentChatSubscription.current = subscribeToChat(chatId);
+    
+    return () => {
+      if (currentChatSubscription.current) {
+        currentChatSubscription.current();
+        currentChatSubscription.current = null;
+      }
+    };
+  }, [currentUser, selectedUser, subscribeToChat]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messagesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMessages(messagesData);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser, selectedUser]);
+  // Cleanup subscriptions on unmount
+  useEffect(() => {
+    return () => {
+      if (currentChatSubscription.current) {
+        currentChatSubscription.current();
+        currentChatSubscription.current = null;
+      }
+      cleanup();
+    };
+  }, [cleanup]);
 
   // Send message
-  const sendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!message.trim() || !currentUser || !selectedUser) return;
 
     try {
-      // Use the same messages collection for all chats
-      const messagesRef = collection(db, "messages");
       const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+      const messageContent = message.trim();
       
-      await addDoc(messagesRef, {
-        chatId, // This field helps us filter conversations between specific users
+      // Clear input immediately for better UX
+      setMessage("");
+      
+      const messageData = {
+        chatId,
         from: currentUser.email,
         to: selectedUser.email,
-        content: message.trim(),
-        timestamp: serverTimestamp(),
-        // Add additional metadata that might be useful for queries
+        content: messageContent,
         participants: [currentUser.email, selectedUser.email].sort(),
         fromDepartment: currentUser.department,
         toDepartment: selectedUser.department,
-      });
+      };
       
-      setMessage("");
+      // Dispatch event for immediate scroll
+      window.dispatchEvent(new Event('message-sent'));
+      
+      const result = await sendMessage(messageData);
+      if (!result.success) {
+        // Only show error if sending failed
+        toast.error("Error sending message");
+        // Restore the message in the input if sending failed
+        setMessage(messageContent);
+      } else {
+        // Force scroll after successful send
+        setTimeout(() => {
+          window.dispatchEvent(new Event('message-sent'));
+        }, 100);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Error sending message");
     }
   };
+
+  // Get current chat messages
+  const getCurrentChatMessages = () => {
+    if (!currentUser || !selectedUser) return [];
+    const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    const chatMessages = messages[chatId] || [];
+    
+    // Ensure unique messages by ID and sort by timestamp
+    const uniqueMessages = chatMessages.reduce((acc, message) => {
+      if (!acc.some(existing => existing.id === message.id)) {
+        acc.push(message);
+      }
+      return acc;
+    }, []);
+    
+    // Sort by timestamp (oldest first, newest last)
+    return uniqueMessages.sort((a, b) => {
+      // For pending messages, always put them at the end
+      if (a.isPending && !b.isPending) return 1;
+      if (!a.isPending && b.isPending) return -1;
+      if (a.isPending && b.isPending) {
+        // If both are pending, use their creation timestamps
+        return (a.serverTimestamp || 0) - (b.serverTimestamp || 0);
+      }
+      
+      // For non-pending messages, use normal timestamp comparison
+      const timeA = a.timestamp?.toMillis?.() || a.timestamp?.getTime?.() || a.timestamp || 0;
+      const timeB = b.timestamp?.toMillis?.() || b.timestamp?.getTime?.() || b.timestamp || 0;
+      return timeA - timeB;
+    });
+  };
+
+  // Auto-scroll handling
+  const messagesEndRef = useRef(null);
+  const scrollAreaRef = useRef(null);
+  
+  // Function to force scroll to the very bottom
+  const forceScrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      // Use a small delay to ensure DOM is updated
+      setTimeout(() => {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      }, 0);
+    }
+  };
+
+  // Scroll on new messages
+  useEffect(() => {
+    if (messages) {
+      forceScrollToBottom();
+    }
+  }, [messages]);
+
+  // Scroll when selecting a new user
+  useEffect(() => {
+    if (selectedUser) {
+      forceScrollToBottom();
+    }
+  }, [selectedUser]);
+
+  // Set up automatic scroll on content changes
+  useEffect(() => {
+    if (!scrollAreaRef.current) return;
+
+    // Create mutation observer to watch for content changes
+    const observer = new MutationObserver(() => {
+      forceScrollToBottom();
+    });
+
+    // Observe both attribute and content changes
+    observer.observe(scrollAreaRef.current, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Handle scroll to bottom after sending message
+  useEffect(() => {
+    const handleSendScroll = () => {
+      forceScrollToBottom();
+    };
+
+    // Add event listener for message send
+    window.addEventListener('message-sent', handleSendScroll);
+    return () => window.removeEventListener('message-sent', handleSendScroll);
+  }, []);
 
   // Sort and filter users based on last message and search
   const sortedAndFilteredUsers = users
@@ -181,14 +374,22 @@ const Messages = () => {
       return lastMessageB.timestamp?.toMillis() - lastMessageA.timestamp?.toMillis();
     });
 
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   return (
-    <div className={cn(
-      "flex h-screen w-full",
-      isDarkMode ? "bg-slate-900" : "bg-white"
-    )}>
+    <div className="p-2">
+      <div className={cn(
+        "flex h-[calc(100vh-1rem)] w-full max-w-none overflow-hidden rounded-lg shadow-lg border",
+        isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200"
+      )}>
         {/* Left Panel - Users List */}
         <div className={cn(
-          "w-[320px] flex flex-col border-r",
+          "w-[350px] flex flex-col border-r h-full",
           isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
         )}>
           {/* Header */}
@@ -220,19 +421,23 @@ const Messages = () => {
             </div>
           </div>
 
-          {/* Users List */}
-          <ScrollArea className="flex-1">
-            <div className="p-2">
-              {loading ? (
+                     {/* Users List */}
+           <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+             <div className="p-2">
+              {loading.users ? (
                 <div className={cn(
                   "text-center py-4",
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 )}>Loading users...</div>
               ) : sortedAndFilteredUsers.length > 0 ? (
                 <div className="space-y-1">
-                  {sortedAndFilteredUsers.map((user) => (
+                  {sortedAndFilteredUsers.map((user) => {
+                    // Debug: Log user data to see what's available
+                    console.log('User data:', user);
+                    return (
                     <motion.div
                       key={user.id}
+                      ref={el => userRefs.current[user.id] = el}
                       onClick={() => handleUserSelect(user)}
                       className={cn(
                         "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all relative",
@@ -273,31 +478,69 @@ const Messages = () => {
                             </Badge>
                           )}
                         </div>
-                        <p className={cn(
-                          "text-sm truncate mt-1.5",
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>{user.email}</p>
+                        <div className="flex flex-col gap-0.5 mt-1.5">
+                          <p className={cn(
+                            "text-sm truncate",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>{user.email}</p>
+
+                          {/* Show event title */}
+                          {((user.taggedEvents && user.taggedEvents.length > 0) || user.taggingEvents && user.taggingEvents.length > 0) && (
+                            <p className={cn(
+                              "text-xs truncate mt-0.5",
+                              isDarkMode ? "text-gray-500" : "text-gray-400"
+                            )}>
+                              {/* Show event title from either tagged or tagging events */}
+                              {(user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle) && (
+                                <>
+                                  <span className="font-medium">Event:</span> {
+                                    (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).length > 30 
+                                      ? (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).substring(0, 30) + '...' 
+                                      : (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle)
+                                  }
+                                </>
+                              )}
+                            </p>
+                          )}
+                          {/* Fallback to eventTitle or title if no events available */}
+                          {(!user.taggedEvents || user.taggedEvents.length === 0) && (!user.taggingEvents || user.taggingEvents.length === 0) && (user.eventTitle || user.title) && (
+                            <p className={cn(
+                              "text-xs truncate mt-0.5",
+                              isDarkMode ? "text-gray-500" : "text-gray-400"
+                            )}>
+                              <span className="font-medium">Event:</span> {
+                                (user.eventTitle || user.title).length > 30 
+                                  ? (user.eventTitle || user.title).substring(0, 30) + '...' 
+                                  : (user.eventTitle || user.title)
+                              }
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
-                  ))}
+                  )})}
                 </div>
               ) : (
                 <div className={cn(
-                  "text-center py-4",
+                  "text-center py-4 px-4",
                   isDarkMode ? "text-gray-400" : "text-gray-500"
-                )}>No users found</div>
+                )}>
+                  {taggedDepartments.length === 0 
+                    ? "No tagged departments found. Tag departments in your events to message them."
+                    : "No users found from your tagged departments."}
+                </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Right Panel - Chat Area */}
         <div className="flex flex-col h-full flex-1">
           {selectedUser ? (
-            <>
+            <div className="flex flex-col h-full">
               {/* Chat Header */}
               <div className={cn(
-                "flex items-center py-2 px-4 border-b",
+                "flex items-center py-2 px-4 border-b sticky top-0 z-10",
                 isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
               )}>
                 <div className="flex items-center gap-3">
@@ -319,73 +562,96 @@ const Messages = () => {
                     <h3 className={cn(
                       "font-semibold",
                       isDarkMode ? "text-white" : "text-gray-900"
-                    )}>{selectedUser.name || selectedUser.email}</h3>
+                    )}>
+                      {selectedUser.isDepartmentMessage ? selectedUser.department : (selectedUser.email || selectedUser.name)}
+                    </h3>
                     <p className={cn(
                       "text-sm",
                       isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>Active now</p>
+                    )}>
+                      {selectedUser.isDepartmentMessage ? "Department Contact" : "Active now"}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Messages Area */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  <AnimatePresence>
-                    {messages.map((msg) => (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className={cn(
-                          "flex items-end gap-2",
-                          msg.from === currentUser.email ? "justify-end" : "justify-start"
-                        )}
-                      >
-                        {msg.from !== currentUser.email && (
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="text-[10px] font-medium">
-                              {selectedUser.department || "User"}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        <div className={cn(
-                          "max-w-[70%] rounded-2xl px-4 py-2",
-                          msg.from === currentUser.email
-                            ? (isDarkMode 
-                                ? "bg-blue-600 text-white" 
-                                : "bg-blue-500 text-white")
-                            : (isDarkMode
-                                ? "bg-slate-800 text-gray-100"
-                                : "bg-gray-100 text-gray-900")
-                        )}>
-                          <p className="text-sm leading-relaxed">{msg.content}</p>
-                          <p className={cn(
-                            "text-[10px] mt-1",
-                            msg.from === currentUser.email
-                              ? (isDarkMode ? "text-blue-200/70" : "text-blue-50/90")
-                              : (isDarkMode ? "text-gray-400" : "text-gray-500")
+              <div 
+                className={cn(
+                  "flex-1 overflow-y-auto",
+                  "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                )} 
+                ref={scrollAreaRef}
+              >
+                <div className="p-4 space-y-4">
+                                      <AnimatePresence>
+                      {getCurrentChatMessages().map((msg) => (
+                        <motion.div
+                          key={msg.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className={cn(
+                            "flex items-end gap-2",
+                            msg.from === currentUser?.email ? "justify-end" : "justify-start"
+                          )}
+                        >
+                          {msg.from !== currentUser?.email && (
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback className="text-[10px] font-medium">
+                                {selectedUser.department || "User"}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          <div className={cn(
+                            "max-w-[70%] rounded-2xl px-4 py-2 relative",
+                            msg.from === currentUser?.email
+                              ? (isDarkMode 
+                                  ? "bg-blue-600 text-white" 
+                                  : "bg-blue-500 text-white")
+                              : (isDarkMode
+                                  ? "bg-slate-800 text-gray-100"
+                                  : "bg-gray-100 text-gray-900")
                           )}>
-                            {msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {msg.from === currentUser.email && (
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="text-[10px] font-medium">
-                              {currentUser.department || "User"}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                            <p className="text-sm leading-relaxed">{msg.content}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className={cn(
+                                "text-[10px]",
+                                msg.from === currentUser?.email
+                                  ? (isDarkMode ? "text-blue-200/70" : "text-blue-50/90")
+                                  : (isDarkMode ? "text-gray-400" : "text-gray-500")
+                              )}>
+                                {msg.timestamp?.toDate?.() 
+                                  ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                  : new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                }
+                              </p>
+                              {msg.isPending && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 bg-current opacity-60 rounded-full animate-pulse"></div>
+                                  <span className="text-[10px] opacity-60">Sending...</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {msg.from === currentUser?.email && (
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback className="text-[10px] font-medium">
+                                {currentUser?.department || "User"}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    {/* Invisible element to scroll to bottom */}
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
-              </ScrollArea>
 
               {/* Message Input */}
               <div className={cn(
-                "py-2 px-4 border-t",
+                "py-2 px-4 border-t sticky bottom-0 z-10",
                 isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
               )}>
                 <div className="flex items-end gap-2">
@@ -407,13 +673,13 @@ const Messages = () => {
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
-                          sendMessage();
+                          handleSendMessage();
                         }
                       }}
                     />
                   </div>
                   <Button 
-                    onClick={sendMessage}
+                    onClick={handleSendMessage}
                     size="icon"
                     className={cn(
                       "rounded-full h-9 w-9",
@@ -424,7 +690,7 @@ const Messages = () => {
                   </Button>
                 </div>
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -446,6 +712,7 @@ const Messages = () => {
             </div>
           )}
         </div>
+      </div>
     </div>
   );
 };

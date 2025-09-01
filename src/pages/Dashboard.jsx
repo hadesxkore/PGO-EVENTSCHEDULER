@@ -364,8 +364,9 @@ const Dashboard = () => {
                             <div
                               key={`tagged-${index}`}
                               onClick={() => {
-                                setSelectedEvent(event);
-                                setIsDialogOpen(true);
+                                // Navigate to Tagged Departments page with Tagged tab selected
+                                navigate('/tagged-departments', { state: { selectedTab: 'tagged' } });
+                                setIsPopoverOpen(false); // Close the notifications popover
                               }}
                               className={cn(
                                 "rounded-lg p-3 transition-colors cursor-pointer",
@@ -479,9 +480,9 @@ const Dashboard = () => {
                           <div
                             key={index}
                             onClick={() => {
-                              console.log("Clicked event data:", event);
-                              setSelectedEvent(event);
-                              setIsDialogOpen(true);
+                              // Navigate to Tagged Departments page with Tagged tab selected
+                              navigate('/tagged-departments', { state: { selectedTab: 'tagged' } });
+                              setIsPopoverOpen(false); // Close the notifications popover
                             }}
                             className={cn(
                               "rounded-lg p-3 transition-colors cursor-pointer",

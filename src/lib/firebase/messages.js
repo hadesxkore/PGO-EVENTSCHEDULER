@@ -180,20 +180,30 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
       const eventId = doc.id;
       
       if (event.departmentRequirements && event.departmentRequirements.length > 0) {
-        // For each department requirement, record the tagging relationship
+        // Create a single event group for all departments in this event
+        const eventGroup = {
+          taggerEmail: event.userEmail,
+          taggerDepartment: event.department,
+          eventId: eventId,
+          eventTitle: event.title || event.eventTitle,
+          timestamp: event.timestamp || event.createdAt,
+          departments: event.departmentRequirements.map(dept => dept.departmentName).filter(Boolean)
+        };
+        
+        // Store the event group with a unique key
+        const eventKey = `event_${eventId}`;
+        taggedByMap.set(eventKey, eventGroup);
+        
+        // Also store individual relationships for backward compatibility
         event.departmentRequirements.forEach(dept => {
           if (dept.departmentName) {
-            // Store relationships for both the tagger and tagged department
             const taggerKey = `${event.userEmail}_${dept.departmentName}`;
             const taggedKey = `${dept.departmentName}_${event.userEmail}`;
             
             const relationshipData = {
-              taggerEmail: event.userEmail,
-              taggerDepartment: event.department,
+              ...eventGroup,
               taggedDepartment: dept.departmentName,
-              eventId: eventId,
-              eventTitle: event.title || event.eventTitle,
-              timestamp: event.timestamp
+              eventGroup: eventKey // Reference to the event group
             };
             
             // Store the relationship for both parties
@@ -211,27 +221,48 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
         // Find events where this user was tagged or did the tagging
         const userTaggingEvents = [];
         const userTaggedEvents = [];
+        const eventGroups = new Map();
         
         taggedByMap.forEach((tagInfo, key) => {
-          // If this user tagged someone
-          if (tagInfo.taggerEmail === userData.email) {
-            userTaggingEvents.push({
-              eventId: tagInfo.eventId,
-              eventTitle: tagInfo.eventTitle,
-              taggedDepartment: tagInfo.taggedDepartment,
-              timestamp: tagInfo.timestamp
-            });
-          }
-          
-          // If this user's department was tagged by someone
-          if (tagInfo.taggedDepartment === userData.department) {
-            userTaggedEvents.push({
-              eventId: tagInfo.eventId,
-              eventTitle: tagInfo.eventTitle,
-              taggerDepartment: tagInfo.taggerDepartment,
-              taggerEmail: tagInfo.taggerEmail,
-              timestamp: tagInfo.timestamp
-            });
+          // If this is an event group
+          if (key.startsWith('event_')) {
+            if (tagInfo.taggerEmail === userData.email) {
+              // This user created this event group
+              eventGroups.set(key, {
+                ...tagInfo,
+                type: 'created'
+              });
+            } else if (tagInfo.departments.includes(userData.department)) {
+              // This user's department is tagged in this event group
+              eventGroups.set(key, {
+                ...tagInfo,
+                type: 'tagged'
+              });
+            }
+          } else {
+            // Handle individual relationships for backward compatibility
+            // If this user tagged someone
+            if (tagInfo.taggerEmail === userData.email) {
+              userTaggingEvents.push({
+                eventId: tagInfo.eventId,
+                eventTitle: tagInfo.eventTitle,
+                taggedDepartment: tagInfo.taggedDepartment,
+                timestamp: tagInfo.timestamp,
+                eventGroup: tagInfo.eventGroup
+              });
+            }
+            
+            // If this user's department was tagged by someone
+            if (tagInfo.taggedDepartment === userData.department) {
+              userTaggedEvents.push({
+                eventId: tagInfo.eventId,
+                eventTitle: tagInfo.eventTitle,
+                taggerDepartment: tagInfo.taggerDepartment,
+                taggerEmail: tagInfo.taggerEmail,
+                timestamp: tagInfo.timestamp,
+                eventGroup: tagInfo.eventGroup
+              });
+            }
           }
         });
 
@@ -239,8 +270,9 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
           ...userData,
           taggingEvents: userTaggingEvents,
           taggedEvents: userTaggedEvents,
+          eventGroups: Array.from(eventGroups.values()),
           // Add a flag to show if this user has tagged others or been tagged
-          hasTaggingRelation: userTaggingEvents.length > 0 || userTaggedEvents.length > 0
+          hasTaggingRelation: userTaggingEvents.length > 0 || userTaggedEvents.length > 0 || eventGroups.size > 0
         };
       })
       .filter(user => {
@@ -260,14 +292,23 @@ export const getUsersFromDepartments = async (departments, excludeEmail = null, 
         // 4. Are users who have messaged the current user OR
         // 5. Are users the current user has messaged OR
         // 6. Are users who have tagged the current user's department OR
-        // 7. Are users from departments that the current user has tagged
+        // 7. Are users from departments that the current user has tagged OR
+        // 8. Are users from departments that are tagged in any event group
+        const isInEventGroup = Array.from(taggedByMap.values()).some(tagInfo => {
+          if (tagInfo.departments) {
+            return tagInfo.departments.includes(user.department);
+          }
+          return false;
+        });
+        
         return departments.includes(user.department) || 
                user.hasTaggingRelation || 
                usersWhoTaggedMe.includes(user.email) ||
                usersWhoMessagedMe.has(user.email) ||
                usersIMessaged.has(user.email) ||
                usersWhoTaggedMyDepartment.has(user.email) ||
-               usersWhoseDepartmentsITagged.has(user.department);
+               usersWhoseDepartmentsITagged.has(user.department) ||
+               isInEventGroup;
       });
 
     return { success: true, users: usersData };

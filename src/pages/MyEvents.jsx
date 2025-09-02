@@ -146,12 +146,39 @@ const MyEvents = () => {
         updatedEvents.push({ id: doc.id, ...doc.data() });
       });
 
-      // Sort events by date, most recent first, handling undefined dates
-      const sortedEvents = updatedEvents.sort((a, b) => {
-        if (!a.date?.seconds && !b.date?.seconds) return 0;
-        if (!a.date?.seconds) return 1;
-        if (!b.date?.seconds) return -1;
-        return (b.date.seconds - a.date.seconds);
+      // Transform events to handle both old and new date formats
+      const transformedEvents = updatedEvents.map(event => {
+        let parsedDate;
+        
+        // Handle different date formats
+        if (event.startDate) {
+          // New format: startDate field
+          if (event.startDate.toDate) {
+            parsedDate = event.startDate.toDate();
+          } else if (event.startDate.seconds) {
+            parsedDate = new Date(event.startDate.seconds * 1000);
+          } else {
+            parsedDate = new Date(event.startDate);
+          }
+        } else if (event.date?.seconds) {
+          // Old format: date field with seconds
+          parsedDate = new Date(event.date.seconds * 1000);
+        } else {
+          // Fallback: try to parse as string or use current date
+          parsedDate = new Date(event.date || Date.now());
+        }
+        
+        return {
+          ...event,
+          parsedDate,
+          displayDate: parsedDate
+        };
+      });
+
+      // Sort events by parsed date, most recent first
+      const sortedEvents = transformedEvents.sort((a, b) => {
+        if (!a.parsedDate || !b.parsedDate) return 0;
+        return new Date(b.parsedDate) - new Date(a.parsedDate);
       });
 
       useEventStore.setState({ events: sortedEvents });
@@ -403,7 +430,7 @@ const MyEvents = () => {
                         <TableCell className="text-center">
                           <div className="space-y-1">
                             <p className={cn(
-                              "text-sm font-medium",
+                              "text-xs",
                               isDarkMode ? "text-gray-100" : "text-gray-900"
                             )}>{event.startDate?.seconds ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
                           </div>
@@ -411,7 +438,7 @@ const MyEvents = () => {
                         <TableCell className="text-center">
                           <div className="space-y-1">
                             <p className={cn(
-                              "text-sm font-medium",
+                              "text-xs",
                               isDarkMode ? "text-gray-100" : "text-gray-900"
                             )}>{event.endDate?.seconds ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
                           </div>
@@ -477,7 +504,7 @@ const MyEvents = () => {
                                 }
                               })}
                               size="sm"
-                              className="gap-2 bg-black hover:bg-gray-800 text-white"
+                              className="gap-2 bg-blue-400 hover:bg-blue-500 text-white"
                             >
                               <MessageCircle className="h-4 w-4" />
                               Message
@@ -615,6 +642,68 @@ const MyEvents = () => {
                     </div>
                   </div>
 
+                  {/* Date & Time Card */}
+                  <div className={cn(
+                    "rounded-md p-3 border",
+                    isDarkMode 
+                      ? "bg-slate-800/50 border-slate-700" 
+                      : "bg-white border-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        "p-1.5 rounded",
+                        isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
+                      )}>
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                      </div>
+                      <h3 className={cn(
+                        "font-semibold",
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      )}>Date & Time</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {/* Start Date */}
+                      <div>
+                        <p className={cn(
+                          "text-sm font-medium mb-1",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          Start Date & Time
+                        </p>
+                        <p className={cn(
+                          "text-base font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>
+                          {selectedEvent.startDate ? 
+                            format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "MMMM d, yyyy h:mm a") :
+                            selectedEvent.date?.seconds ? 
+                              format(new Date(selectedEvent.date.seconds * 1000), "MMMM d, yyyy h:mm a") :
+                              "Not available"
+                          }
+                        </p>
+                      </div>
+                      {/* End Date */}
+                      <div>
+                        <p className={cn(
+                          "text-sm font-medium mb-1",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          End Date & Time
+                        </p>
+                        <p className={cn(
+                          "text-base font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>
+                          {selectedEvent.endDate ? 
+                            format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "MMMM d, yyyy h:mm a") :
+                            "Not available"
+                          }
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+
                   {/* Location Card */}
                   <div className={cn(
                     "rounded-md p-3 border",
@@ -646,50 +735,6 @@ const MyEvents = () => {
                     )}>
                       Venue
                     </p>
-                  </div>
-
-                  {/* Date & Time Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
-                      )}>
-                        <Calendar className="h-4 w-4 text-blue-500" />
-                      </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Date & Time</h3>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <p className={cn(
-                          "text-lg font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>
-                          {format(new Date(selectedEvent.date.seconds * 1000), "MMMM d, yyyy")}
-                        </p>
-                        <p className={cn(
-                          "text-sm",
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>
-                          {format(new Date(selectedEvent.date.seconds * 1000), "h:mm a")}
-                        </p>
-                      </div>
-                      <div className={cn(
-                        "inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm",
-                        isDarkMode ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600"
-                      )}>
-                        <Clock className="h-4 w-4" />
-                        {selectedEvent.duration} minutes
-                      </div>
-                    </div>
                   </div>
 
                   {/* Participants Card */}

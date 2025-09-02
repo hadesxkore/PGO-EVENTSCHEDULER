@@ -11,6 +11,7 @@ import {
   Users, 
   ChevronLeft, 
   ChevronRight,
+  ChevronDown,
   ArrowLeft,
   Building2,
   CalendarDays,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,6 +42,7 @@ const TaggedDepartments = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
 
   // State for events data
   const [events, setEvents] = useState([]);
@@ -520,110 +523,245 @@ const TaggedDepartments = () => {
           <div className="grid gap-6">
                         {/* Event Overview */}
                 <Card className={cn(
-              "border-slate-200",
-              isDarkMode ? "bg-slate-800/50 border-slate-700/50" : "bg-white"
+                  "overflow-hidden border shadow-lg",
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700/50" 
+                    : "bg-white border-slate-200/50"
                 )}>
-                  <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-purple-500" />
-                  Event Overview
-                </CardTitle>
+               <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className={cn(
+                        "p-2 rounded-full",
+                        isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                      )}>
+                        <CalendarDays className="h-5 w-5 text-purple-500" />
+                      </div>
+                      <span>Event Overview</span>
+                    </CardTitle>
                   </CardHeader>
-              <CardContent>
-                <div className="grid gap-6 md:grid-cols-3">
-                  <div className="space-y-1">
-                    <h4 className={cn(
-                        "text-sm font-medium",
-                      isDarkMode ? "text-slate-400" : "text-slate-600"
-                    )}>Start Time</h4>
-                      <p className={cn(
-                        "text-sm",
-                      isDarkMode ? "text-white" : "text-slate-900"
+                  <CardContent>
+                    <div className="grid gap-6 md:grid-cols-3">
+                      {/* Start Time */}
+                      <div className={cn(
+                        "p-4 rounded-xl space-y-2 shadow-sm",
+                        isDarkMode 
+                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
+                          : "bg-slate-50 ring-1 ring-slate-200/50"
                       )}>
-                      {selectedEvent.startDate?.toDate ? 
-                        format(selectedEvent.startDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                        'Not specified'
-                      }
-                      </p>
-                    </div>
-                  <div className="space-y-1">
-                    <h4 className={cn(
-                        "text-sm font-medium",
-                      isDarkMode ? "text-slate-400" : "text-slate-600"
-                    )}>End Time</h4>
-                      <p className={cn(
-                        "text-sm",
-                      isDarkMode ? "text-white" : "text-slate-900"
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "p-1.5 rounded-lg",
+                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                          )}>
+                            <Clock className={cn(
+                              "h-4 w-4",
+                              isDarkMode ? "text-purple-400" : "text-purple-500"
+                            )} />
+                          </div>
+                          <h4 className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-600"
+                          )}>Start Time</h4>
+                        </div>
+                        <p className={cn(
+                          "text-sm font-medium",
+                          isDarkMode ? "text-white" : "text-slate-900"
+                        )}>
+                          {selectedEvent.startDate?.toDate ? 
+                            format(selectedEvent.startDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
+                            'Not specified'
+                          }
+                        </p>
+                      </div>
+
+                      {/* End Time */}
+                      <div className={cn(
+                        "p-4 rounded-xl space-y-2 shadow-sm",
+                        isDarkMode 
+                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
+                          : "bg-slate-50 ring-1 ring-slate-200/50"
                       )}>
-                      {selectedEvent.endDate?.toDate ? 
-                        format(selectedEvent.endDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                        'Not specified'
-                      }
-                      </p>
-                    </div>
-                  <div className="space-y-1">
-                    <h4 className={cn(
-                        "text-sm font-medium",
-                      isDarkMode ? "text-slate-400" : "text-slate-600"
-                    )}>Location</h4>
-                      <p className={cn(
-                        "text-sm",
-                      isDarkMode ? "text-white" : "text-slate-900"
-                    )}>
-                      {selectedEvent.location || 'Not specified'}
-                    </p>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "p-1.5 rounded-lg",
+                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                          )}>
+                            <Clock className={cn(
+                              "h-4 w-4",
+                              isDarkMode ? "text-purple-400" : "text-purple-500"
+                            )} />
+                          </div>
+                          <h4 className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-600"
+                          )}>End Time</h4>
+                        </div>
+                        <p className={cn(
+                          "text-sm font-medium",
+                          isDarkMode ? "text-white" : "text-slate-900"
+                        )}>
+                          {selectedEvent.endDate?.toDate ? 
+                            format(selectedEvent.endDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
+                            'Not specified'
+                          }
+                        </p>
+                      </div>
+
+                      {/* Location */}
+                      <div className={cn(
+                        "p-4 rounded-xl space-y-2 shadow-sm",
+                        isDarkMode 
+                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
+                          : "bg-slate-50 ring-1 ring-slate-200/50"
+                      )}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "p-1.5 rounded-lg",
+                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                          )}>
+                            <MapPin className={cn(
+                              "h-4 w-4",
+                              isDarkMode ? "text-purple-400" : "text-purple-500"
+                            )} />
+                          </div>
+                          <h4 className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-600"
+                          )}>Location</h4>
+                        </div>
+                        <p className={cn(
+                          "text-sm font-medium",
+                          isDarkMode ? "text-white" : "text-slate-900"
+                        )}>
+                          {selectedEvent.location || 'Not specified'}
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
               {/* Requirements */}
               <Card className={cn(
-              "border-slate-200",
-              isDarkMode ? "bg-slate-800/50 border-slate-700/50" : "bg-white"
+                "overflow-hidden border shadow-lg",
+                isDarkMode 
+                  ? "bg-slate-800 border-slate-700/50" 
+                  : "bg-white border-slate-200/50"
               )}>
-                <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-purple-500" />
-                  Department Requirements
-                </CardTitle>
-                <CardDescription>
-                  Resources and requirements needed for this event
-                </CardDescription>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <div className={cn(
+                      "p-2 rounded-full",
+                      isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                    )}>
+                      <CheckCircle2 className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <span>Department Requirements</span>
+                  </CardTitle>
+                  <CardDescription className="ml-10">
+                    Resources and requirements needed for this event
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                <div className="grid gap-4">
+                  <div className="grid gap-4">
                     {selectedEvent.requirements?.map((req, index) => (
-                      <div
+                      <motion.div
                         key={index}
-                        className={cn(
-                        "flex items-start gap-4 rounded-lg border p-4",
-                        isDarkMode ? "bg-slate-800/30 border-slate-700/50" : "bg-slate-50/50 border-slate-200"
-                      )}
-                    >
-                      <div className={cn(
-                        "p-2 rounded-md shrink-0",
-                        isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
-                      )}>
-                        <FileText className="h-4 w-4 text-purple-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className={cn(
-                            "font-medium",
-                          isDarkMode ? "text-white" : "text-slate-900"
-                        )}>{req.name}</h4>
-                        {req.note && (
-                          <p className={cn(
-                            "mt-1 text-sm",
-                            isDarkMode ? "text-slate-400" : "text-slate-600"
-                          )}>{req.note}</p>
-                        )}
-                      </div>
-                      <Badge variant="outline" className={cn(
-                        isDarkMode ? "border-purple-500/20 text-purple-400" : "border-purple-500/20 text-purple-600"
-                      )}>Required</Badge>
-                      </div>
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: index * 0.1 }}
+                      >
+                                                <div
+                          className={cn(
+                            "flex flex-col gap-4 rounded-xl p-4 transition-all shadow-sm",
+                            isDarkMode 
+                              ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
+                              : "bg-slate-50 ring-1 ring-slate-200/50"
+                          )}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className={cn(
+                              "p-3 rounded-xl shrink-0",
+                              isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
+                            )}>
+                              <FileText className={cn(
+                                "h-5 w-5",
+                                isDarkMode ? "text-purple-400" : "text-purple-500"
+                              )} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={cn(
+                                "font-medium flex items-center gap-2",
+                                isDarkMode ? "text-white" : "text-slate-900"
+                              )}>
+                                {req.name}
+                                <Badge className={cn(
+                                  "ml-2 px-2 py-0.5 text-[10px] font-medium",
+                                  isDarkMode 
+                                    ? "bg-purple-500/10 text-purple-300 border border-purple-500/20" 
+                                    : "bg-purple-50 text-purple-700 border border-purple-100"
+                                )}>
+                                  Required
+                                </Badge>
+                              </h4>
+
+                              {req.note && (
+                                <div className={cn(
+                                  "mt-4 pt-3 space-y-2 border-t",
+                                  isDarkMode ? "border-slate-800" : "border-slate-200"
+                                )}>
+                                  {req.note.split('\n').map((line, index) => {
+                                    const [key, value] = line.split(':').map(s => s.trim());
+                                    return (
+                                      <div key={index} className="flex items-center gap-2">
+                                        <span className={cn(
+                                          "text-base font-medium",
+                                          isDarkMode ? "text-slate-300" : "text-slate-700"
+                                        )}>
+                                          {key}
+                                        </span>
+                                        {value && (
+                                          <>
+                                            <span className={cn(
+                                              "text-base",
+                                              isDarkMode ? "text-slate-400" : "text-slate-600"
+                                            )}>
+                                              : {value}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
                     ))}
+                    {(!selectedEvent.requirements || selectedEvent.requirements.length === 0) && (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center mb-4",
+                          isDarkMode ? "bg-slate-800" : "bg-slate-100"
+                        )}>
+                          <FileText className={cn(
+                            "w-6 h-6",
+                            isDarkMode ? "text-slate-400" : "text-slate-400"
+                          )} />
+                        </div>
+                        <h3 className={cn(
+                          "text-sm font-medium mb-2",
+                          isDarkMode ? "text-slate-300" : "text-slate-700"
+                        )}>No Requirements</h3>
+                        <p className={cn(
+                          "text-xs text-center max-w-[200px]",
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        )}>
+                          This event doesn't have any specific requirements.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

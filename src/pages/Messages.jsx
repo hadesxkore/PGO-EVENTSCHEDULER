@@ -11,9 +11,9 @@ import { Search, Send, Users, Paperclip, Image } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from "@/lib/firebase/firebase";
 import useMessageStore from "@/store/messageStore";
-import { useMessageSubscriptions } from "@/hooks/useMessageSubscriptions";
 import { useLocation } from "react-router-dom";
 
 const getInitials = (department) => {
@@ -45,12 +45,15 @@ const Messages = () => {
     fetchTaggedDepartments,
     fetchUsers,
     sendMessage,
-    markAsRead
+    markAsRead,
+    loadMessages,
+    subscribeToMessages,
+    subscribeToEvents,
+    isUsersCacheValid,
+    isDepartmentsCacheValid,
+    isMessagesCacheValid
   } = useMessageStore();
 
-  // Use custom hook for subscriptions
-  const { subscribeToChat, cleanup } = useMessageSubscriptions();
-  
   // Track current chat subscription
   const currentChatSubscription = useRef(null);
 
@@ -92,53 +95,46 @@ const Messages = () => {
      setSelectedUser(selectedDepartmentUser);
    };
 
-     // Get current user from localStorage and Firestore
+     // Get current user from localStorage and store it in Zustand
    useEffect(() => {
-     const fetchUserData = async () => {
-       try {
-         // Get basic user data from localStorage
-         const userDataStr = localStorage.getItem("userData");
-         if (!userDataStr) {
-           console.error("No user data in localStorage");
-           toast.error("Please log in to view messages");
-           return;
-         }
-
-         const parsed = JSON.parse(userDataStr);
-         if (!parsed?.email) {
-           console.error("Invalid user data format");
-           toast.error("Error loading user data");
-           return;
-         }
-
-         // Use the user data directly from localStorage
-         const userData = {
-           ...parsed,
-           email: parsed.email,
-           department: parsed.department,
-           role: parsed.role,
-           uid: parsed.uid || parsed.id // Use existing uid/id if available
-         };
-
-         setCurrentUser(userData);
-       } catch (error) {
-         console.error("Error fetching user data:", error);
-         toast.error("Error loading user data");
+     try {
+       // Get basic user data from localStorage
+       const userDataStr = localStorage.getItem("userData");
+       if (!userDataStr) {
+         console.error("No user data in localStorage");
+         toast.error("Please log in to view messages");
+         return;
        }
-     };
 
-     fetchUserData();
+       const parsed = JSON.parse(userDataStr);
+       if (!parsed?.email) {
+         console.error("Invalid user data format");
+         toast.error("Error loading user data");
+         return;
+       }
+
+       // Use the user data directly from localStorage
+       const userData = {
+         ...parsed,
+         email: parsed.email,
+         department: parsed.department,
+         role: parsed.role,
+         uid: parsed.uid || parsed.id // Use existing uid/id if available
+       };
+
+       setCurrentUser(userData);
+     } catch (error) {
+       console.error("Error fetching user data:", error);
+       toast.error("Error loading user data");
+     }
    }, [setCurrentUser]);
    
    // Fetch current user's events to get taggingEvents data
    useEffect(() => {
      const fetchCurrentUserEvents = async () => {
-       if (!currentUser?.email) return;
+       if (!currentUser?.email || currentUser.taggingEvents) return; // Skip if we already have tagging events
        
        try {
-         // Import the function to get user events
-         const { getUsersFromDepartments } = await import('@/lib/firebase/messages');
-         
          // Get events where current user is the creator
          const eventsRef = collection(db, "eventRequests");
          const userEventsQuery = query(eventsRef, where("userEmail", "==", currentUser.email));
@@ -161,34 +157,40 @@ const Messages = () => {
            }
          });
          
-         // Update current user with taggingEvents
-         setCurrentUser(prev => ({
-           ...prev,
-           taggingEvents
-         }));
-         
-         console.log('Current user tagging events:', taggingEvents);
+         // Only update if we found new events
+         if (taggingEvents.length > 0) {
+           setCurrentUser({
+             ...currentUser,
+             taggingEvents
+           });
+         }
+
        } catch (error) {
          console.error('Error fetching current user events:', error);
        }
      };
      
      fetchCurrentUserEvents();
-   }, [currentUser?.email]);
+   }, [currentUser?.email]); // Only depend on email to prevent loops
 
-  // Fetch tagged departments when current user changes
-  useEffect(() => {
-    if (currentUser?.email) {
-      fetchTaggedDepartments(currentUser.email);
-    }
-  }, [currentUser?.email, fetchTaggedDepartments]);
+     // Fetch tagged departments and users in one effect to prevent loops
+   useEffect(() => {
+     const fetchData = async () => {
+       if (!currentUser?.email) return;
 
-  // Fetch users when tagged departments change or when usersWhoTaggedMe changes
-  useEffect(() => {
-    if (taggedDepartments.length > 0 || usersWhoTaggedMe.length > 0) {
-      fetchUsers();
-    }
-  }, [taggedDepartments, usersWhoTaggedMe, fetchUsers]);
+       // Only fetch departments if cache is invalid
+       if (!isDepartmentsCacheValid()) {
+         await fetchTaggedDepartments(currentUser.email);
+       }
+
+       // Only fetch users if cache is invalid and we have departments
+       if (!isUsersCacheValid() && (taggedDepartments.length > 0 || usersWhoTaggedMe.length > 0)) {
+         await fetchUsers();
+       }
+     };
+
+     fetchData();
+   }, [currentUser?.email, isDepartmentsCacheValid, isUsersCacheValid]);
 
   // Create a ref map for user list items
   const userRefs = useRef({});
@@ -196,8 +198,7 @@ const Messages = () => {
   // Handle department-based messaging from MyEvents
   useEffect(() => {
     if (location.state?.selectedUser && users.length > 0) {
-      console.log('Location state:', location.state.selectedUser);
-      console.log('Available users:', users);
+
       
       // Function to find and select user
       const findAndSelectUser = () => {
@@ -206,22 +207,18 @@ const Messages = () => {
           // If it's a department message, match by department
           if (location.state.selectedUser.isDepartmentMessage) {
             const match = user.department === location.state.selectedUser.department;
-            console.log(`Checking user "${user.department}" (type: ${typeof user.department}) against "${location.state.selectedUser.department}" (type: ${typeof location.state.selectedUser.department}): ${match}`);
-            console.log(`User department length: ${user.department?.length}, State department length: ${location.state.selectedUser.department?.length}`);
+
             return match;
           }
           // Otherwise match by email or id
           const match = user.email === location.state.selectedUser.email || user.id === location.state.selectedUser.id;
-          console.log(`Checking user ${user.email}/${user.id} against ${location.state.selectedUser.email}/${location.state.selectedUser.id}: ${match}`);
+
           return match;
         });
-        
-        console.log('Target user found:', targetUser);
         
         if (targetUser) {
           // Get the ref for this user's list item
           const userRef = userRefs.current[targetUser.id];
-          console.log('User ref found:', userRef);
           
           if (userRef) {
             // Scroll the user into view
@@ -235,12 +232,12 @@ const Messages = () => {
               userRef.style.backgroundColor = '';
             }, 1000);
           } else {
-            console.log('User ref not found, setting selected user directly');
+
             setSelectedUser(targetUser);
             markAsRead(targetUser.email);
           }
         } else {
-          console.log('No target user found in users array');
+
           // Try to find by partial department match
           const partialMatch = users.find(user => 
             user.department && 
@@ -250,7 +247,7 @@ const Messages = () => {
           );
           
           if (partialMatch) {
-            console.log('Found partial match:', partialMatch);
+
             setSelectedUser(partialMatch);
             markAsRead(partialMatch.email);
           }
@@ -267,34 +264,39 @@ const Messages = () => {
     }
   }, [location.state?.selectedUser, users, isDarkMode, markAsRead]);
 
-  // Subscribe to chat messages when user selects a chat
-  useEffect(() => {
-    if (!currentUser || !selectedUser) {
-      // Clean up previous subscription if no user is selected
-      if (currentChatSubscription.current) {
-        currentChatSubscription.current();
-        currentChatSubscription.current = null;
-      }
-      return;
-    }
+     // Subscribe to chat messages when user selects a chat
+   useEffect(() => {
+     if (!currentUser || !selectedUser) {
+       // Clean up previous subscription if no user is selected
+       if (currentChatSubscription.current) {
+         currentChatSubscription.current();
+         currentChatSubscription.current = null;
+       }
+       return;
+     }
 
-    const chatId = [currentUser.email, selectedUser.email].sort().join("_");
-    
-    // Clean up previous subscription
-    if (currentChatSubscription.current) {
-      currentChatSubscription.current();
-    }
-    
-    // Subscribe to new chat
-    currentChatSubscription.current = subscribeToChat(chatId);
-    
-    return () => {
-      if (currentChatSubscription.current) {
-        currentChatSubscription.current();
-        currentChatSubscription.current = null;
-      }
-    };
-  }, [currentUser, selectedUser, subscribeToChat]);
+     const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+     
+     // Clean up previous subscription
+     if (currentChatSubscription.current) {
+       currentChatSubscription.current();
+     }
+     
+     // Load cached messages first
+     if (!isMessagesCacheValid(chatId)) {
+       loadMessages(chatId);
+     }
+     
+     // Subscribe to new chat
+     currentChatSubscription.current = subscribeToMessages(chatId);
+     
+     return () => {
+       if (currentChatSubscription.current) {
+         currentChatSubscription.current();
+         currentChatSubscription.current = null;
+       }
+     };
+   }, [currentUser, selectedUser, subscribeToMessages, loadMessages, isMessagesCacheValid]);
 
   // Cleanup subscriptions on unmount
   useEffect(() => {
@@ -303,49 +305,35 @@ const Messages = () => {
         currentChatSubscription.current();
         currentChatSubscription.current = null;
       }
-      cleanup();
     };
-  }, [cleanup]);
+  }, []);
 
-  // Send message
+  // Send message using Zustand store
   const handleSendMessage = async () => {
     if (!message.trim() || !currentUser || !selectedUser) return;
 
-    try {
-      const chatId = [currentUser.email, selectedUser.email].sort().join("_");
-      const messageContent = message.trim();
-      
-      // Clear input immediately for better UX
-      setMessage("");
-      
-      const messageData = {
-        chatId,
-        from: currentUser.email,
-        to: selectedUser.email,
-        content: messageContent,
-        participants: [currentUser.email, selectedUser.email].sort(),
-        fromDepartment: currentUser.department,
-        toDepartment: selectedUser.department,
-      };
-      
-      // Dispatch event for immediate scroll
-      window.dispatchEvent(new Event('message-sent'));
-      
-      const result = await sendMessage(messageData);
-      if (!result.success) {
-        // Only show error if sending failed
-        toast.error("Error sending message");
-        // Restore the message in the input if sending failed
-        setMessage(messageContent);
-      } else {
-        // Force scroll after successful send
-        setTimeout(() => {
-          window.dispatchEvent(new Event('message-sent'));
-        }, 100);
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
+    const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    const messageContent = message.trim();
+    
+    // Clear input immediately for better UX
+    setMessage("");
+    
+    const messageData = {
+      chatId,
+      from: currentUser.email,
+      to: selectedUser.email,
+      content: messageContent,
+      participants: [currentUser.email, selectedUser.email].sort(),
+      fromDepartment: currentUser.department,
+      toDepartment: selectedUser.department,
+    };
+    
+    const result = await sendMessage(messageData);
+    if (!result.success) {
+      // Only show error if sending failed
       toast.error("Error sending message");
+      // Restore the message in the input if sending failed
+      setMessage(messageContent);
     }
   };
 
@@ -507,12 +495,7 @@ const Messages = () => {
        // Get grouped users
     const { eventGroups, individualUsers } = groupUsersByEvents(users);
     
-    // Debug logging
-    console.log('All users:', users);
-    console.log('Current user:', currentUser);
-    console.log('Current user tagging events:', currentUser?.taggingEvents);
-    console.log('Event groups:', eventGroups);
-    console.log('Individual users:', individualUsers);
+    // Debug logging removed to prevent re-renders
    
    // Sort and filter users based on last message and search
    const sortedAndFilteredUsers = individualUsers
@@ -605,33 +588,40 @@ const Messages = () => {
         )}>
         {/* Left Panel - Users List */}
         <div className={cn(
-          "w-[350px] flex flex-col border-r h-full",
-          isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
+          "w-[350px] flex flex-col h-full shadow-lg",
+          isDarkMode ? "bg-slate-900/95" : "bg-white"
         )}>
-          {/* Header */}
+          {/* Header with integrated search */}
           <div className={cn(
-            "py-3 px-4 flex items-center border-b",
-            isDarkMode ? "border-slate-800" : "border-gray-200"
+            "p-4 flex flex-col gap-4 backdrop-blur-sm sticky top-0 z-10",
+            isDarkMode ? "bg-slate-900/90 border-b border-slate-800" : "bg-white/90 border-b border-gray-100"
           )}>
-            <h2 className={cn(
-              "text-lg font-semibold",
-              isDarkMode ? "text-white" : "text-gray-900"
-            )}>Messages</h2>
-          </div>
-          {/* Search Bar */}
-          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <h2 className={cn(
+                "text-xl font-semibold tracking-tight",
+                isDarkMode ? "text-white" : "text-gray-900"
+              )}>Messages</h2>
+              <Badge variant="outline" className={cn(
+                "px-2 py-0.5 text-xs font-medium",
+                isDarkMode ? "bg-slate-800 text-slate-200" : "bg-gray-100 text-gray-600"
+              )}>
+                {users.length} contacts
+              </Badge>
+            </div>
             <div className="relative">
               <Search className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4",
-                isDarkMode ? "text-gray-400" : "text-gray-500"
+                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50",
+                isDarkMode ? "text-slate-400" : "text-gray-500"
               )} />
               <Input
-                placeholder="Search in messages"
+                placeholder="Search conversations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={cn(
-                  "pl-10 bg-transparent",
-                  isDarkMode ? "border-slate-800" : "border-gray-200"
+                  "pl-10 bg-transparent rounded-full border",
+                  isDarkMode 
+                    ? "border-slate-800 bg-slate-800/50 placeholder:text-slate-400 focus-visible:ring-slate-700" 
+                    : "border-gray-200 bg-gray-50/50 placeholder:text-gray-400 focus-visible:ring-gray-200"
                 )}
               />
             </div>
@@ -639,14 +629,19 @@ const Messages = () => {
 
                      {/* Users List */}
            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-             <div className="p-2">
+             <div className="px-2 py-3">
               {loading.users ? (
-                <div className={cn(
-                  "text-center py-4",
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                )}>Loading users...</div>
-                             ) : (sortedAndFilteredUsers.length > 0 || sortedEventGroups.length > 0) ? (
-                 <div className="space-y-1">
+                <div className="flex items-center justify-center py-8">
+                  <div className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full",
+                    isDarkMode ? "bg-slate-800 text-slate-300" : "bg-gray-100 text-gray-600"
+                  )}>
+                    <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
+                    <span className="text-sm font-medium">Loading contacts...</span>
+                  </div>
+                </div>
+              ) : (sortedAndFilteredUsers.length > 0 || sortedEventGroups.length > 0) ? (
+                <div className="space-y-4">
                    {/* Render Event Groups First */}
                    {sortedEventGroups.map((group) => (
                      <motion.div
@@ -655,8 +650,8 @@ const Messages = () => {
                        animate={{ opacity: 1, y: 0 }}
                        transition={{ duration: 0.2 }}
                        className={cn(
-                         "border rounded-lg overflow-hidden",
-                         isDarkMode ? "border-slate-700" : "border-gray-200"
+                         "rounded-xl overflow-hidden",
+                         isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
                        )}
                      >
                        {/* Event Group Header */}
@@ -664,28 +659,45 @@ const Messages = () => {
                          onClick={() => toggleGroupExpansion(group.eventId)}
                          className={cn(
                            "flex items-center gap-3 p-3 cursor-pointer transition-all",
-                           isDarkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-50"
+                           isDarkMode 
+                             ? "hover:bg-slate-800 active:bg-slate-800/80" 
+                             : "hover:bg-gray-100/80 active:bg-gray-100"
                          )}
                        >
                          <div className="relative">
                            <Avatar>
-                             <AvatarFallback className="bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300">
+                             <AvatarFallback className={cn(
+                               "font-medium",
+                               isDarkMode 
+                                 ? "bg-blue-500/20 text-blue-200" 
+                                 : "bg-blue-100 text-blue-700"
+                             )}>
                                E
                              </AvatarFallback>
                            </Avatar>
+                           <span className={cn(
+                             "absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium border-2",
+                             isDarkMode 
+                               ? "bg-slate-800 text-slate-200 border-slate-900" 
+                               : "bg-white text-gray-600 border-gray-50"
+                           )}>
+                             {group.departments.length}
+                           </span>
                          </div>
                          <div className="flex-1 min-w-0">
-                           <div className="flex items-center justify-between">
-                             <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                           <div className="flex items-center gap-2">
+                             <Badge variant="outline" className={cn(
+                               "px-2 py-0.5 text-xs font-medium",
+                               isDarkMode 
+                                 ? "bg-blue-500/10 text-blue-200 border-blue-500/20" 
+                                 : "bg-blue-50 text-blue-700 border-blue-100"
+                             )}>
                                Event Group
-                             </Badge>
-                             <Badge variant="outline" className="text-xs">
-                               {group.departments.length} dept{group.departments.length > 1 ? 's' : ''}
                              </Badge>
                            </div>
                            <p className={cn(
                              "text-sm font-medium truncate mt-1",
-                             isDarkMode ? "text-white" : "text-gray-900"
+                             isDarkMode ? "text-slate-200" : "text-gray-900"
                            )}>
                              {group.eventTitle.length > 40 
                                ? group.eventTitle.substring(0, 40) + '...' 
@@ -693,15 +705,30 @@ const Messages = () => {
                              }
                            </p>
                            <p className={cn(
-                             "text-xs truncate mt-0.5",
-                             isDarkMode ? "text-gray-500" : "text-gray-400"
+                             "text-xs truncate mt-0.5 flex items-center gap-1.5",
+                             isDarkMode ? "text-slate-400" : "text-gray-500"
                            )}>
-                             Tagged by: {group.taggerDepartment}
+                             <span className="flex-shrink-0">Tagged by:</span>
+                             <Badge variant="outline" className={cn(
+                               "px-1.5 py-0 text-[10px] font-medium",
+                               isDarkMode 
+                                 ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                 : "bg-gray-100 text-gray-600 border-gray-200"
+                             )}>
+                               {group.taggerDepartment}
+                             </Badge>
                            </p>
                          </div>
                          <div className={cn(
-                           "transition-transform duration-200",
-                           expandedGroups.has(group.eventId) ? "rotate-180" : ""
+                           "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200",
+                           isDarkMode 
+                             ? "text-slate-400 bg-slate-800" 
+                             : "text-gray-500 bg-gray-100",
+                           expandedGroups.has(group.eventId) && (
+                             isDarkMode 
+                               ? "bg-slate-700 rotate-180" 
+                               : "bg-gray-200 rotate-180"
+                           )
                          )}>
                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -717,23 +744,22 @@ const Messages = () => {
                            exit={{ opacity: 0, height: 0 }}
                            transition={{ duration: 0.2 }}
                            className={cn(
-                             "border-t",
-                             isDarkMode ? "border-slate-700 bg-slate-800/30" : "border-gray-200 bg-gray-50"
+                             "divide-y",
+                             isDarkMode ? "divide-slate-700/50" : "divide-gray-100"
                            )}
                          >
                            {group.departments.map((departmentName) => {
                              // Find the user with this department
                              const departmentUser = users.find(u => u.department === departmentName);
-                             console.log('Department:', departmentName, 'Found user:', departmentUser);
                              return (
                                <motion.div
                                  key={`${group.eventId}_${departmentName}`}
                                  onClick={() => handleDepartmentSelect({ name: departmentName }, group.eventTitle)}
                                  className={cn(
-                                   "flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-opacity-50",
+                                   "flex items-center gap-3 p-3 cursor-pointer transition-all relative",
                                    selectedUser?.id === `dept_${departmentName}_${group.eventTitle}`
-                                     ? (isDarkMode ? "bg-slate-700" : "bg-blue-100")
-                                     : (isDarkMode ? "hover:bg-slate-700/50" : "hover:bg-blue-50/50")
+                                     ? (isDarkMode ? "bg-slate-700/50" : "bg-blue-50")
+                                     : (isDarkMode ? "hover:bg-slate-700/30" : "hover:bg-blue-50/50")
                                  )}
                                  initial={{ opacity: 0, x: -10 }}
                                  animate={{ opacity: 1, x: 0 }}
@@ -741,21 +767,39 @@ const Messages = () => {
                                >
                                  <div className="relative ml-6">
                                    <Avatar className="w-8 h-8">
-                                     <AvatarFallback className="text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300">
+                                     <AvatarFallback className={cn(
+                                       "text-[10px] font-medium",
+                                       isDarkMode 
+                                         ? "bg-slate-700 text-slate-200" 
+                                         : "bg-white text-gray-700 border border-gray-100"
+                                     )}>
                                        {getInitials(departmentName)}
                                      </AvatarFallback>
                                    </Avatar>
+                                   {selectedUser?.id === `dept_${departmentName}_${group.eventTitle}` && (
+                                     <span className={cn(
+                                       "absolute -right-1 -bottom-1 w-3 h-3 rounded-full border-2",
+                                       isDarkMode 
+                                         ? "bg-blue-500 border-slate-900" 
+                                         : "bg-blue-500 border-white"
+                                     )} />
+                                   )}
                                  </div>
                                  <div className="flex-1 min-w-0">
-                                   <div className="flex items-center justify-between">
-                                     <Badge variant="outline" className="text-xs">
+                                   <div className="flex items-center gap-2">
+                                     <Badge variant="outline" className={cn(
+                                       "px-1.5 py-0 text-[10px] font-medium",
+                                       isDarkMode 
+                                         ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                         : "bg-gray-100 text-gray-600 border-gray-200"
+                                     )}>
                                        {departmentName}
                                      </Badge>
                                    </div>
                                    {departmentUser && (
                                      <p className={cn(
-                                       "text-xs truncate mt-0.5",
-                                       isDarkMode ? "text-gray-400" : "text-gray-500"
+                                       "text-xs truncate mt-1.5",
+                                       isDarkMode ? "text-slate-400" : "text-gray-500"
                                      )}>
                                        {departmentUser.email}
                                      </p>
@@ -771,15 +815,14 @@ const Messages = () => {
                    
                    {/* Render Individual Users */}
                    {sortedAndFilteredUsers.map((user) => {
-                     // Debug: Log user data to see what's available
-                     console.log('User data:', user);
+
                      return (
                      <motion.div
                        key={user.id}
                        ref={el => userRefs.current[user.id] = el}
                        onClick={() => handleUserSelect(user)}
                        className={cn(
-                         "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all relative",
+                         "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group",
                          selectedUser?.id === user.id
                            ? (isDarkMode ? "bg-slate-800" : "bg-blue-50")
                            : (isDarkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-50")
@@ -791,68 +834,82 @@ const Messages = () => {
                        <div className="relative">
                          <Avatar>
                            <AvatarFallback className={cn(
+                             "font-medium",
                              selectedUser?.id === user.id
-                               ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300"
-                               : "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
+                               ? (isDarkMode ? "bg-blue-500/20 text-blue-200" : "bg-blue-100 text-blue-700")
+                               : (isDarkMode ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700")
                            )}>
                              {getInitials(user.department)}
                            </AvatarFallback>
                          </Avatar>
                          <span className={cn(
-                           "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2",
+                           "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 transition-colors",
                            isDarkMode ? "border-slate-900" : "border-white",
-                           "bg-green-500"
+                           selectedUser?.id === user.id
+                             ? "bg-blue-500"
+                             : "bg-emerald-500"
                          )} />
                        </div>
                        <div className="flex-1 min-w-0">
-                         <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
                            {user.department && (
-                             <Badge variant="outline" className="text-xs">
+                             <Badge variant="outline" className={cn(
+                               "px-1.5 py-0 text-[10px] font-medium",
+                               isDarkMode 
+                                 ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                 : "bg-gray-100 text-gray-600 border-gray-200"
+                             )}>
                                {user.department}
                              </Badge>
                            )}
                            {unreadMessages[user.email] && (
-                             <Badge variant="default" className="bg-blue-500 hover:bg-blue-500 ml-2">
+                             <Badge className={cn(
+                               "px-1.5 py-0.5 text-[10px] font-medium",
+                               isDarkMode 
+                                 ? "bg-blue-500/20 text-blue-200 border border-blue-500/20" 
+                                 : "bg-blue-50 text-blue-700 border border-blue-100"
+                             )}>
                                New
                              </Badge>
                            )}
                          </div>
-                         <div className="flex flex-col gap-0.5 mt-1.5">
+                         <div className="flex flex-col gap-1 mt-1">
                            <p className={cn(
-                             "text-sm truncate",
-                             isDarkMode ? "text-gray-400" : "text-gray-500"
+                             "text-sm font-medium truncate",
+                             isDarkMode ? "text-slate-200" : "text-gray-700"
                            )}>{user.email}</p>
 
                            {/* Show event title */}
                            {((user.taggedEvents && user.taggedEvents.length > 0) || user.taggingEvents && user.taggingEvents.length > 0) && (
-                             <p className={cn(
-                               "text-xs truncate mt-0.5",
-                               isDarkMode ? "text-gray-500" : "text-gray-400"
-                             )}>
-                               {/* Show event title from either tagged or tagging events */}
-                               {(user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle) && (
-                                 <>
-                                   <span className="font-medium">Event:</span> {
-                                     (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).length > 30 
-                                       ? (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).substring(0, 30) + '...' 
-                                       : (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle)
-                                   }
-                                 </>
-                               )}
-                             </p>
+                             <div className="flex items-center gap-1.5">
+                               <Badge variant="outline" className={cn(
+                                 "px-1.5 py-0 text-[10px] font-medium",
+                                 isDarkMode 
+                                   ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                   : "bg-gray-100 text-gray-600 border-gray-200"
+                               )}>
+                                 {(user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).length > 30 
+                                   ? (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).substring(0, 30) + '...' 
+                                   : (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle)
+                                 }
+                               </Badge>
+                             </div>
                            )}
                            {/* Fallback to eventTitle or title if no events available */}
                            {(!user.taggedEvents || user.taggedEvents.length === 0) && (!user.taggingEvents || user.taggingEvents.length === 0) && (user.eventTitle || user.title) && (
-                             <p className={cn(
-                               "text-xs truncate mt-0.5",
-                               isDarkMode ? "text-gray-500" : "text-gray-400"
-                             )}>
-                               <span className="font-medium">Event:</span> {
-                                 (user.eventTitle || user.title).length > 30 
+                             <div className="flex items-center gap-1.5">
+                               <Badge variant="outline" className={cn(
+                                 "px-1.5 py-0 text-[10px] font-medium",
+                                 isDarkMode 
+                                   ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                   : "bg-gray-100 text-gray-600 border-gray-200"
+                               )}>
+                                 {(user.eventTitle || user.title).length > 30 
                                    ? (user.eventTitle || user.title).substring(0, 30) + '...' 
                                    : (user.eventTitle || user.title)
-                               }
-                             </p>
+                                 }
+                               </Badge>
+                             </div>
                            )}
                          </div>
                        </div>
@@ -860,13 +917,32 @@ const Messages = () => {
                    )})}
                  </div>
               ) : (
-                                 <div className={cn(
-                   "text-center py-4 px-4",
-                   isDarkMode ? "text-gray-400" : "text-gray-500"
-                 )}>
-                   {taggedDepartments.length === 0 
-                     ? "No tagged departments found. Tag departments in your events to message them."
-                     : "No users or event groups found from your tagged departments."}
+                                 <div className="flex flex-col items-center justify-center py-8 px-4">
+                   <div className={cn(
+                     "w-12 h-12 rounded-full flex items-center justify-center mb-4",
+                     isDarkMode ? "bg-slate-800" : "bg-gray-100"
+                   )}>
+                     <Users className={cn(
+                       "w-6 h-6",
+                       isDarkMode ? "text-slate-400" : "text-gray-400"
+                     )} />
+                   </div>
+                   <h3 className={cn(
+                     "text-sm font-medium mb-2",
+                     isDarkMode ? "text-slate-300" : "text-gray-700"
+                   )}>
+                     {taggedDepartments.length === 0 
+                       ? "No Tagged Departments"
+                       : "No Matching Results"}
+                   </h3>
+                   <p className={cn(
+                     "text-xs text-center max-w-[200px]",
+                     isDarkMode ? "text-slate-400" : "text-gray-500"
+                   )}>
+                     {taggedDepartments.length === 0 
+                       ? "Tag departments in your events to start messaging them."
+                       : "Try adjusting your search or check back later."}
+                   </p>
                  </div>
               )}
             </div>

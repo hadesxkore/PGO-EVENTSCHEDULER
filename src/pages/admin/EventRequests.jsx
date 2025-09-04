@@ -374,11 +374,13 @@ const EventRequests = () => {
                     ? "border-slate-700 bg-slate-800/50" 
                     : "border-gray-200 bg-gray-50"
                 )}>
-                  <TableHead className="w-[250px] py-4 text-sm font-medium">Event Details</TableHead>
-                  <TableHead className="py-4 text-sm font-medium">Requestor</TableHead>
-                  <TableHead className="py-4 text-sm font-medium">Date & Time</TableHead>
-                  <TableHead className="py-4 text-sm font-medium">Location</TableHead>
-                  <TableHead className="text-center py-4 text-sm font-medium">Actions</TableHead>
+                                      <TableHead className="w-[250px] py-4 text-sm font-medium">Event Title</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">Requestor</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">Start Date</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">End Date</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">Location</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">Participants</TableHead>
+                    <TableHead className="text-center py-4 text-sm font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -428,7 +430,7 @@ const EventRequests = () => {
                       }}
                     >
                       <TableCell className="py-4">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           {isSelectMode && (
                             <Checkbox
                               checked={selectedEvents.includes(event)}
@@ -440,61 +442,61 @@ const EventRequests = () => {
                               )}
                             />
                           )}
-                          <div className="max-w-[250px]">
-                            <span className={cn(
-                              "px-3 py-2 rounded-md inline-block font-medium whitespace-nowrap overflow-hidden text-ellipsis",
-                              isDarkMode 
-                                ? "bg-blue-500/10 text-blue-300" 
-                                : "bg-blue-50 text-blue-700"
-                            )} title={event.title}>
-                              {event.title.length > 35 
-                                ? `${event.title.substring(0, 35)}...` 
-                                : event.title}
-                            </span>
-                          </div>
+                          <span className={cn(
+                            "text-blue-500 hover:text-blue-600 cursor-pointer font-medium"
+                          )}>
+                            {event.title}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="space-y-1">
-                          <div className={cn(
+                        <div className="flex flex-col">
+                          <span className={cn(
                             "text-sm font-medium",
                             isDarkMode ? "text-gray-100" : "text-gray-900"
                           )}>
                             {event.requestor}
-                          </div>
-                          <div className={cn(
+                          </span>
+                          <span className={cn(
                             "text-xs",
                             isDarkMode ? "text-gray-400" : "text-gray-500"
                           )}>
                             {event.userDepartment || event.department || "No department"}
-                          </div>
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="space-y-1">
-                          <div className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>
-                            {event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy") : "No date"}
-                          </div>
-                          <div className={cn(
-                            "text-xs",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>
-                            {event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "No time"}
-                          </div>
-                        </div>
+                        <span className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
+                        )}>
+                          {event.startDate ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
+                           event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
+                        </span>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className={cn(
-                          "inline-block px-3 py-2 rounded-md text-sm font-medium",
-                          isDarkMode 
-                            ? "bg-indigo-500/10 text-indigo-300" 
-                            : "bg-indigo-50 text-indigo-700"
+                        <span className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
+                        )}>
+                          {event.endDate ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <span className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
                         )}>
                           {event.location}
-                        </div>
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <span className={cn(
+                          "text-sm text-green-600 font-medium",
+                          isDarkMode ? "text-green-400" : "text-green-600"
+                        )}>
+                          {event.participants} attendees
+                        </span>
                       </TableCell>
                                             <TableCell className="py-4">
                         <div className="flex items-center justify-end gap-2">
@@ -634,64 +636,34 @@ const EventRequests = () => {
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className={cn(
-          "sm:max-w-[700px] overflow-hidden border-none [&>button]:text-white [&>button]:hover:bg-white/10 [&>button]:top-4 [&>button]:right-4 [&>button]:focus:outline-none [&>button]:focus-visible:ring-0 [&>button]:focus:ring-0 [&>button]:ring-0 [&>button]:focus:ring-offset-0 [&>button]:active:ring-0 [&>button]:active:outline-none",
+          "sm:max-w-[700px] overflow-hidden border-none [&>button]:top-4 [&>button]:right-4 [&>button]:focus:outline-none [&>button]:focus-visible:ring-0 [&>button]:focus:ring-0 [&>button]:ring-0 [&>button]:focus:ring-offset-0 [&>button]:active:ring-0 [&>button]:active:outline-none",
           isDarkMode ? "bg-slate-900" : "bg-white"
         )}>
           {selectedRequest && (
             <>
-              <DialogHeader>
-                <div className={cn(
-                  "p-6 -mx-6 -mt-6 mb-6 relative overflow-hidden",
-                  isDarkMode ? "bg-gradient-to-br from-slate-800 to-slate-900" : "bg-gradient-to-br from-gray-900 to-black"
-                )}>
-                  {/* Background Pattern */}
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute inset-0" style={{
-                      backgroundImage: "radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 2px, transparent 0)",
-                      backgroundSize: "24px 24px"
-                    }}></div>
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="relative">
-                    <div className="flex items-center justify-between">
-                      <DialogTitle className="text-2xl font-bold text-white">
-                        {selectedRequest.title}
-                      </DialogTitle>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "capitalize font-medium px-3 py-1",
-                          isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-500/10 text-blue-500"
-                        )}
-                      >
-                        {selectedRequest.userDepartment}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mt-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-300">
-                          {selectedRequest.requestor}
-                        </span>
-                      </div>
-                      <Separator orientation="vertical" className="h-4 bg-gray-700" />
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-300">
-                          Requested on {selectedRequest.createdAt ? format(new Date(selectedRequest.createdAt.seconds * 1000), "MMM d, yyyy") : "No date"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <ScrollArea className="max-h-[calc(80vh-120px)] px-6">
+                            <ScrollArea className="max-h-[80vh] px-6 pt-6">
                 <div className="space-y-6">
+                  {/* Header */}
+                  <div className="mb-6">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "capitalize font-medium px-2 py-0.5 text-xs mb-2",
+                        isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-500/10 text-blue-500"
+                      )}
+                    >
+                      {selectedRequest.userDepartment || selectedRequest.department}
+                    </Badge>
+                    <DialogTitle className={cn(
+                      "text-lg font-bold tracking-tight",
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    )}>
+                      {selectedRequest.title}
+                    </DialogTitle>
+                  </div>
+
                   {/* Info Cards Grid */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     {/* Requestor Card */}
                     <div className={cn(
                       "p-4 rounded-xl transition-colors",
@@ -744,18 +716,46 @@ const EventRequests = () => {
                           isDarkMode ? "text-gray-200" : "text-gray-700"
                         )}>Date & Time</h4>
                       </div>
-                      <p className={cn(
-                        "text-lg font-semibold mb-1",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>
-                        {selectedRequest.date ? format(new Date(selectedRequest.date.seconds * 1000), "PPP") : "No date"}
-                      </p>
-                      <p className={cn(
-                        "text-sm font-medium",
-                        isDarkMode ? "text-blue-400" : "text-blue-600"
-                      )}>
-                        {selectedRequest.date ? format(new Date(selectedRequest.date.seconds * 1000), "h:mm a") : "No time"}
-                      </p>
+                      <div className="space-y-3">
+                        {/* Start Date */}
+                        <div>
+                          <p className={cn(
+                            "text-sm font-medium mb-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>
+                            Start Date & Time
+                          </p>
+                          <p className={cn(
+                            "text-base font-medium",
+                            isDarkMode ? "text-gray-200" : "text-gray-700"
+                          )}>
+                            {selectedRequest.startDate ? 
+                              format(selectedRequest.startDate.toDate ? selectedRequest.startDate.toDate() : new Date(selectedRequest.startDate), "MMMM d, yyyy h:mm a") :
+                              selectedRequest.date?.seconds ? 
+                                format(new Date(selectedRequest.date.seconds * 1000), "MMMM d, yyyy h:mm a") :
+                                "Not available"
+                            }
+                          </p>
+                        </div>
+                        {/* End Date */}
+                        <div>
+                          <p className={cn(
+                            "text-sm font-medium mb-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>
+                            End Date & Time
+                          </p>
+                          <p className={cn(
+                            "text-base font-medium",
+                            isDarkMode ? "text-gray-200" : "text-gray-700"
+                          )}>
+                            {selectedRequest.endDate ? 
+                              format(selectedRequest.endDate.toDate ? selectedRequest.endDate.toDate() : new Date(selectedRequest.endDate), "MMMM d, yyyy h:mm a") :
+                              "Not available"
+                            }
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Location Card */}
@@ -801,6 +801,50 @@ const EventRequests = () => {
                         {selectedRequest.participants} attendees
                       </p>
                     </div>
+
+                    {/* VIP Card */}
+                    <div className={cn(
+                      "p-4 rounded-xl transition-colors",
+                      isDarkMode 
+                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
+                        : "bg-gray-50/80 hover:bg-gray-50"
+                    )}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <User className="h-5 w-5 text-purple-500" />
+                        <h4 className={cn(
+                          "font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>VIP</h4>
+                      </div>
+                      <p className={cn(
+                        "text-lg font-semibold",
+                        isDarkMode ? "text-gray-100" : "text-gray-900"
+                      )}>
+                        {selectedRequest.vip || 0} VIPs
+                      </p>
+                    </div>
+
+                    {/* VVIP Card */}
+                    <div className={cn(
+                      "p-4 rounded-xl transition-colors",
+                      isDarkMode 
+                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
+                        : "bg-gray-50/80 hover:bg-gray-50"
+                    )}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <User className="h-5 w-5 text-red-500" />
+                        <h4 className={cn(
+                          "font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>VVIP</h4>
+                      </div>
+                      <p className={cn(
+                        "text-lg font-semibold",
+                        isDarkMode ? "text-gray-100" : "text-gray-900"
+                      )}>
+                        {selectedRequest.vvip || 0} VVIPs
+                      </p>
+                    </div>
                   </div>
 
                   {/* Requirements Section */}
@@ -833,44 +877,57 @@ const EventRequests = () => {
                           ? "bg-slate-900/30 text-gray-300" 
                           : "bg-white/50 text-gray-600"
                       )}>
-                        {selectedRequest.requirements && selectedRequest.requirements.slice(0, 2).map((req, index) => {
-                          const requirement = typeof req === 'string' ? { name: req } : req;
-                          return (
-                            <div
-                              key={index}
-                              className={cn(
-                                "mb-3 last:mb-0 flex items-start gap-2",
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              )}
-                            >
-                              <div className={cn(
-                                "p-1.5 rounded-md mt-0.5",
-                                isDarkMode ? "bg-slate-800" : "bg-white",
-                                "shadow-sm"
-                              )}>
-                                <FileText className="h-4 w-4 text-blue-500" />
-                              </div>
-                              <div>
-                                <span className={cn(
-                                  "font-semibold block",
-                                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                                )}>
-                                  {requirement.name}
-                                </span>
-                                {requirement.note && (
-                                  <span className={cn(
-                                    "text-xs block mt-0.5",
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                        {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
+                          <div key={deptIndex} className="mb-4 last:mb-0">
+                            <h4 className={cn(
+                              "text-sm font-medium mb-2",
+                              isDarkMode ? "text-gray-200" : "text-gray-700"
+                            )}>
+                              {dept.departmentName}
+                            </h4>
+                            {dept.requirements.slice(0, 2).map((req, reqIndex) => {
+                              const requirement = typeof req === 'string' ? { name: req } : req;
+                              return (
+                                <div
+                                  key={`${deptIndex}-${reqIndex}`}
+                                  className={cn(
+                                    "mb-2 last:mb-0 flex items-start gap-2",
+                                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "p-1.5 rounded-md mt-0.5",
+                                    isDarkMode ? "bg-slate-800" : "bg-white",
+                                    "shadow-sm"
                                   )}>
-                                    {requirement.note}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                                    <FileText className="h-4 w-4 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <span className={cn(
+                                      "font-semibold block",
+                                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                                    )}>
+                                      {requirement.name}
+                                    </span>
+                                    {requirement.note && (
+                                      <span className={cn(
+                                        "text-xs block mt-0.5",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        {requirement.note}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
                         
-                        {selectedRequest.requirements && selectedRequest.requirements.length > 2 && (
+                        {selectedRequest.departmentRequirements && (
+                          selectedRequest.departmentRequirements.length > 2 || 
+                          selectedRequest.departmentRequirements.some(dept => dept.requirements.length > 2)
+                        ) && (
                           <>
                             <div className={cn(
                               "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
@@ -887,6 +944,33 @@ const EventRequests = () => {
                           </>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Classifications Section */}
+                  <div className={cn(
+                    "p-5 rounded-xl",
+                    isDarkMode 
+                      ? "bg-slate-800/20" 
+                      : "bg-gray-50/80"
+                  )}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <FileText className="h-5 w-5 text-indigo-500" />
+                      <h4 className={cn(
+                        "font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>Classifications</h4>
+                    </div>
+                    <div className={cn(
+                      "rounded-lg p-4",
+                      isDarkMode ? "bg-slate-900/30" : "bg-white/50"
+                    )}>
+                      <p className={cn(
+                        "text-base leading-relaxed whitespace-pre-wrap",
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      )}>
+                        {selectedRequest.classifications || "No classifications provided"}
+                      </p>
                     </div>
                   </div>
 
@@ -1068,46 +1152,61 @@ const EventRequests = () => {
               )}>
                 <ScrollArea className="h-[400px] pr-4">
                   <div className="space-y-4">
-                    {selectedRequest.requirements && selectedRequest.requirements.length > 0 ? (
-                      selectedRequest.requirements.map((req, index) => {
-                        const requirement = typeof req === 'string' ? { name: req } : req;
-                        return (
-                          <div
-                            key={index}
-                            className={cn(
-                              "rounded-xl p-5 border transition-all duration-200 hover:shadow-md",
-                              isDarkMode 
-                                ? "bg-slate-900 border-slate-700 hover:border-slate-600" 
-                                : "bg-white border-gray-200 hover:border-gray-300"
-                            )}
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className={cn(
-                                "p-3 rounded-lg flex-shrink-0",
-                                isDarkMode ? "bg-slate-800" : "bg-gray-50"
-                              )}>
-                                <FileText className="h-6 w-6 text-blue-500" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className={cn(
-                                  "text-lg font-semibold mb-2",
-                                  isDarkMode ? "text-white" : "text-gray-900"
-                                )}>
-                                  {requirement.name}
-                                </h3>
-                                {requirement.note && (
-                                  <p className={cn(
-                                    "text-sm leading-relaxed",
-                                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                                  )}>
-                                    {requirement.note}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                    {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.length > 0 ? (
+                      selectedRequest.departmentRequirements.map((dept, deptIndex) => (
+                        <div key={deptIndex} className="space-y-4">
+                          <h3 className={cn(
+                            "text-lg font-semibold",
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          )}>
+                            {dept.departmentName}
+                          </h3>
+                          <div className={cn(
+                            "grid gap-3",
+                            {
+                              'grid-cols-1': dept.requirements.length <= 4,
+                              'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
+                              'grid-cols-3': dept.requirements.length > 8
+                            }
+                          )}>
+                            {dept.requirements.map((req, reqIndex) => {
+                              const requirement = typeof req === 'string' ? { name: req } : req;
+                              return (
+                                <div
+                                  key={`${deptIndex}-${reqIndex}`}
+                                  className={cn(
+                                    "rounded-lg p-3",
+                                    isDarkMode ? "bg-black" : "bg-gray-50"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className={cn(
+                                      "p-1.5 rounded-lg shrink-0",
+                                      isDarkMode ? "bg-slate-800" : "bg-white"
+                                    )}>
+                                      <FileText className="h-4 w-4 text-blue-500" />
+                                    </div>
+                                    <h3 className={cn(
+                                      "font-semibold text-sm",
+                                      isDarkMode ? "text-white" : "text-gray-900"
+                                    )}>
+                                      {requirement.name}
+                                    </h3>
+                                  </div>
+                                  {requirement.note && (
+                                    <div className={cn(
+                                      "mt-2 pl-8 text-xs",
+                                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                                    )}>
+                                      {requirement.note}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })
+                        </div>
+                      ))
                     ) : (
                       <div className={cn(
                         "rounded-xl p-8 text-center border-2 border-dashed",

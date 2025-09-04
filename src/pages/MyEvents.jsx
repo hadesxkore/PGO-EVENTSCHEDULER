@@ -903,20 +903,34 @@ const MyEvents = () => {
                                   <FileText className="h-4 w-4 text-blue-500" />
                                 </div>
                                 <div>
-                                  <span className={cn(
-                                    "font-semibold block",
-                                    isDarkMode ? "text-gray-200" : "text-gray-700"
-                                  )}>
-                                    {requirement.name}
-                                  </span>
-                                  {requirement.note && (
+                                  <div>
                                     <span className={cn(
-                                      "text-xs block mt-0.5",
-                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      "font-semibold block",
+                                      isDarkMode ? "text-gray-200" : "text-gray-700"
                                     )}>
-                                      {requirement.note}
+                                      {requirement.name}
                                     </span>
-                                  )}
+                                    <div className="mt-1 space-y-0.5">
+                                      <span className={cn(
+                                        "text-xs block",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                      </span>
+                                      <span className={cn(
+                                        "text-xs block",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                      </span>
+                                      <span className={cn(
+                                        "text-xs block",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1159,20 +1173,32 @@ const MyEvents = () => {
                                   <FileText className="h-4 w-4 text-blue-500" />
                                 </div>
                                 <h3 className={cn(
-                                  "font-semibold text-sm",
+                                  "text-sm font-semibold",
                                   isDarkMode ? "text-white" : "text-gray-900"
                                 )}>
                                   {requirement.name}
                                 </h3>
                               </div>
-                              {requirement.note && (
-                                <div className={cn(
-                                  "mt-2 pl-8 text-xs",
+                              <div className="mt-1 pl-8 space-y-0.5">
+                                <span className={cn(
+                                  "text-xs block",
                                   isDarkMode ? "text-gray-400" : "text-gray-600"
                                 )}>
-                                  {requirement.note}
-                                </div>
-                              )}
+                                  Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                                <span className={cn(
+                                  "text-xs block",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                                <span className={cn(
+                                  "text-xs block",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                              </div>
                             </div>
                           );
                         })}

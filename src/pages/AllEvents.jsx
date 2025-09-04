@@ -921,7 +921,9 @@ const AllEvents = ({ userData }) => {
                         })
                       )}
                       
-                      {((selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 2) ||
+                      {((selectedEvent.departmentRequirements && 
+                        (selectedEvent.departmentRequirements.length > 2 || 
+                         selectedEvent.departmentRequirements.some(dept => dept.requirements.length > 2))) ||
                         (selectedEvent.requirements && selectedEvent.requirements.length > 2)) && (
                         <>
                           <div className={cn(

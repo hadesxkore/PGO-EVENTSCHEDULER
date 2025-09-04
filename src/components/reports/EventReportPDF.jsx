@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     textDecoration: 'underline',
   },
   infoSection: {
-    marginBottom: 15,
+    marginBottom: 8,
   },
   infoRow: {
     flexDirection: 'row',
@@ -106,12 +106,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: 6,
+    marginTop: 8,
   },
   listItem: {
-    marginBottom: 4,
-    paddingLeft: 15,
+    marginBottom: 2,
+    paddingLeft: 12,
   },
   footer: {
     position: 'absolute',
@@ -146,85 +146,134 @@ const EventReportPDF = ({ events }) => {
   return (
     <Document>
       {events.map((event, index) => (
-        <Page key={index} size="A4" style={styles.page} wrap>
-          {/* Header - repeated on each page automatically */}
-          <ReportHeader />
-
-          {/* Single event per page */}
-          <View style={[styles.eventContainer, { borderBottom: 'none' }]}>
-            <Text style={styles.eventTitle}>
-              {(event.title && typeof event.title === 'string') 
-                ? sanitizeText(event.title).toUpperCase() 
-                : 'UNTITLED EVENT'}
-            </Text>
-            
-            {/* Basic Information */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Requestor:</Text>
-                <Text style={styles.infoValue}>{event.requestor}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Department:</Text>
-                <Text style={styles.infoValue}>{event.userDepartment || event.department || "Not specified"}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Date:</Text>
-                <Text style={styles.infoValue}>
-                  {event.date ? format(new Date(event.date.seconds * 1000), "MMMM d, yyyy") : "Not specified"}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Time:</Text>
-                <Text style={styles.infoValue}>
-                  {event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : "Not specified"}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Location:</Text>
-                <Text style={styles.infoValue}>{event.location}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Participants:</Text>
-                <Text style={styles.infoValue}>{event.participants} attendees</Text>
-              </View>
-            </View>
-
-            {/* Contact Information */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Contact Information</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Email:</Text>
-                <Text style={styles.infoValue}>{event.contactEmail || event.userEmail || "Not provided"}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Phone:</Text>
-                <Text style={styles.infoValue}>{event.contactNumber || "Not provided"}</Text>
-              </View>
-            </View>
-
-            {/* Requirements */}
-            {event.requirements && event.requirements.length > 0 && (
+        <>
+          {/* First Page - Event Details */}
+          <Page key={`${index}-details`} size="A4" style={styles.page} wrap>
+            <ReportHeader />
+            <View style={[styles.eventContainer, { borderBottom: 'none' }]}>
+              <Text style={styles.eventTitle}>
+                {(event.title && typeof event.title === 'string') 
+                  ? sanitizeText(event.title).toUpperCase() 
+                  : 'UNTITLED EVENT'}
+              </Text>
+              
+              {/* Basic Information */}
               <View style={styles.infoSection}>
-                <Text style={styles.sectionTitle}>Requirements</Text>
-                {event.requirements.map((req, idx) => {
-                  const requirement = typeof req === 'string' ? { name: req } : req;
-                  return (
-                    <Text key={idx} style={styles.listItem}>
-                      • {requirement.name}
-                      {requirement.note && ` - ${requirement.note}`}
-                    </Text>
-                  );
-                })}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Requestor:</Text>
+                  <Text style={styles.infoValue}>{event.requestor}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Department:</Text>
+                  <Text style={styles.infoValue}>{event.userDepartment || event.department || "Not specified"}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Start Date:</Text>
+                  <Text style={styles.infoValue}>
+                    {event.startDate ? format(new Date(event.startDate.seconds * 1000), "MMMM d, yyyy h:mm a") :
+                     event.date ? format(new Date(event.date.seconds * 1000), "MMMM d, yyyy h:mm a") : "Not specified"}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>End Date:</Text>
+                  <Text style={styles.infoValue}>
+                    {event.endDate ? format(new Date(event.endDate.seconds * 1000), "MMMM d, yyyy h:mm a") : "Not specified"}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Location:</Text>
+                  <Text style={styles.infoValue}>{event.location}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Participants:</Text>
+                  <Text style={styles.infoValue}>{event.participants} attendees</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>VIP:</Text>
+                  <Text style={styles.infoValue}>{event.vip || 0} VIPs</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>VVIP:</Text>
+                  <Text style={styles.infoValue}>{event.vvip || 0} VVIPs</Text>
+                </View>
               </View>
-            )}
-          </View>
 
-          {/* Footer */}
-          <Text style={styles.footer}>
-            © {new Date().getFullYear()} Provincial Government of Bataan - Event Management System
-          </Text>
-        </Page>
+              {/* Contact Information */}
+              <View style={styles.infoSection}>
+                <Text style={styles.sectionTitle}>Contact Information</Text>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Email:</Text>
+                  <Text style={styles.infoValue}>{event.contactEmail || event.userEmail || "Not provided"}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Phone:</Text>
+                  <Text style={styles.infoValue}>{event.contactNumber || "Not provided"}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Footer */}
+            <Text style={styles.footer}>
+              © {new Date().getFullYear()} Provincial Government of Bataan - Event Management System
+            </Text>
+          </Page>
+
+          {/* Second Page - Requirements */}
+          <Page key={`${index}-requirements`} size="A4" style={styles.page} wrap>
+            <ReportHeader />
+            <View style={[styles.eventContainer, { borderBottom: 'none' }]}>
+              <Text style={styles.eventTitle}>
+                EVENT REQUIREMENTS - {(event.title && typeof event.title === 'string') 
+                  ? sanitizeText(event.title).toUpperCase() 
+                  : 'UNTITLED EVENT'}
+              </Text>
+
+              {/* Department Requirements */}
+              {event.departmentRequirements && event.departmentRequirements.length > 0 ? (
+                event.departmentRequirements.map((dept, deptIndex) => (
+                  <View key={deptIndex} style={styles.infoSection}>
+                    <Text style={styles.sectionTitle}>{dept.departmentName}</Text>
+                    {dept.requirements.map((req, reqIndex) => {
+                      const requirement = typeof req === 'string' ? { name: req } : req;
+                      const notes = [
+                        'Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.',
+                        'Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.',
+                        'Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.'
+                      ];
+                      return (
+                        <View key={`${deptIndex}-${reqIndex}`} style={{ marginBottom: reqIndex < dept.requirements.length - 1 ? 10 : 0 }}>
+                          <Text style={[styles.listItem, { marginBottom: 2 }]}>
+                            • {requirement.name}
+                          </Text>
+                          {notes.map((note, noteIndex) => (
+                            <Text key={noteIndex} style={[styles.listItem, { 
+                              paddingLeft: 20,
+                              marginTop: 0,
+                              marginBottom: 1,
+                              fontSize: 9,
+                              color: '#666666'
+                            }]}>
+                              {note}
+                            </Text>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))
+              ) : (
+                <Text style={[styles.listItem, { fontStyle: 'italic' }]}>
+                  No requirements specified for this event.
+                </Text>
+              )}
+            </View>
+
+            {/* Footer */}
+            <Text style={styles.footer}>
+              © {new Date().getFullYear()} Provincial Government of Bataan - Event Management System
+            </Text>
+          </Page>
+        </>
       ))}
     </Document>
   );

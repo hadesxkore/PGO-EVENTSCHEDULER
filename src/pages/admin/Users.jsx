@@ -73,6 +73,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 import { getAllUsers, getActiveUsers, getAdminUsers, updateUser } from "@/lib/firebase/users";
 

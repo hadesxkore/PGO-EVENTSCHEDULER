@@ -868,14 +868,26 @@ const AllEvents = ({ userData }) => {
                                     )}>
                                       {requirement.name}
                                     </span>
-                                    {requirement.note && (
+                                    <div className="mt-1 space-y-0.5">
                                       <span className={cn(
-                                        "text-xs block mt-0.5",
+                                        "text-xs block",
                                         isDarkMode ? "text-gray-400" : "text-gray-500"
                                       )}>
-                                        {requirement.note}
+                                        Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
                                       </span>
-                                    )}
+                                      <span className={cn(
+                                        "text-xs block",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                      </span>
+                                      <span className={cn(
+                                        "text-xs block",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -1237,14 +1249,26 @@ const AllEvents = ({ userData }) => {
                                   {requirement.name}
                                 </h3>
                               </div>
-                              {requirement.note && (
-                                <div className={cn(
-                                  "mt-2 pl-8 text-xs",
+                              <div className="mt-2 pl-8 space-y-0.5">
+                                <span className={cn(
+                                  "text-xs block",
                                   isDarkMode ? "text-gray-400" : "text-gray-600"
                                 )}>
-                                  {requirement.note}
-                                </div>
-                              )}
+                                  Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                                <span className={cn(
+                                  "text-xs block",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                                <span className={cn(
+                                  "text-xs block",
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                </span>
+                              </div>
                             </div>
                           );
                         })}

@@ -26,6 +26,7 @@ import {
   Pencil,
   RotateCw,
   MessageCircle,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -388,6 +394,7 @@ const MyEvents = () => {
                       <TableHead className="text-center font-semibold">End Date</TableHead>
                       <TableHead className="text-center font-semibold">Location</TableHead>
                       <TableHead className="text-center font-semibold">Participants</TableHead>
+                      <TableHead className="text-center font-semibold">Status</TableHead>
                       <TableHead className="text-center font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -459,6 +466,62 @@ const MyEvents = () => {
                           )}>
                             {event.participants} attendees
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {event.status === 'disapproved' ? (
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="destructive"
+                                className="bg-red-500/10 text-red-500"
+                              >
+                                Disapproved
+                              </Badge>
+                              <HoverCard>
+                                <HoverCardTrigger>
+                                  <div className="p-1 rounded-full bg-red-500/10 cursor-pointer hover:bg-red-500/20">
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
+                                  </div>
+                                </HoverCardTrigger>
+                                <HoverCardContent
+                                  className={cn(
+                                    "w-80 border",
+                                    isDarkMode 
+                                      ? "bg-slate-900 border-slate-700/30" 
+                                      : "bg-white border-gray-200/70"
+                                  )}
+                                >
+                                  <div className="space-y-2">
+                                    <h4 className={cn(
+                                      "font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>
+                                      Reason for Disapproval
+                                    </h4>
+                                    <p className={cn(
+                                      "text-sm",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      {event.disapprovalReason || "No reason provided"}
+                                    </p>
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant={event.status === 'approved' ? 'success' : 'secondary'}
+                              className={cn(
+                                "font-medium",
+                                event.status === 'approved' 
+                                  ? "bg-green-500/10 text-green-500" 
+                                  : isDarkMode 
+                                    ? "bg-gray-500/10 text-gray-400" 
+                                    : "bg-gray-500/10 text-gray-500"
+                              )}
+                            >
+                              {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -911,24 +974,21 @@ const MyEvents = () => {
                                       {requirement.name}
                                     </span>
                                     <div className="mt-1 space-y-0.5">
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                      </span>
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                      </span>
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                      </span>
+                                      {requirement.note ? (
+                                        <div className={cn(
+                                          "text-xs whitespace-pre-line",
+                                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                                        )}>
+                                          {requirement.note}
+                                        </div>
+                                      ) : (
+                                        <span className={cn(
+                                          "text-xs block italic",
+                                          isDarkMode ? "text-gray-500" : "text-gray-400"
+                                        )}>
+                                          No notes provided for this requirement
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1180,24 +1240,21 @@ const MyEvents = () => {
                                 </h3>
                               </div>
                               <div className="mt-1 pl-8 space-y-0.5">
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                </span>
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                </span>
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                </span>
+                                {requirement.note ? (
+                                  <div className={cn(
+                                    "text-xs whitespace-pre-line",
+                                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                                  )}>
+                                    {requirement.note}
+                                  </div>
+                                ) : (
+                                  <span className={cn(
+                                    "text-xs block italic",
+                                    isDarkMode ? "text-gray-500" : "text-gray-400"
+                                  )}>
+                                    No notes provided for this requirement
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );

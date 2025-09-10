@@ -76,23 +76,53 @@ const Messages = () => {
      });
    };
    
-   // Handle department selection from event group
-   const handleDepartmentSelect = (department, eventTitle) => {
-     // Find the actual user for this department
-     const departmentUser = users.find(u => u.department === department.name);
-     
-     // Create a user object with the actual user's data
-     const selectedDepartmentUser = {
-       id: `dept_${department.name}_${eventTitle}`,
-       email: departmentUser?.email || `department@${department.name.toLowerCase()}`,
-       department: department.name,
-       name: departmentUser?.name || department.name,
-       isDepartmentMessage: false, // Set to false to show actual email
-       eventTitle: eventTitle,
-       eventId: department.eventId
-     };
-     
-     setSelectedUser(selectedDepartmentUser);
+  // Handle department selection from event group
+  const handleDepartmentSelect = (department, eventTitle) => {
+    // Find the event group to get the eventId and tagger info
+    const eventGroup = eventGroups.find(group => group.eventTitle === eventTitle);
+    
+    if (!eventGroup) {
+      console.error('Event group not found:', eventTitle);
+      return;
+    }
+
+    // If current user is a tagged department, select the tagger
+    if (currentUser?.department === department.name) {
+      // Find the tagger's user object
+      const taggerUser = users.find(u => u.email === eventGroup.taggerEmail);
+      
+      if (!taggerUser) {
+        console.error('Tagger user not found:', eventGroup.taggerEmail);
+        return;
+      }
+
+      // Create a user object with the tagger's data
+      const selectedTaggerUser = {
+        ...taggerUser,
+        id: `tagger_${eventGroup.taggerEmail}_${eventTitle}`,
+        eventTitle: eventTitle,
+        eventId: eventGroup.eventId,
+        isDepartmentMessage: false
+      };
+      
+      setSelectedUser(selectedTaggerUser);
+    } else {
+      // If current user is the tagger, select the department
+      const departmentUser = users.find(u => u.department === department.name);
+      
+      // Create a user object with the department's data
+      const selectedDepartmentUser = {
+        id: `dept_${department.name}_${eventTitle}`,
+        email: departmentUser?.email || `department@${department.name.toLowerCase()}`,
+        department: department.name,
+        name: departmentUser?.name || department.name,
+        isDepartmentMessage: false,
+        eventTitle: eventTitle,
+        eventId: eventGroup.eventId
+      };
+      
+      setSelectedUser(selectedDepartmentUser);
+    }
    };
 
      // Get current user from localStorage and store it in Zustand
@@ -275,7 +305,15 @@ const Messages = () => {
        return;
      }
 
-     const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+     // Generate chat ID that includes event information for department conversations
+    let chatId;
+    if (selectedUser.eventTitle && selectedUser.eventId) {
+      // For department conversations, include event info to separate different event conversations
+      chatId = [currentUser.email, selectedUser.email, selectedUser.eventId].sort().join("_");
+    } else {
+      // For regular user conversations, use just the emails
+      chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    }
      
      // Clean up previous subscription
      if (currentChatSubscription.current) {
@@ -309,10 +347,18 @@ const Messages = () => {
   }, []);
 
   // Send message using Zustand store
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!message.trim() || !currentUser || !selectedUser) return;
 
-    const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    // Generate chat ID that includes event information for department conversations
+    let chatId;
+    if (selectedUser.eventTitle && selectedUser.eventId) {
+      // For department conversations, include event info to separate different event conversations
+      chatId = [currentUser.email, selectedUser.email, selectedUser.eventId].sort().join("_");
+    } else {
+      // For regular user conversations, use just the emails
+      chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    }
     const messageContent = message.trim();
     
     // Clear input immediately for better UX
@@ -326,21 +372,34 @@ const Messages = () => {
       participants: [currentUser.email, selectedUser.email].sort(),
       fromDepartment: currentUser.department,
       toDepartment: selectedUser.department,
+      // Include event information for department conversations
+      eventTitle: selectedUser.eventTitle || null,
+      eventId: selectedUser.eventId || null,
+      // Add timestamp for immediate display
+      timestamp: new Date(),
+      isPending: false
     };
     
-    const result = await sendMessage(messageData);
-    if (!result.success) {
-      // Only show error if sending failed
+    // Send message without waiting
+    sendMessage(messageData).catch(error => {
+      console.error('Error sending message:', error);
       toast.error("Error sending message");
-      // Restore the message in the input if sending failed
       setMessage(messageContent);
-    }
+    });
   };
 
   // Get current chat messages
   const getCurrentChatMessages = () => {
     if (!currentUser || !selectedUser) return [];
-    const chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    // Generate chat ID that includes event information for department conversations
+    let chatId;
+    if (selectedUser.eventTitle && selectedUser.eventId) {
+      // For department conversations, include event info to separate different event conversations
+      chatId = [currentUser.email, selectedUser.email, selectedUser.eventId].sort().join("_");
+    } else {
+      // For regular user conversations, use just the emails
+      chatId = [currentUser.email, selectedUser.email].sort().join("_");
+    }
     const chatMessages = messages[chatId] || [];
     
     // Ensure unique messages by ID and sort by timestamp
@@ -435,62 +494,61 @@ const Messages = () => {
   }, []);
 
      // Group users by events and departments for better organization
-   const groupUsersByEvents = (users) => {
-     const eventGroups = new Map();
-     const individualUsers = [];
-     
-     // Only show event groups if the current user is the tagger
-     if (currentUser) {
-       users.forEach(user => {
-         if (user.eventGroups && user.eventGroups.length > 0) {
-           user.eventGroups.forEach(group => {
-             // Only add event group if current user is the tagger
-             if (group.taggerEmail === currentUser.email) {
-               const eventKey = `event_${group.eventId}`;
-               if (!eventGroups.has(eventKey)) {
-                 eventGroups.set(eventKey, {
-                   ...group,
-                   type: 'event_group'
-                 });
-               }
-             }
-           });
-         }
-       });
-     }
-     
-     // For tagged departments, show only the tagger as an individual user
-     users.forEach(user => {
-       if (currentUser) {
-         // If current user is a tagged department
-         if (user.taggingEvents && user.taggingEvents.some(event => event.taggedDepartment === currentUser.department)) {
-           // Only show the tagger
-           individualUsers.push(user);
-         }
-         // If current user is the tagger
-         else if (user.eventGroups && user.eventGroups.some(group => group.taggerEmail === currentUser.email)) {
-           // Only add users that aren't in event groups (since they'll be shown in the group)
-           if (!Array.from(eventGroups.values()).some(group => group.departments.includes(user.department))) {
-             individualUsers.push(user);
-           }
-         }
-         // If it's the current user, always add them
-         else if (user.email === currentUser.email) {
-           individualUsers.push(user);
-         }
-       } else {
-         individualUsers.push(user);
-       }
-     });
-     
-     return {
-       // Only return event groups if current user is a tagger
-       eventGroups: currentUser && Array.from(eventGroups.values()).some(group => group.taggerEmail === currentUser.email) 
-         ? Array.from(eventGroups.values()) 
-         : [],
-       individualUsers
-     };
-   };
+  const groupUsersByEvents = (users) => {
+    const eventGroups = new Map();
+    const individualUsers = [];
+    
+    // Show event groups if the current user is the tagger OR is a tagged department for the group
+    if (currentUser) {
+      users.forEach(user => {
+        if (user.eventGroups && user.eventGroups.length > 0) {
+          user.eventGroups.forEach(group => {
+            const isTagger = group.taggerEmail === currentUser.email;
+            const isTaggedDepartment = !!currentUser.department && Array.isArray(group.departments) && group.departments.includes(currentUser.department);
+            if (isTagger || isTaggedDepartment) {
+              const eventKey = `event_${group.eventId}`;
+              if (!eventGroups.has(eventKey)) {
+                eventGroups.set(eventKey, {
+                  ...group,
+                  type: 'event_group'
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    // For tagged departments, show only the tagger as an individual user if not in event groups
+    users.forEach(user => {
+      if (currentUser) {
+        // If current user is a tagged department
+        if (user.taggingEvents && user.taggingEvents.some(event => event.taggedDepartment === currentUser.department)) {
+          // Only show taggers that don't have event groups
+          if (!user.eventGroups || user.eventGroups.length === 0) {
+            individualUsers.push(user);
+          }
+        }
+        // If current user is the tagger, don't show them in individual list
+        else if (user.eventGroups && user.eventGroups.some(group => group.taggerEmail === currentUser.email)) {
+          // Skip - they'll be shown in event groups
+        }
+        // If it's the current user and they're not a tagger, show them
+        else if (user.email === currentUser.email && 
+                (!user.eventGroups || !user.eventGroups.some(group => group.taggerEmail === user.email))) {
+          individualUsers.push(user);
+        }
+      } else {
+        individualUsers.push(user);
+      }
+    });
+    
+    return {
+      // Return any event groups relevant to the current user (as tagger or tagged department)
+      eventGroups: currentUser ? Array.from(eventGroups.values()) : [],
+      individualUsers
+    };
+  };
    
        // Get grouped users
     const { eventGroups, individualUsers } = groupUsersByEvents(users);
@@ -650,65 +708,91 @@ const Messages = () => {
                        animate={{ opacity: 1, y: 0 }}
                        transition={{ duration: 0.2 }}
                        className={cn(
-                         "rounded-xl overflow-hidden",
-                         isDarkMode ? "bg-slate-800/50" : "bg-gray-50"
+                         "rounded-xl overflow-hidden border",
+                         isDarkMode 
+                           ? "bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50" 
+                           : "bg-white border-gray-100 hover:border-gray-200"
                        )}
                      >
                        {/* Event Group Header */}
                        <div 
                          onClick={() => toggleGroupExpansion(group.eventId)}
                          className={cn(
-                           "flex items-center gap-3 p-3 cursor-pointer transition-all",
+                           "flex items-center gap-4 px-4 py-3 cursor-pointer transition-all",
                            isDarkMode 
-                             ? "hover:bg-slate-800 active:bg-slate-800/80" 
-                             : "hover:bg-gray-100/80 active:bg-gray-100"
+                             ? "hover:bg-slate-800/80" 
+                             : "hover:bg-gray-50"
                          )}
                        >
-                         <div className="relative">
-                           <Avatar>
-                             <AvatarFallback className={cn(
-                               "font-medium",
-                               isDarkMode 
-                                 ? "bg-blue-500/20 text-blue-200" 
-                                 : "bg-blue-100 text-blue-700"
-                             )}>
-                               E
-                             </AvatarFallback>
-                           </Avatar>
-                           <span className={cn(
-                             "absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium border-2",
+                         {/* Event Icon with Department Count */}
+                         <div className="relative shrink-0">
+                           <div className={cn(
+                             "w-10 h-10 rounded-lg flex items-center justify-center",
                              isDarkMode 
-                               ? "bg-slate-800 text-slate-200 border-slate-900" 
-                               : "bg-white text-gray-600 border-gray-50"
+                               ? "bg-blue-500/10 text-blue-300" 
+                               : "bg-blue-50 text-blue-600"
+                           )}>
+                             <svg 
+                               className="w-5 h-5"
+                               fill="none" 
+                               stroke="currentColor" 
+                               viewBox="0 0 24 24"
+                             >
+                               <path 
+                                 strokeLinecap="round" 
+                                 strokeLinejoin="round" 
+                                 strokeWidth={1.5} 
+                                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" 
+                               />
+                             </svg>
+                           </div>
+                           <div className={cn(
+                             "absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-medium border-2",
+                             isDarkMode 
+                               ? "bg-blue-500 text-white border-slate-900" 
+                               : "bg-blue-500 text-white border-white"
                            )}>
                              {group.departments.length}
-                           </span>
+                           </div>
                          </div>
+
+                         {/* Event Details */}
                          <div className="flex-1 min-w-0">
-                           <div className="flex items-center gap-2">
+                           {/* Event Status & Type */}
+                           <div className="flex items-center gap-2 mb-1">
                              <Badge variant="outline" className={cn(
-                               "px-2 py-0.5 text-xs font-medium",
+                               "px-1.5 py-0.5 text-[10px] font-medium",
+                               isDarkMode 
+                                 ? "bg-emerald-500/10 text-emerald-200 border-emerald-500/20" 
+                                 : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                             )}>
+                               Active Event
+                             </Badge>
+                             <Badge variant="outline" className={cn(
+                               "px-1.5 py-0.5 text-[10px] font-medium",
                                isDarkMode 
                                  ? "bg-blue-500/10 text-blue-200 border-blue-500/20" 
                                  : "bg-blue-50 text-blue-700 border-blue-100"
                              )}>
-                               Event Group
+                               {group.departments.length} {group.departments.length === 1 ? 'Department' : 'Departments'}
                              </Badge>
                            </div>
-                           <p className={cn(
-                             "text-sm font-medium truncate mt-1",
+
+                           {/* Event Title */}
+                           <h3 className={cn(
+                             "text-sm font-semibold leading-tight mb-1",
                              isDarkMode ? "text-slate-200" : "text-gray-900"
                            )}>
-                             {group.eventTitle.length > 40 
-                               ? group.eventTitle.substring(0, 40) + '...' 
-                               : group.eventTitle
-                             }
-                           </p>
-                           <p className={cn(
-                             "text-xs truncate mt-0.5 flex items-center gap-1.5",
-                             isDarkMode ? "text-slate-400" : "text-gray-500"
-                           )}>
-                             <span className="flex-shrink-0">Tagged by:</span>
+                             {group.eventTitle}
+                           </h3>
+
+                           {/* Tagger Info */}
+                           <div className="flex items-center gap-2 text-xs">
+                             <span className={cn(
+                               isDarkMode ? "text-slate-400" : "text-gray-500"
+                             )}>
+                               Tagged by
+                             </span>
                              <Badge variant="outline" className={cn(
                                "px-1.5 py-0 text-[10px] font-medium",
                                isDarkMode 
@@ -717,21 +801,29 @@ const Messages = () => {
                              )}>
                                {group.taggerDepartment}
                              </Badge>
-                           </p>
+                           </div>
                          </div>
+
+                         {/* Expand/Collapse Button */}
                          <div className={cn(
-                           "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200",
+                           "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0",
                            isDarkMode 
-                             ? "text-slate-400 bg-slate-800" 
-                             : "text-gray-500 bg-gray-100",
-                           expandedGroups.has(group.eventId) && (
-                             isDarkMode 
-                               ? "bg-slate-700 rotate-180" 
-                               : "bg-gray-200 rotate-180"
-                           )
+                             ? "text-slate-400 bg-slate-800/80 hover:bg-slate-700/80" 
+                             : "text-gray-500 bg-gray-50 hover:bg-gray-100",
+                           expandedGroups.has(group.eventId) && "rotate-180"
                          )}>
-                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                           <svg 
+                             className="w-4 h-4" 
+                             fill="none" 
+                             stroke="currentColor" 
+                             viewBox="0 0 24 24"
+                           >
+                             <path 
+                               strokeLinecap="round" 
+                               strokeLinejoin="round" 
+                               strokeWidth={2} 
+                               d="M19 9l-7 7-7-7" 
+                             />
                            </svg>
                          </div>
                        </div>
@@ -749,65 +841,127 @@ const Messages = () => {
                            )}
                          >
                            {group.departments.map((departmentName) => {
-                             // Find the user with this department
-                             const departmentUser = users.find(u => u.department === departmentName);
-                             return (
-                               <motion.div
-                                 key={`${group.eventId}_${departmentName}`}
-                                 onClick={() => handleDepartmentSelect({ name: departmentName }, group.eventTitle)}
-                                 className={cn(
-                                   "flex items-center gap-3 p-3 cursor-pointer transition-all relative",
-                                   selectedUser?.id === `dept_${departmentName}_${group.eventTitle}`
-                                     ? (isDarkMode ? "bg-slate-700/50" : "bg-blue-50")
-                                     : (isDarkMode ? "hover:bg-slate-700/30" : "hover:bg-blue-50/50")
-                                 )}
-                                 initial={{ opacity: 0, x: -10 }}
-                                 animate={{ opacity: 1, x: 0 }}
-                                 transition={{ duration: 0.2 }}
-                               >
-                                 <div className="relative ml-6">
-                                   <Avatar className="w-8 h-8">
-                                     <AvatarFallback className={cn(
-                                       "text-[10px] font-medium",
-                                       isDarkMode 
-                                         ? "bg-slate-700 text-slate-200" 
-                                         : "bg-white text-gray-700 border border-gray-100"
-                                     )}>
-                                       {getInitials(departmentName)}
-                                     </AvatarFallback>
-                                   </Avatar>
-                                   {selectedUser?.id === `dept_${departmentName}_${group.eventTitle}` && (
-                                     <span className={cn(
-                                       "absolute -right-1 -bottom-1 w-3 h-3 rounded-full border-2",
-                                       isDarkMode 
-                                         ? "bg-blue-500 border-slate-900" 
-                                         : "bg-blue-500 border-white"
-                                     )} />
-                                   )}
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                   <div className="flex items-center gap-2">
-                                     <Badge variant="outline" className={cn(
-                                       "px-1.5 py-0 text-[10px] font-medium",
-                                       isDarkMode 
-                                         ? "bg-slate-700/50 text-slate-300 border-slate-600" 
-                                         : "bg-gray-100 text-gray-600 border-gray-200"
-                                     )}>
-                                       {departmentName}
-                                     </Badge>
-                                   </div>
-                                   {departmentUser && (
-                                     <p className={cn(
-                                       "text-xs truncate mt-1.5",
-                                       isDarkMode ? "text-slate-400" : "text-gray-500"
-                                     )}>
-                                       {departmentUser.email}
-                                     </p>
-                                   )}
-                                 </div>
-                               </motion.div>
-                             );
-                           })}
+                            // If current user is the tagger, show department info
+                            // If current user is a tagged department, show tagger info
+                            const isTagger = group.taggerEmail === currentUser?.email;
+                            const isTaggedDepartment = currentUser?.department === departmentName;
+                            
+                            // Find the relevant user to display
+                            let displayUser;
+                            if (isTagger) {
+                              // Show department info to tagger
+                              displayUser = users.find(u => u.department === departmentName);
+                            } else if (isTaggedDepartment) {
+                              // Show tagger info to tagged department
+                              displayUser = users.find(u => u.email === group.taggerEmail);
+                            } else {
+                              // Skip departments that aren't relevant to current user
+                              return null;
+                            }
+
+                            // Only show departments relevant to the current user
+                            if (!displayUser) return null;
+
+                            const displayName = isTagger ? departmentName : displayUser.department;
+                            const displayEmail = displayUser.email;
+                            const displayId = isTagger 
+                              ? `dept_${departmentName}_${group.eventTitle}`
+                              : `tagger_${group.taggerEmail}_${group.eventTitle}`;
+
+                            // Get last message for this department/event combination
+                            const chatId = [currentUser.email, displayEmail, group.eventId].sort().join("_");
+                            const lastMessage = lastMessages[chatId];
+
+                            return (
+                              <motion.div
+                                key={`${group.eventId}_${departmentName}`}
+                                onClick={() => handleDepartmentSelect({ name: departmentName }, group.eventTitle)}
+                                className={cn(
+                                  "flex items-center gap-4 px-4 py-3 cursor-pointer transition-all relative",
+                                  selectedUser?.id === displayId
+                                    ? (isDarkMode ? "bg-slate-700/50" : "bg-blue-50")
+                                    : (isDarkMode ? "hover:bg-slate-700/30" : "hover:bg-blue-50/50")
+                                )}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                {/* Department/Tagger Avatar */}
+                                <div className="relative shrink-0">
+                                  <div className={cn(
+                                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                                    selectedUser?.id === displayId
+                                      ? (isDarkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700")
+                                      : (isDarkMode ? "bg-slate-700/50 text-slate-300" : "bg-gray-100 text-gray-700")
+                                  )}>
+                                    {getInitials(displayName)}
+                                  </div>
+                                  {selectedUser?.id === displayId && (
+                                    <div className={cn(
+                                      "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2",
+                                      isDarkMode 
+                                        ? "bg-blue-500 border-slate-900" 
+                                        : "bg-blue-500 border-white"
+                                    )} />
+                                  )}
+                                  {unreadMessages[chatId] && (
+                                    <div className={cn(
+                                      "absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-medium border",
+                                      isDarkMode 
+                                        ? "bg-blue-500 text-white border-slate-900" 
+                                        : "bg-blue-500 text-white border-white"
+                                    )}>
+                                      {unreadMessages[chatId]}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Department/Tagger Details */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="outline" className={cn(
+                                      "px-1.5 py-0.5 text-[10px] font-medium",
+                                      isDarkMode 
+                                        ? "bg-slate-700/50 text-slate-300 border-slate-600" 
+                                        : "bg-gray-100 text-gray-600 border-gray-200"
+                                    )}>
+                                      {displayName}
+                                    </Badge>
+                                    {unreadMessages[chatId] && (
+                                      <Badge className={cn(
+                                        "px-1.5 py-0.5 text-[10px] font-medium",
+                                        isDarkMode 
+                                          ? "bg-blue-500/20 text-blue-200 border border-blue-500/20" 
+                                          : "bg-blue-50 text-blue-700 border border-blue-100"
+                                      )}>
+                                        New Messages
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className={cn(
+                                    "text-sm font-medium mb-0.5",
+                                    isDarkMode ? "text-slate-300" : "text-gray-700"
+                                  )}>
+                                    {displayEmail}
+                                  </p>
+                                  {lastMessage && (
+                                    <p className={cn(
+                                      "text-xs truncate",
+                                      isDarkMode ? "text-slate-400" : "text-gray-500"
+                                    )}>
+                                      {lastMessage.content}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Online Status */}
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full shrink-0",
+                                  "bg-emerald-500"
+                                )} />
+                              </motion.div>
+                            );
+                          })}
                          </motion.div>
                        )}
                      </motion.div>
@@ -974,18 +1128,39 @@ const Messages = () => {
                     )} />
                   </div>
                   <div>
-                                         <h3 className={cn(
-                       "font-semibold",
-                       isDarkMode ? "text-white" : "text-gray-900"
-                     )}>
-                       {selectedUser.email}
-                     </h3>
-                     <p className={cn(
-                       "text-sm",
-                       isDarkMode ? "text-gray-400" : "text-gray-500"
-                     )}>
-                       {selectedUser.department}
-                     </p>
+                    <h3 className={cn(
+                      "font-semibold",
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    )}>
+                      {selectedUser.email}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <p className={cn(
+                        "text-sm",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}>
+                        {selectedUser.department}
+                      </p>
+                      {selectedUser.eventTitle && (
+                        <>
+                          <span className={cn(
+                            "text-xs",
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          )}>•</span>
+                          <Badge variant="outline" className={cn(
+                            "px-1.5 py-0 text-[10px] font-medium",
+                            isDarkMode 
+                              ? "bg-blue-500/10 text-blue-200 border-blue-500/20" 
+                              : "bg-blue-50 text-blue-700 border-blue-100"
+                          )}>
+                            {selectedUser.eventTitle.length > 20 
+                              ? selectedUser.eventTitle.substring(0, 20) + '...' 
+                              : selectedUser.eventTitle
+                            }
+                          </Badge>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1033,12 +1208,6 @@ const Messages = () => {
                                 )}
                               >
                                 <p className="text-sm leading-relaxed">{msg.content}</p>
-                                {msg.isPending && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <div className="w-2 h-2 bg-current opacity-60 rounded-full animate-pulse"></div>
-                                    <span className="text-[10px] opacity-60">Sending...</span>
-                                  </div>
-                                )}
                               </div>
                             </TooltipTrigger>
                                                          <TooltipContent 

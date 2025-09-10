@@ -27,6 +27,7 @@ const useEventStore = create((set, get) => ({
     thisWeekEvents: 0,
     thisWeekHours: 0,
     upcomingEventsList: [],
+    allUserEvents: [],
     taggedEventsList: []
   },
   

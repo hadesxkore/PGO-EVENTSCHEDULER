@@ -23,14 +23,14 @@ export const getUserDashboardStats = async (uid) => {
     const userEventsSnapshot = await getDocs(userEventsQuery);
     const totalEvents = userEventsSnapshot.size;
 
-    // Get all upcoming events for the user
-    const upcomingEventsQuery = query(
+    // Get all events for the user (for status notifications)
+    const allUserEventsQuery = query(
       eventsRef,
       where("userId", "==", uid),
-      orderBy("startDate", "asc")
+      orderBy("createdAt", "desc")
     );
-    const upcomingEventsSnapshot = await getDocs(upcomingEventsQuery);
-    const upcomingEvents = upcomingEventsSnapshot.docs
+    const allUserEventsSnapshot = await getDocs(allUserEventsQuery);
+    const allUserEvents = allUserEventsSnapshot.docs
       .map(doc => {
         const eventData = doc.data();
         let eventDate;
@@ -45,17 +45,16 @@ export const getUserDashboardStats = async (uid) => {
           return null;
         }
         
-        // Only include future events
-        if (eventDate >= now.toDate()) {
-          return {
-            id: doc.id,
-            ...eventData,
-            parsedDate: eventDate
-          };
-        }
-        return null;
+        return {
+          id: doc.id,
+          ...eventData,
+          parsedDate: eventDate
+        };
       })
       .filter(event => event !== null);
+
+    // Get upcoming events (future events only)
+    const upcomingEvents = allUserEvents.filter(event => event.parsedDate >= now.toDate());
 
     // Get events where user's department is tagged
     const allEventsQuery = query(eventsRef);
@@ -177,11 +176,23 @@ export const getUserDashboardStats = async (uid) => {
         nextEventIn: daysUntilNext,
         thisWeekEvents,
         thisWeekHours: Math.round(thisWeekHours),
-        upcomingEventsList: upcomingEvents.slice(0, 5).map(event => ({
+        upcomingEventsList: upcomingEvents.map(event => ({
           id: event.id,
           title: event.title,
           date: event.parsedDate,
-          duration: event.duration
+          duration: event.duration,
+          status: event.status,
+          disapprovalReason: event.disapprovalReason,
+          updatedAt: event.updatedAt
+        })),
+        allUserEvents: allUserEvents.map(event => ({
+          id: event.id,
+          title: event.title,
+          date: event.parsedDate,
+          duration: event.duration,
+          status: event.status,
+          disapprovalReason: event.disapprovalReason,
+          updatedAt: event.updatedAt
         })),
         taggedEventsList: taggedEvents.map(event => ({
           id: event.id,

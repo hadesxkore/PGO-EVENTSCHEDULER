@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "../components/ui/calendar";
+import { DatePicker } from "../components/DatePicker";
 import {
   Popover,
   PopoverContent,
@@ -118,6 +119,48 @@ const RequestEvent = () => {
   const [newRequirement, setNewRequirement] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
+  // Location suggestions
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [filteredLocations, setFilteredLocations] = useState([]);
+  const [locationSelectedFromDropdown, setLocationSelectedFromDropdown] = useState(false);
+
+  // Location booking modal
+  const [showLocationBookingModal, setShowLocationBookingModal] = useState(false);
+  const [preferredStartDate, setPreferredStartDate] = useState(new Date());
+  const [preferredEndDate, setPreferredEndDate] = useState(new Date());
+  const [preferredStartTime, setPreferredStartTime] = useState("10:30");
+  const [preferredEndTime, setPreferredEndTime] = useState("11:30");
+  const [isPreferredStartCalendarOpen, setIsPreferredStartCalendarOpen] = useState(false);
+  const [isPreferredEndCalendarOpen, setIsPreferredEndCalendarOpen] = useState(false);
+  const [existingBookings, setExistingBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+
+  const defaultLocations = [
+    "Atrium",
+    "Grand Lobby Entrance",
+    "Main Entrance Lobby",
+    "Main Entrance Leasable Area",
+    "4th Flr. Conference Room 1",
+    "4th Flr. Conference Room 2",
+    "4th Flr. Conference Room 3",
+    "5th Flr. Training Room 1 (BAC)",
+    "5th Flr. Training Room 2",
+    "6th Flr. Meeting Room 7",
+    "6th Flr. DPOD",
+    "Bataan Peoples Center",
+    "Capitol Quadrangle",
+    "1BOSSCO"
+  ];
+
+  // Helper function to determine if a step is currently active
+  const isStepActive = (step) => {
+    const steps = ['eventDetails', 'attachments', 'tagDepartments', 'requirements', 'schedule'];
+    const currentStepIndex = steps.findIndex(s => !completedSteps[s]);
+    const stepIndex = steps.indexOf(step);
+    return stepIndex === currentStepIndex;
+  };
+
   useEffect(() => {
     // Check if user is authenticated
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -177,6 +220,43 @@ const RequestEvent = () => {
       readyToSubmit: isReadyToSubmit
     });
   }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments]);
+
+  // Load preferred dates when schedule step becomes active
+  useEffect(() => {
+    if (isStepActive('schedule')) {
+      const savedDates = localStorage.getItem('preferredEventDates');
+      if (savedDates) {
+        try {
+          const preferredDates = JSON.parse(savedDates);
+          if (preferredDates.location === formData.location) {
+            setStartDate(new Date(preferredDates.startDate));
+            setEndDate(new Date(preferredDates.endDate));
+            setStartTime(preferredDates.startTime);
+            setEndTime(preferredDates.endTime);
+          }
+        } catch (error) {
+          console.error('Error loading preferred dates:', error);
+        }
+      }
+    }
+  }, [isStepActive('schedule'), formData.location]);
+
+  // Debug effect to monitor bookings state changes
+  useEffect(() => {
+    if (existingBookings.length > 0) {
+      console.log('📊 Loaded bookings:', existingBookings.length, 'bookings for', formData.location);
+      console.log('📊 Bookings data:', existingBookings.map(b => ({
+        title: b.title,
+        requestor: b.requestor,
+        startDate: new Date(b.startDate).toDateString(),
+        endDate: new Date(b.endDate).toDateString()
+      })));
+    }
+  }, [existingBookings, formData.location]);
+
+  // Effect to ensure modal has proper data when it opens (removed to prevent infinite loops)
+
+  // Test booking removed - using real data from database
 
 
   // Fetch departments on component mount
@@ -302,6 +382,276 @@ const RequestEvent = () => {
       ...prev,
       [name]: sanitizedText
     }));
+
+    // Handle location filtering
+    if (name === 'location') {
+      if (sanitizedText.length > 0) {
+        const filtered = defaultLocations.filter(location =>
+          location.toLowerCase().includes(sanitizedText.toLowerCase())
+        );
+        setFilteredLocations(filtered);
+        setShowLocationDropdown(true);
+      } else {
+        setShowLocationDropdown(false);
+        setFilteredLocations([]);
+      }
+    }
+  };
+
+  // Store all bookings by location
+  const [allBookings, setAllBookings] = useState({});
+
+  // Load all bookings when the page loads
+  useEffect(() => {
+    const loadInitialBookings = async () => {
+      setLoadingBookings(true);
+      try {
+        await fetchAllBookings();
+      } catch (error) {
+        console.error('Error loading initial bookings:', error);
+      } finally {
+        setLoadingBookings(false);
+      }
+    };
+    
+    loadInitialBookings();
+  }, []);
+
+  // Function to fetch all existing bookings
+  const fetchAllBookings = async () => {
+    try {
+      const eventsRef = collection(db, 'eventRequests');
+      const q = query(
+        eventsRef,
+        where('status', 'in', ['pending', 'approved'])
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const bookingsByLocation = {};
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('📄 Processing document:', doc.id, data);
+        
+        if (data.location && data.startDate && data.endDate) {
+          // Convert Firestore Timestamps to dates
+          let startDate, endDate;
+          
+          if (data.startDate.toDate) {
+            startDate = data.startDate.toDate();
+            endDate = data.endDate.toDate();
+          } else {
+            startDate = new Date(data.startDate);
+            endDate = new Date(data.endDate);
+          }
+          
+          console.log('📅 Converted dates:', {
+            start: startDate.toISOString(),
+            end: endDate.toISOString()
+          });
+          
+          const booking = {
+            id: doc.id,
+            title: data.title,
+            requestor: data.requestor || data.userName,
+            startDate: startDate, // Store as full Date object
+            endDate: endDate, // Store as full Date object
+            startTime: data.startTime || '10:00',
+            endTime: data.endTime || '11:00'
+          };
+          
+          console.log('📝 Created booking:', booking);
+          
+          // Group bookings by location
+          if (!bookingsByLocation[data.location]) {
+            bookingsByLocation[data.location] = [];
+          }
+          bookingsByLocation[data.location].push(booking);
+        }
+      });
+      
+      console.log('📚 All bookings by location:', bookingsByLocation);
+      setAllBookings(bookingsByLocation);
+      return bookingsByLocation;
+    } catch (error) {
+      console.error('Error fetching all bookings:', error);
+      return {};
+    }
+  };
+
+  // Function to get bookings for a specific location
+  const fetchExistingBookings = async (location) => {
+    // Return cached bookings if available
+    if (allBookings[location]) {
+      return allBookings[location];
+    }
+    
+    // If not cached, fetch all bookings again
+    const bookings = await fetchAllBookings();
+    return bookings[location] || [];
+  };
+
+  const handleLocationSelect = async (location) => {
+    console.log('🎯 Location selected:', location);
+    
+    setFormData(prev => ({
+      ...prev,
+      location: location
+    }));
+    setShowLocationDropdown(false);
+    setFilteredLocations([]);
+    setLocationSelectedFromDropdown(true);
+    
+    // Get bookings from cache first
+    const cachedBookings = allBookings[location] || [];
+    console.log('📚 Cached bookings:', cachedBookings);
+    
+    // Set cached bookings immediately
+    setExistingBookings(cachedBookings);
+    
+    // Show modal
+    setShowLocationBookingModal(true);
+    
+    // Refresh bookings in background
+    setLoadingBookings(true);
+    try {
+      // Fetch fresh bookings
+      const freshBookings = await fetchExistingBookings(location);
+      console.log('📚 Fresh bookings:', freshBookings);
+      
+      // Update state with fresh data
+      setExistingBookings(freshBookings);
+    } catch (error) {
+      console.error('Error refreshing bookings:', error);
+      toast.error('Error refreshing booking data');
+    } finally {
+      setLoadingBookings(false);
+    }
+    
+    // Reset location selection flag after a delay
+    setTimeout(() => {
+      setLocationSelectedFromDropdown(false);
+    }, 2000);
+  };
+
+  // Function to check if a date is booked
+  const isDateBooked = async (date) => {
+    if (!date || !formData.location) return false;
+
+    try {
+      // Convert check date to start of day
+      const checkDate = new Date(date);
+      checkDate.setHours(0, 0, 0, 0);
+
+      // Query Firestore directly for conflicts
+      const eventsRef = collection(db, 'eventRequests');
+      const q = query(
+        eventsRef,
+        where('location', '==', formData.location),
+        where('status', 'in', ['pending', 'approved'])
+      );
+
+      const querySnapshot = await getDocs(q);
+      const conflicts = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.startDate && data.endDate) {
+          // Convert booking dates to YYYY-MM-DD format
+          const startDate = data.startDate.toDate().toISOString().split('T')[0];
+          const endDate = data.endDate.toDate().toISOString().split('T')[0];
+
+          // Check if date falls within range
+          const checkDateStr = checkDate.toISOString().split('T')[0];
+          if (checkDateStr >= startDate && checkDateStr <= endDate) {
+            conflicts.push({
+              title: data.title,
+              requestor: data.requestor,
+              startDate: startDate,
+              endDate: endDate
+            });
+          }
+        }
+      });
+
+      // Update state with conflicts for display
+      if (conflicts.length > 0) {
+        console.log('🚫 Found conflicts:', conflicts);
+        setExistingBookings(conflicts);
+        return true;
+      }
+
+      console.log('✅ No conflicts found for date:', checkDate);
+      return false;
+    } catch (error) {
+      console.error('Error checking date conflicts:', error);
+      return false;
+    }
+  };
+
+  // Function to get booking details for a specific date
+  const getBookingDetails = (date) => {
+    return existingBookings.filter(booking => {
+      // Handle different date formats from Firestore
+      let bookingStart, bookingEnd;
+      
+      if (booking.startDate && booking.startDate.toDate) {
+        bookingStart = booking.startDate.toDate();
+      } else if (booking.startDate) {
+        bookingStart = new Date(booking.startDate);
+      } else {
+        return false;
+      }
+      
+      if (booking.endDate && booking.endDate.toDate) {
+        bookingEnd = booking.endDate.toDate();
+      } else if (booking.endDate) {
+        bookingEnd = new Date(booking.endDate);
+      } else {
+        return false;
+      }
+      
+      bookingStart.setHours(0, 0, 0, 0);
+      bookingEnd.setHours(23, 59, 59, 999);
+      const checkDate = new Date(date);
+      checkDate.setHours(0, 0, 0, 0);
+      return checkDate >= bookingStart && checkDate <= bookingEnd;
+    });
+  };
+
+  const handlePreferredDatesSave = async () => {
+    // Check for conflicts before saving
+    const [startConflict, endConflict] = await Promise.all([
+      isDateBooked(preferredStartDate),
+      isDateBooked(preferredEndDate)
+    ]);
+    
+    if (startConflict || endConflict) {
+      toast.error("Selected dates conflict with existing bookings. Please choose different dates.");
+      return;
+    }
+    
+    // Save to localStorage
+    const preferredDates = {
+      location: formData.location,
+      startDate: preferredStartDate,
+      endDate: preferredEndDate,
+      startTime: preferredStartTime,
+      endTime: preferredEndTime
+    };
+    
+    localStorage.setItem('preferredEventDates', JSON.stringify(preferredDates));
+    
+    // Update schedule card if it's active
+    if (isStepActive('schedule')) {
+      setStartDate(preferredStartDate);
+      setEndDate(preferredEndDate);
+      setStartTime(preferredStartTime);
+      setEndTime(preferredEndTime);
+    }
+    
+    setShowLocationBookingModal(false);
+    toast.success("Preferred dates saved! They will be used when you reach the schedule step.");
   };
 
   const { submitEventRequest } = useEventStore();
@@ -709,6 +1059,7 @@ const RequestEvent = () => {
                         // Let the paste happen naturally
                         handleInputChange(e);
                       }}
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Enter event title"
                     className={cn(
                       "rounded-lg h-12 text-base px-4",
@@ -731,6 +1082,7 @@ const RequestEvent = () => {
                       required
                       value={formData.requestor}
                       onChange={handleInputChange}
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Your name"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
@@ -758,6 +1110,45 @@ const RequestEvent = () => {
                       required
                       value={formData.location}
                       onChange={handleInputChange}
+                      onFocus={() => {
+                        if (formData.location.length > 0) {
+                          const filtered = defaultLocations.filter(location =>
+                            location.toLowerCase().includes(formData.location.toLowerCase())
+                          );
+                          setFilteredLocations(filtered);
+                          setShowLocationDropdown(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay hiding to allow click on dropdown items
+                        setTimeout(async () => {
+                          setShowLocationDropdown(false);
+                          
+                          // Show modal if location has text and wasn't selected from dropdown
+                          const isPartialText = formData.location.length < 3; // Likely partial typing
+                          
+                          if (formData.location.trim().length > 0 && !locationSelectedFromDropdown && !isPartialText) {
+                            // Reset bookings state and show loading
+                            setExistingBookings([]);
+                            setLoadingBookings(true);
+                            
+                            try {
+                              // Fetch and wait for bookings data
+                              const bookings = await fetchExistingBookings(formData.location);
+                              
+                              // Set bookings data and show modal
+                              setExistingBookings(bookings);
+                              setShowLocationBookingModal(true);
+                            } catch (error) {
+                              console.error('Error loading bookings:', error);
+                              toast.error('Error loading booking data. Please try again.');
+                            } finally {
+                              setLoadingBookings(false);
+                            }
+                          }
+                        }, 200);
+                      }}
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Event location"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
@@ -766,6 +1157,36 @@ const RequestEvent = () => {
                           : "bg-white border-gray-200"
                       )}
                     />
+                    
+                    {/* Location Dropdown */}
+                    {showLocationDropdown && filteredLocations.length > 0 && (
+                      <div className={cn(
+                        "absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border shadow-lg",
+                        "max-h-60 overflow-y-auto",
+                        isDarkMode 
+                          ? "bg-slate-800 border-slate-700" 
+                          : "bg-white border-gray-200"
+                      )}>
+                        {filteredLocations.map((location, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleLocationSelect(location)}
+                            className={cn(
+                              "w-full px-4 py-3 text-left text-sm transition-colors",
+                              "hover:bg-gray-100 dark:hover:bg-slate-700",
+                              "first:rounded-t-lg last:rounded-b-lg",
+                              isDarkMode ? "text-gray-200" : "text-gray-900"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-gray-400" />
+                              <span>{location}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -783,6 +1204,7 @@ const RequestEvent = () => {
                       type="number"
                       required
                       min="1"
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Expected attendees"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
@@ -807,6 +1229,7 @@ const RequestEvent = () => {
                       onChange={handleInputChange}
                       type="number"
                       min="0"
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Number of VIPs"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
@@ -831,6 +1254,7 @@ const RequestEvent = () => {
                       onChange={handleInputChange}
                       type="number"
                       min="0"
+                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Number of VVIPs"
                       className={cn(
                         "pl-12 rounded-lg h-12 text-base",
@@ -1415,6 +1839,7 @@ const RequestEvent = () => {
                           e.preventDefault();
                         }
                       }}
+                      autoComplete={isStepActive('schedule') ? "on" : "off"}
                       placeholder="Enter 11-digit contact number"
                       className={cn(
                         "pl-9 h-10",
@@ -1442,6 +1867,7 @@ const RequestEvent = () => {
                       required
                       value={formData.contactEmail}
                       onChange={handleInputChange}
+                      autoComplete={isStepActive('schedule') ? "on" : "off"}
                       placeholder="Enter your email address"
                       className={cn(
                         "pl-9 h-10",
@@ -1629,48 +2055,48 @@ const RequestEvent = () => {
                 </div>
               </div>
 
-              {/* Default Requirements Section */}
-              {currentDepartment && departments.find(d => d.id === currentDepartment)?.defaultRequirements?.length > 0 && (
-                <div className={cn(
-                  "pt-4 pb-3 px-6 border-b border-zinc-200 dark:border-zinc-800",
-                  isDarkMode ? "bg-zinc-900/50" : "bg-zinc-50/50"
-                )}>
-                  <div className="flex flex-wrap gap-2">
-                    {departments.find(d => d.id === currentDepartment)?.defaultRequirements.map((req, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "h-8 px-3 text-xs rounded-lg transition-colors",
-                          "bg-black text-white hover:bg-zinc-800 border-transparent"
-                        )}
-                        onClick={() => {
-                          if (currentDepartment) {
-                            setDepartmentRequirements(prev => ({
-                              ...prev,
-                              [currentDepartment]: [...(prev[currentDepartment] || []), req]
-                            }));
-                          }
-                        }}
-                      >
-                        + {req}
-                      </Button>
-                    ))}
+              {/* Default Requirements and Others Section */}
+              <div className={cn(
+                "pt-4 pb-3 px-6 border-b border-zinc-200 dark:border-zinc-800",
+                isDarkMode ? "bg-zinc-900/50" : "bg-zinc-50/50"
+              )}>
+                <div className="flex flex-wrap gap-2">
+                  {/* Default Requirements */}
+                  {currentDepartment && departments.find(d => d.id === currentDepartment)?.defaultRequirements?.map((req, index) => (
                     <Button
+                      key={index}
                       variant="outline"
                       size="sm"
                       className={cn(
                         "h-8 px-3 text-xs rounded-lg transition-colors",
                         "bg-black text-white hover:bg-zinc-800 border-transparent"
                       )}
-                      onClick={() => setShowCustomInput(true)}
+                      onClick={() => {
+                        if (currentDepartment) {
+                          setDepartmentRequirements(prev => ({
+                            ...prev,
+                            [currentDepartment]: [...(prev[currentDepartment] || []), req]
+                          }));
+                        }
+                      }}
                     >
-                      + Others
+                      + {req}
                     </Button>
-                  </div>
+                  ))}
+                  {/* Others Button - Always visible */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-3 text-xs rounded-lg transition-colors",
+                      "bg-black text-white hover:bg-zinc-800 border-transparent"
+                    )}
+                    onClick={() => setShowCustomInput(true)}
+                  >
+                    + Others
+                  </Button>
                 </div>
-              )}
+              </div>
 
               {/* Main Requirements Card */}
               <div className={cn(
@@ -1851,6 +2277,534 @@ const RequestEvent = () => {
           </div>
         </DialogContent>
         </DialogPortal>
+      </Dialog>
+
+      {/* Location Booking Modal */}
+      <Dialog 
+        open={showLocationBookingModal} 
+        onOpenChange={async (open) => {
+          if (!open) {
+            // When closing, only reset date selections
+            setPreferredStartDate(new Date());
+            setPreferredEndDate(new Date());
+            setPreferredStartTime("10:30");
+            setPreferredEndTime("11:30");
+          } else if (formData.location) {
+            // When opening, fetch fresh booking data
+            setLoadingBookings(true);
+            
+            try {
+              // Get fresh bookings
+              const freshBookings = await fetchExistingBookings(formData.location);
+              console.log('📚 Fresh bookings on modal open:', freshBookings);
+              
+              // Update state with fresh data
+              setExistingBookings(freshBookings);
+
+              // Show booking conflict message if there are bookings
+              if (freshBookings?.length > 0) {
+                const booking = freshBookings[0];
+                const startDate = new Date(booking.startDate).toLocaleDateString();
+                const endDate = new Date(booking.endDate).toLocaleDateString();
+                toast.error(`This location is booked from ${startDate} to ${endDate}`, { 
+                  duration: 5000,
+                  position: 'top-center'
+                });
+              }
+            } catch (error) {
+              console.error('Error loading bookings:', error);
+              toast.error('Error loading booking data');
+            } finally {
+              setLoadingBookings(false);
+            }
+          }
+          setShowLocationBookingModal(open);
+        }}
+      >
+        <DialogContent className={cn(
+          "sm:max-w-[600px] p-0 border-0 !border-none shadow-lg",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <div className="p-6">
+            <div className="flex flex-col gap-6">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className={cn(
+                    "text-2xl font-bold tracking-tight",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    Preferred Dates for {formData.location}
+                  </h3>
+                  <p className={cn(
+                    "text-sm mt-2",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    Select your preferred start and end dates. These will be automatically filled in the schedule step.
+                  </p>
+                  {loadingBookings && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      <span className={cn(
+                        "text-sm",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}>
+                        Checking existing bookings...
+                      </span>
+                    </div>
+                  )}
+                  {!loadingBookings && !preferredStartDate && !preferredEndDate && (
+                    <div className={cn(
+                      "mt-3 p-3 rounded-lg border",
+                      existingBookings.length > 0 
+                        ? (isDarkMode ? "bg-red-900/20 border-red-800" : "bg-red-50 border-red-200")
+                        : (isDarkMode ? "bg-green-900/20 border-green-800" : "bg-green-50 border-green-200")
+                    )}>
+                      {existingBookings.length > 0 ? (
+                        <>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-red-300" : "text-red-700"
+                          )}>
+                            ⚠️ This location has {existingBookings.length} existing booking(s)
+                          </p>
+                          <p className={cn(
+                            "text-xs mt-1",
+                            isDarkMode ? "text-red-400" : "text-red-600"
+                          )}>
+                            Red dates in the calendar are already booked by other users.
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {existingBookings.map((booking, index) => (
+                              <p key={index} className={cn(
+                                "text-xs",
+                                isDarkMode ? "text-red-300" : "text-red-600"
+                              )}>
+                                • {booking.title} by {booking.requestor} ({format(booking.startDate, "MMM dd")} - {format(booking.endDate, "MMM dd")})
+                              </p>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className={cn(
+                          "text-sm font-medium",
+                          isDarkMode ? "text-green-300" : "text-green-700"
+                        )}>
+                          ✅ This location is available for booking
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Real-time availability message for selected dates */}
+                  {preferredStartDate && preferredEndDate && !loadingBookings && (
+                    <div className={cn(
+                      "mt-3 p-3 rounded-lg border",
+                      (() => {
+                        const startConflict = isDateBooked(preferredStartDate);
+                        const endConflict = isDateBooked(preferredEndDate);
+                        const hasConflict = startConflict || endConflict;
+                        
+                        return hasConflict 
+                          ? (isDarkMode ? "bg-red-900/20 border-red-800" : "bg-red-50 border-red-200")
+                          : (isDarkMode ? "bg-green-900/20 border-green-800" : "bg-green-50 border-green-200");
+                      })()
+                    )}>
+                      {(() => {
+                        const startConflict = isDateBooked(preferredStartDate);
+                        const endConflict = isDateBooked(preferredEndDate);
+                        const hasConflict = startConflict || endConflict;
+                        
+                        if (hasConflict) {
+                          const conflictDates = [];
+                          // Get the actual conflicting booking
+                          const conflictingBooking = existingBookings.find(booking => {
+                            const bookingStart = booking.startDate.toDate ? booking.startDate.toDate() : new Date(booking.startDate);
+                            const bookingEnd = booking.endDate.toDate ? booking.endDate.toDate() : new Date(booking.endDate);
+                            return (
+                              (preferredStartDate >= bookingStart && preferredStartDate <= bookingEnd) ||
+                              (preferredEndDate >= bookingStart && preferredEndDate <= bookingEnd)
+                            );
+                          });
+
+                          if (conflictingBooking) {
+                            const bookingStart = conflictingBooking.startDate.toDate ? 
+                              conflictingBooking.startDate.toDate() : 
+                              new Date(conflictingBooking.startDate);
+                            const bookingEnd = conflictingBooking.endDate.toDate ? 
+                              conflictingBooking.endDate.toDate() : 
+                              new Date(conflictingBooking.endDate);
+                            
+                            conflictDates.push(format(bookingStart, "MMM dd"));
+                            if (bookingStart.getDate() !== bookingEnd.getDate()) {
+                              conflictDates.push(format(bookingEnd, "MMM dd"));
+                            }
+                          }
+                          
+                          return (
+                            <div>
+                              <p className={cn(
+                                "text-sm font-medium",
+                                isDarkMode ? "text-red-300" : "text-red-700"
+                              )}>
+                                🚫 Booking Conflict Detected
+                              </p>
+                              <p className={cn(
+                                "text-xs mt-1",
+                                isDarkMode ? "text-red-400" : "text-red-600"
+                              )}>
+                                This location is booked from {conflictDates.join(" to ")}
+                              </p>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <p className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-green-300" : "text-green-700"
+                            )}>
+                              ✅ Selected dates are available for booking
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  onClick={() => setShowLocationBookingModal(false)}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 w-8 p-0",
+                    isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-100"
+                  )}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Date Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Start Date & Time */}
+                <div className="space-y-4">
+                  <div>
+                    <Label className={cn(
+                      "text-sm font-medium mb-3 block",
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>
+                      Preferred Start Date & Time
+                    </Label>
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-start text-left font-normal text-sm",
+                            "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
+                            !preferredStartDate && "text-muted-foreground",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                          onClick={() => setIsPreferredStartCalendarOpen(true)}
+                        >
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                          {preferredStartDate ? format(preferredStartDate, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                        <Popover open={isPreferredStartCalendarOpen} onOpenChange={setIsPreferredStartCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="absolute inset-0" />
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className={cn(
+                              "p-2 w-auto",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700" 
+                                : "bg-white border-gray-200"
+                            )}
+                            align="start"
+                          >
+                            {loadingBookings ? (
+                              <div className={cn(
+                                "flex items-center justify-center p-4",
+                                isDarkMode ? "text-slate-400" : "text-gray-500"
+                              )}>
+                                <div className="w-6 h-6 border-2 border-current rounded-full animate-spin border-t-transparent" />
+                              </div>
+                            ) : (
+                            <DatePicker
+                              date={preferredStartDate}
+                              onSelect={(newDate) => {
+                                if (newDate) {
+                                  const isBooked = existingBookings.some(booking => {
+                                    const checkDateStr = newDate.toISOString().split('T')[0];
+                                    const startDateStr = new Date(booking.startDate).toISOString().split('T')[0];
+                                    const endDateStr = new Date(booking.endDate).toISOString().split('T')[0];
+                                    return checkDateStr >= startDateStr && checkDateStr <= endDateStr;
+                                  });
+
+                                  if (isBooked) {
+                                    const booking = existingBookings.find(b => {
+                                      const checkDateStr = newDate.toISOString().split('T')[0];
+                                      const startDateStr = new Date(b.startDate).toISOString().split('T')[0];
+                                      const endDateStr = new Date(b.endDate).toISOString().split('T')[0];
+                                      return checkDateStr >= startDateStr && checkDateStr <= endDateStr;
+                                    });
+
+                                    if (booking) {
+                                      const startDate = new Date(booking.startDate).toLocaleDateString();
+                                      const endDate = new Date(booking.endDate).toLocaleDateString();
+                                      toast.error(`This location is booked from ${startDate} to ${endDate}`, { duration: 3000 });
+                                    }
+                                    return;
+                                  }
+
+                                  setPreferredStartDate(newDate);
+                                  setIsPreferredStartCalendarOpen(false);
+                                }
+                              }}
+                              disabled={(date) => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                return date < today;
+                              }}
+                              existingBookings={existingBookings}
+                              loadingBookings={loadingBookings}
+                              isDarkMode={isDarkMode}
+                            />
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <select
+                          value={preferredStartTime}
+                          onChange={(e) => setPreferredStartTime(e.target.value)}
+                          className={cn(
+                            "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                        >
+                          {timeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* End Date & Time */}
+                <div className="space-y-4">
+                  <div>
+                    <Label className={cn(
+                      "text-sm font-medium mb-3 block",
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>
+                      Preferred End Date & Time
+                    </Label>
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-start text-left font-normal text-sm",
+                            "h-[38px] pl-9 pr-3 appearance-none rounded-md border",
+                            !preferredEndDate && "text-muted-foreground",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                          onClick={() => setIsPreferredEndCalendarOpen(true)}
+                        >
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                          {preferredEndDate ? format(preferredEndDate, "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                        <Popover open={isPreferredEndCalendarOpen} onOpenChange={setIsPreferredEndCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="absolute inset-0" />
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className={cn(
+                              "p-2 w-auto",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700" 
+                                : "bg-white border-gray-200"
+                            )}
+                            align="start"
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={preferredEndDate}
+                              onSelect={(newDate) => {
+                                // Check if date is booked
+                                const isBooked = existingBookings.some(booking => {
+                                  const checkDate = new Date(newDate);
+                                  checkDate.setHours(0, 0, 0, 0);
+                                  
+                                  const startDate = new Date(booking.startDate);
+                                  startDate.setHours(0, 0, 0, 0);
+                                  
+                                  const endDate = new Date(booking.endDate);
+                                  endDate.setHours(23, 59, 59, 999);
+                                  
+                                  return checkDate >= startDate && checkDate <= endDate;
+                                });
+
+                                if (isBooked) {
+                                  const booking = existingBookings.find(b => {
+                                    const checkDateStr = newDate.toISOString().split('T')[0];
+                                    const startDateStr = new Date(b.startDate).toISOString().split('T')[0];
+                                    const endDateStr = new Date(b.endDate).toISOString().split('T')[0];
+                                    return checkDateStr >= startDateStr && checkDateStr <= endDateStr;
+                                  });
+
+                                  if (booking) {
+                                    const startDate = new Date(booking.startDate).toLocaleDateString();
+                                    const endDate = new Date(booking.endDate).toLocaleDateString();
+                                    toast.error(`This location is booked from ${startDate} to ${endDate}`, { duration: 3000 });
+                                  } else {
+                                    toast.error("This date is already booked", { duration: 3000 });
+                                  }
+                                  return;
+                                }
+
+                                setPreferredEndDate(newDate);
+                                setIsPreferredEndCalendarOpen(false);
+                              }}
+                              disabled={(date) => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                
+                                // Check if before start date
+                                const beforeStart = preferredStartDate ? date < preferredStartDate : false;
+                                
+                                // Check if date is booked
+                                const isBooked = existingBookings.some(booking => {
+                                  const checkDateStr = date.toISOString().split('T')[0];
+                                  const startDateStr = new Date(booking.startDate).toISOString().split('T')[0];
+                                  const endDateStr = new Date(booking.endDate).toISOString().split('T')[0];
+                                  return checkDateStr >= startDateStr && checkDateStr <= endDateStr;
+                                });
+
+                                // Disable if past date, before start date, or booked
+                                return date < today || beforeStart || isBooked;
+                              }}
+                              initialFocus
+                              showOutsideDays={false}
+                              className={cn(
+                                "rounded-md shadow-none",
+                                isDarkMode && "dark"
+                              )}
+                              modifiers={{
+                                booked: (date) => {
+                                  // Check if date is within any existing booking
+                                  if (!existingBookings?.length) return false;
+
+                                  return existingBookings.some(booking => {
+                                    // Convert all dates to YYYY-MM-DD for comparison
+                                    const checkDateStr = date.toISOString().split('T')[0];
+                                    const startDateStr = new Date(booking.startDate).toISOString().split('T')[0];
+                                    const endDateStr = new Date(booking.endDate).toISOString().split('T')[0];
+                                    
+                                    console.log('📅 Checking date:', {
+                                      date: checkDateStr,
+                                      start: startDateStr,
+                                      end: endDateStr
+                                    });
+
+                                    // Check if date is within range
+                                    const isBooked = checkDateStr >= startDateStr && checkDateStr <= endDateStr;
+                                    console.log('📅 Is date booked?', isBooked);
+                                    return isBooked;
+                                  });
+                                }
+                              }}
+                              modifiersStyles={{
+                                booked: {
+                                  backgroundColor: '#ef4444',
+                                  color: 'white',
+                                  fontWeight: 'bold',
+                                  cursor: 'not-allowed',
+                                  opacity: '0.7',
+                                  textDecoration: 'line-through'
+                                }
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <select
+                          value={preferredEndTime}
+                          onChange={(e) => setPreferredEndTime(e.target.value)}
+                          className={cn(
+                            "w-full h-[38px] pl-9 pr-3 appearance-none rounded-md border font-normal text-sm",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-gray-100" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}
+                        >
+                          {timeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  onClick={() => setShowLocationBookingModal(false)}
+                  variant="outline"
+                  className={cn(
+                    "px-6 h-10",
+                    isDarkMode 
+                      ? "border-gray-700 text-gray-300 hover:bg-slate-800" 
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handlePreferredDatesSave}
+                  className={cn(
+                    "px-6 h-10",
+                    isDarkMode 
+                      ? "bg-white text-black hover:bg-gray-200" 
+                      : "bg-black text-white hover:bg-gray-800"
+                  )}
+                >
+                  Save Preferred Dates
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Confirm Close Modal */}

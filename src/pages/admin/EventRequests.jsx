@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import { downloadFile } from "@/lib/utils/downloadFile";
-import { getAllEventRequests, deleteEventRequest } from "@/lib/firebase/eventRequests";
+import { getAllEventRequests, deleteEventRequest, updateEventRequestStatus } from "@/lib/firebase/eventRequests";
 import { toast } from "sonner";
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
 import EventReportPDF from "@/components/reports/EventReportPDF";
@@ -23,6 +23,7 @@ import {
   Phone,
   Mail,
   FileOutput,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -36,12 +37,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -87,6 +95,10 @@ const EventRequests = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [previewEvents, setPreviewEvents] = useState([]);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isDisapproveDialogOpen, setIsDisapproveDialogOpen] = useState(false);
+  const [disapprovalReason, setDisapprovalReason] = useState("");
+  const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -380,6 +392,7 @@ const EventRequests = () => {
                     <TableHead className="py-4 text-sm font-medium">End Date</TableHead>
                     <TableHead className="py-4 text-sm font-medium">Location</TableHead>
                     <TableHead className="py-4 text-sm font-medium">Participants</TableHead>
+                    <TableHead className="py-4 text-sm font-medium">Status</TableHead>
                     <TableHead className="text-center py-4 text-sm font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -498,73 +511,234 @@ const EventRequests = () => {
                           {event.participants} attendees
                         </span>
                       </TableCell>
-                                            <TableCell className="py-4">
+                      <TableCell className="py-4">
+                        {event.status === 'disapproved' ? (
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="destructive"
+                              className="bg-red-500/10 text-red-500"
+                            >
+                              Disapproved
+                            </Badge>
+                            <HoverCard>
+                              <HoverCardTrigger>
+                                <div className="p-1 rounded-full bg-red-500/10 cursor-pointer hover:bg-red-500/20">
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
+                                </div>
+                              </HoverCardTrigger>
+                                                              <HoverCardContent
+                                className={cn(
+                                  "w-80 border",
+                                  isDarkMode 
+                                    ? "bg-slate-900 border-slate-700/30" 
+                                    : "bg-white border-gray-200/70"
+                                )}
+                              >
+                                <div className="space-y-2">
+                                  <h4 className={cn(
+                                    "font-medium",
+                                    isDarkMode ? "text-gray-200" : "text-gray-900"
+                                  )}>
+                                    Reason for Disapproval
+                                  </h4>
+                                  <p className={cn(
+                                    "text-sm",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {event.disapprovalReason || "No reason provided"}
+                                  </p>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
+                        ) : (
+                          <Badge
+                            variant={event.status === 'approved' ? 'success' : 'secondary'}
+                            className={cn(
+                              "font-medium",
+                              event.status === 'approved' 
+                                ? "bg-green-500/10 text-green-500" 
+                                : isDarkMode 
+                                  ? "bg-gray-500/10 text-gray-400" 
+                                  : "bg-gray-500/10 text-gray-500"
+                            )}
+                          >
+                            {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-4">
                         <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-500 hover:bg-green-600 text-white gap-1.5 h-8 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsApproveDialogOpen(true);
+                                    }}
+                                  >
+                                    Approve
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className={cn(
+                                  "sm:max-w-[425px] border-none",
+                                  isDarkMode ? "bg-slate-900" : "bg-white"
+                                )}>
+                                  <DialogHeader>
+                                    <DialogTitle className={cn(
+                                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                                    )}>Approve Event Request</DialogTitle>
+                                    <DialogDescription className={cn(
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Are you sure you want to approve this event request? This will notify the requestor.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="flex justify-end gap-3 mt-4">
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        isDarkMode 
+                                          ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                                          : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                                      )}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsApproveDialogOpen(false);
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      className="bg-green-500 hover:bg-green-600 text-white"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          // TODO: Get actual admin ID from auth context
+                                          const adminId = "admin"; // Temporary admin ID
+                                          const result = await updateEventRequestStatus(event.id, 'approved', adminId);
+                                          if (result.success) {
+                                            toast.success("Event request approved successfully");
+                                            await fetchEvents();
+                                            setIsApproveDialogOpen(false);
+                                          } else {
+                                            toast.error("Failed to approve event request");
+                                          }
+                                        } catch (error) {
+                                          console.error('Error approving event:', error);
+                                          toast.error("Failed to approve event request");
+                                        }
+                                      }}
+                                    >
+                                      Approve
+                                    </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                              <Dialog open={isReasonDialogOpen} onOpenChange={setIsReasonDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    className="bg-red-500 hover:bg-red-600 text-white gap-1.5 h-8 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDisapprovalReason("");
+                                      setIsReasonDialogOpen(true);
+                                    }}
+                                  >
+                                    Disapprove
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className={cn(
+                                  "sm:max-w-[425px] border-none",
+                                  isDarkMode ? "bg-slate-900" : "bg-white"
+                                )}>
+                                  <DialogHeader>
+                                    <DialogTitle className={cn(
+                                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                                    )}>Provide Disapproval Reason</DialogTitle>
+                                    <DialogDescription className={cn(
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Please provide a reason for disapproving this event request. This will be shown to the requestor.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="mt-6 space-y-6">
+                                    <div className="space-y-2">
+                                      <Label className={cn(
+                                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                                      )}>Reason for Disapproval</Label>
+                                      <textarea
+                                        value={disapprovalReason}
+                                        onChange={(e) => setDisapprovalReason(e.target.value)}
+                                        placeholder="Enter the reason for disapproving this event request..."
+                                        className={cn(
+                                          "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
+                                          isDarkMode 
+                                            ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                                            : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                                        )}
+                                      />
+                                    </div>
+                                    <div className="flex justify-end gap-3">
+                                      <Button
+                                        variant="outline"
+                                        className={cn(
+                                          isDarkMode 
+                                            ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                                            : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setIsReasonDialogOpen(false);
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        className="bg-red-500 hover:bg-red-600 text-white"
+                                        disabled={!disapprovalReason.trim()}
+                                        onClick={async () => {
+                                          try {
+                                            // TODO: Get actual admin ID from auth context
+                                            const adminId = "admin"; // Temporary admin ID
+                                            const result = await updateEventRequestStatus(event.id, 'disapproved', adminId, disapprovalReason.trim());
+                                            if (result.success) {
+                                              toast.success("Event request disapproved with reason provided");
+                                              await fetchEvents();
+                                              setIsReasonDialogOpen(false);
+                                              setDisapprovalReason(""); // Reset the reason after successful update
+                                            } else {
+                                              toast.error("Failed to disapprove event request");
+                                            }
+                                          } catch (error) {
+                                            console.error('Error disapproving event:', error);
+                                            toast.error("Failed to disapprove event request");
+                                          }
+                                        }}
+                                      >
+                                        Submit
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                          </div>
                           <Button
-                            size="sm"
-                            className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[100px]"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedRequest(event);
                               setIsViewDialogOpen(true);
                             }}
                           >
-                            <Eye className="h-3.5 w-3.5" />
-                            View Details
+                            <Eye className="h-4 w-4" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                className="bg-red-500 hover:bg-red-600 text-white gap-1.5 h-8 text-xs min-w-[100px]"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className={cn(
-                              "border-none",
-                              isDarkMode ? "bg-slate-900" : "bg-white"
-                            )}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className={cn(
-                                  isDarkMode ? "text-gray-100" : "text-gray-900"
-                                )}>Delete Event Request</AlertDialogTitle>
-                                <AlertDialogDescription className={cn(
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                )}>
-                                  Are you sure you want to delete this event request? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className={cn(
-                                  isDarkMode 
-                                    ? "bg-slate-800 hover:bg-slate-700 text-gray-100" 
-                                    : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                                )}>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-red-500 hover:bg-red-600 text-white"
-                                  onClick={async () => {
-                                    try {
-                                      const result = await deleteEventRequest(event.id);
-                                      if (result.success) {
-                                        toast.success("Event request deleted successfully");
-                                        await fetchEvents();
-                                      } else {
-                                        toast.error("Failed to delete event request");
-                                      }
-                                    } catch (error) {
-                                      console.error('Error deleting event:', error);
-                                      toast.error("Failed to delete event request");
-                                    }
-                                  }}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>

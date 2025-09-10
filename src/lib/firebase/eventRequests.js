@@ -71,15 +71,22 @@ export const getAllEventRequests = async () => {
 };
 
 // Update event request status
-export const updateEventRequestStatus = async (requestId, status, adminId) => {
+export const updateEventRequestStatus = async (requestId, status, adminId, disapprovalReason = null) => {
   try {
     const requestRef = doc(db, 'eventRequests', requestId);
-    await updateDoc(requestRef, {
+    const updateData = {
       status,
       updatedAt: serverTimestamp(),
       adminId,
       actionDate: serverTimestamp()
-    });
+    };
+
+    // Only add disapprovalReason if status is 'disapproved' and reason is provided
+    if (status === 'disapproved' && disapprovalReason) {
+      updateData.disapprovalReason = disapprovalReason;
+    }
+
+    await updateDoc(requestRef, updateData);
     return { success: true };
   } catch (error) {
     // Error handled in return

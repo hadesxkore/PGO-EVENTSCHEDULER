@@ -3,7 +3,7 @@ import { registerNotifications, saveSubscription } from "../lib/utils/notificati
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X, Tag, FileText } from "lucide-react";
+import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X, Tag, FileText, AlertCircle } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -21,6 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "../components/ui/hover-card";
 import {
   Popover,
   PopoverContent,
@@ -106,6 +111,7 @@ const Dashboard = () => {
   // Add state to track viewed notifications and popover state
   const [viewedNotifications, setViewedNotifications] = useState(new Set());
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [statusUpdates, setStatusUpdates] = useState([]);
   
   // State for managing selected event and dialog
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -115,7 +121,8 @@ const Dashboard = () => {
   const markNotificationsAsRead = () => {
     const allNotificationIds = [
       ...dashboardData.upcomingEventsList.map(event => `upcoming-${event.id || event.title}`),
-      ...dashboardData.taggedEventsList?.map(event => `tagged-${event.id || event.title}`) || []
+      ...dashboardData.taggedEventsList?.map(event => `tagged-${event.id || event.title}`) || [],
+      ...(dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').map(event => `status-${event.id || event.title}`) || [])
     ];
     setViewedNotifications(new Set(allNotificationIds));
   };
@@ -125,7 +132,7 @@ const Dashboard = () => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const result = await fetchDashboardData(currentUser.uid);
+      const result = await fetchDashboardData(currentUser.uid, true); // Force refresh
       if (!result.success) {
         toast.error(result.error || "Failed to fetch dashboard data");
       }
@@ -236,8 +243,8 @@ const Dashboard = () => {
               >
                 <Bell className="h-5 w-5" />
                 {!loading && 
-                  (dashboardData.upcomingEventsList.length > 0 || dashboardData.taggedEventsList?.length > 0) && 
-                  viewedNotifications.size < (dashboardData.upcomingEventsList.length + (dashboardData.taggedEventsList?.length || 0)) && (
+                  (dashboardData.upcomingEventsList.length > 0 || dashboardData.taggedEventsList?.length > 0 || (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0) > 0) && 
+                  viewedNotifications.size < (dashboardData.upcomingEventsList.length + (dashboardData.taggedEventsList?.length || 0) + (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0)) && (
                   <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
                 )}
               </Button>
@@ -269,11 +276,11 @@ const Dashboard = () => {
                   </Button>
                 </div>
                 <div className="px-4 pb-2">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4 gap-1">
                     <TabsTrigger 
                       value="all" 
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors",
                         "data-[state=active]:bg-black data-[state=active]:text-white",
                         "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
                         isDarkMode 
@@ -281,13 +288,13 @@ const Dashboard = () => {
                           : "bg-gray-100 text-gray-600 hover:text-black"
                       )}
                     >
-                      <Bell className="h-4 w-4" />
+                      <Bell className="h-3.5 w-3.5" />
                       <span>All</span>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="upcoming" 
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors",
                         "data-[state=active]:bg-black data-[state=active]:text-white",
                         "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
                         isDarkMode 
@@ -295,13 +302,13 @@ const Dashboard = () => {
                           : "bg-gray-100 text-gray-600 hover:text-black"
                       )}
                     >
-                      <Calendar className="h-4 w-4" />
+                      <Calendar className="h-3.5 w-3.5" />
                       <span>Upcoming</span>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="tagged" 
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors",
                         "data-[state=active]:bg-black data-[state=active]:text-white",
                         "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
                         isDarkMode 
@@ -309,8 +316,22 @@ const Dashboard = () => {
                           : "bg-gray-100 text-gray-600 hover:text-black"
                       )}
                     >
-                      <Tag className="h-4 w-4" />
+                      <Tag className="h-3.5 w-3.5" />
                       <span>Tagged</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="status" 
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors",
+                        "data-[state=active]:bg-black data-[state=active]:text-white",
+                        "dark:data-[state=active]:bg-white dark:data-[state=active]:text-black",
+                        isDarkMode 
+                          ? "bg-gray-800 text-gray-400 hover:text-white" 
+                          : "bg-gray-100 text-gray-600 hover:text-black"
+                      )}
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      <span>Status</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -322,12 +343,73 @@ const Dashboard = () => {
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Loading notifications...
                         </div>
-                      ) : dashboardData.upcomingEventsList.length === 0 && dashboardData.taggedEventsList?.length === 0 ? (
+                      ) : dashboardData.upcomingEventsList.length === 0 && dashboardData.taggedEventsList?.length === 0 && (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0) === 0 ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           No notifications
                         </div>
                       ) : (
                         <>
+                          {/* Status Updates */}
+                          {dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').map((event, index) => (
+                            <div
+                              key={`status-${index}`}
+                              className={cn(
+                                "rounded-lg p-3 transition-colors",
+                                isDarkMode 
+                                  ? "bg-gray-800/50" 
+                                  : "bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={cn(
+                                  "p-2 rounded-md",
+                                  isDarkMode ? "bg-gray-700" : "bg-white",
+                                  event.status === 'approved' 
+                                    ? "text-green-500" 
+                                    : "text-red-500"
+                                )}>
+                                  <AlertCircle className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <div>
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>{event.title}</p>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        {event.status === 'approved' ? (
+                                          <Badge className="bg-green-500/10 text-green-500">
+                                            Approved
+                                          </Badge>
+                                        ) : (
+                                          <Badge className="bg-red-500/10 text-red-500">
+                                            Disapproved
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {event.status === 'disapproved' && event.disapprovalReason && (
+                                        <p className={cn(
+                                          "text-xs",
+                                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                                        )}>
+                                          Reason: {event.disapprovalReason}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className={cn(
+                                    "text-xs",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {format(new Date(event.updatedAt?.seconds * 1000), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Upcoming Events */}
                           {dashboardData.upcomingEventsList.map((event, index) => (
                             <div
                               key={`upcoming-${index}`}
@@ -360,6 +442,8 @@ const Dashboard = () => {
                               </div>
                             </div>
                           ))}
+                          
+                          {/* Tagged Events */}
                           {dashboardData.taggedEventsList?.map((event, index) => (
                             <div
                               key={`tagged-${index}`}
@@ -403,8 +487,6 @@ const Dashboard = () => {
                                       </span>
                                     </div>
                                   </div>
-                                  
-                                  
                                 </div>
                               </div>
                             </div>
@@ -519,12 +601,87 @@ const Dashboard = () => {
                                     </span>
                                   </div>
                                 </div>
-                                
-
                               </div>
                             </div>
                           </div>
                         ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="status" className="p-0 m-0">
+                  <ScrollArea className="h-[300px]">
+                    <div className="p-4 space-y-4">
+                      {loading ? (
+                        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                          Loading status updates...
+                        </div>
+                      ) : !dashboardData.allUserEvents || dashboardData.allUserEvents.filter(event => event.status === 'approved' || event.status === 'disapproved').length === 0 ? (
+                        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                          No status updates
+                        </div>
+                      ) : (
+                        dashboardData.allUserEvents
+                          .filter(event => event.status === 'approved' || event.status === 'disapproved')
+                          .map((event, index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                "rounded-lg p-3 transition-colors",
+                                isDarkMode 
+                                  ? "bg-gray-800/50" 
+                                  : "bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={cn(
+                                  "p-2 rounded-md",
+                                  isDarkMode ? "bg-gray-700" : "bg-white",
+                                  event.status === 'approved' 
+                                    ? "text-green-500" 
+                                    : "text-red-500"
+                                )}>
+                                  <AlertCircle className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <div>
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>{event.title}</p>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        {event.status === 'approved' ? (
+                                          <Badge className="bg-green-500/10 text-green-500">
+                                            Approved
+                                          </Badge>
+                                        ) : (
+                                          <Badge className="bg-red-500/10 text-red-500">
+                                            Disapproved
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {event.status === 'disapproved' && event.disapprovalReason && (
+                                        <p className={cn(
+                                          "text-xs",
+                                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                                        )}>
+                                          Reason: {event.disapprovalReason}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className={cn(
+                                    "text-xs",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    {format(new Date(event.updatedAt?.seconds * 1000), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
                       )}
                     </div>
                   </ScrollArea>

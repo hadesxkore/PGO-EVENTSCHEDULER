@@ -873,19 +873,7 @@ const AllEvents = ({ userData }) => {
                                         "text-xs block",
                                         isDarkMode ? "text-gray-400" : "text-gray-500"
                                       )}>
-                                        Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                      </span>
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                      </span>
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                        {requirement.note || "No notes provided for this requirement"}
                                       </span>
                                     </div>
                                   </div>
@@ -1254,19 +1242,7 @@ const AllEvents = ({ userData }) => {
                                   "text-xs block",
                                   isDarkMode ? "text-gray-400" : "text-gray-600"
                                 )}>
-                                  Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                </span>
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.
-                                </span>
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.
+                                  {requirement.note || "No notes provided for this requirement"}
                                 </span>
                               </div>
                             </div>

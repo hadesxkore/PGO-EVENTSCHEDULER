@@ -281,59 +281,25 @@ const useMessageStore = create((set, get) => ({
 
   // Subscribe to events for real-time updates of tagged departments
   subscribeToEvents: (userEmail) => {
-    const state = get();
-    
-    // Use the imported Firebase functions
-    
-    // Listen to events where the user is the creator
-    const eventsRef = collection(db, "eventRequests");
-    const userEventsQuery = query(eventsRef, where("userEmail", "==", userEmail));
-    
-    // Also listen to all events to catch when user's department is tagged
-    const allEventsQuery = query(eventsRef);
-    
-    const unsubscribeUserEvents = onSnapshot(userEventsQuery, async (snapshot) => {
-      // Only process if we have actual changes (not just initial load)
-      const changes = snapshot.docChanges();
-      if (changes.length > 0 && changes.some(change => change.type !== 'added')) {
-        // Re-fetch data
-        const result = await get().fetchTaggedDepartments(userEmail, true);
-        if (result.success) {
-          await get().fetchUsers();
-        }
-      }
-    });
+    if (!userEmail) return null;
 
-    const unsubscribeAllEvents = onSnapshot(allEventsQuery, async (snapshot) => {
-      // Only process if we have actual changes (not just initial load)
-      const changes = snapshot.docChanges();
-      if (changes.length > 0 && changes.some(change => change.type !== 'added')) {
-        // Check if any of the changes involve the current user's department
-        const currentUserDept = state.currentUser?.department;
-        if (currentUserDept) {
-          const relevantChanges = changes.some(change => {
-            const eventData = change.doc.data();
-            return eventData.departmentRequirements?.some(dept => 
-              dept.departmentName === currentUserDept
-            );
-          });
-          
-          if (relevantChanges) {
-            // Re-fetch data
-            const result = await get().fetchTaggedDepartments(userEmail, true);
-            if (result.success) {
-              await get().fetchUsers();
-            }
-          }
-        }
-      }
-    });
+    // Import the new subscription function
+    const { subscribeToEventRequests } = require('@/lib/firebase/messages');
 
-    // Return a function that unsubscribes from both listeners
-    return () => {
-      unsubscribeUserEvents();
-      unsubscribeAllEvents();
-    };
+    // Subscribe to real-time event updates
+    return subscribeToEventRequests(userEmail, async (data) => {
+      const { departments, usersWhoTaggedMe } = data;
+
+      // Update state with new departments and tagged users
+      set(state => ({
+        taggedDepartments: departments,
+        usersWhoTaggedMe,
+        lastDepartmentsFetch: Date.now()
+      }));
+
+      // Fetch updated users list whenever departments change
+      await get().fetchUsers(true);
+    });
   },
 
   // Send message

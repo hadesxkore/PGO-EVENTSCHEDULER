@@ -369,6 +369,60 @@ export const subscribeToChatMessages = (chatId, callback) => {
   return onSnapshot(q, callback);
 };
 
+// Subscribe to event requests for real-time updates
+export const subscribeToEventRequests = (userEmail, callback) => {
+  if (!userEmail) return null;
+
+  const eventsRef = collection(db, "eventRequests");
+  const q = query(eventsRef);
+
+  return onSnapshot(q, (snapshot) => {
+    const departments = new Set();
+    const usersWhoTaggedMe = new Set();
+    let userDepartment = null;
+
+    // Process all events
+    snapshot.docs.forEach(doc => {
+      const event = doc.data();
+      
+      // Get user's department from their events
+      if (event.userEmail === userEmail && event.department && !userDepartment) {
+        userDepartment = event.department;
+      }
+
+      // Add departments that the current user has tagged
+      if (event.userEmail === userEmail && event.departmentRequirements) {
+        event.departmentRequirements.forEach(dept => {
+          if (dept.departmentName) {
+            departments.add(dept.departmentName);
+          }
+        });
+      }
+
+      // If user's department is tagged by others
+      if (userDepartment && event.userEmail !== userEmail && event.departmentRequirements) {
+        const isTagged = event.departmentRequirements.some(
+          dept => dept.departmentName === userDepartment
+        );
+        if (isTagged && event.department) {
+          departments.add(event.department);
+          usersWhoTaggedMe.add(event.userEmail);
+        }
+      }
+    });
+
+    // Add user's own department
+    if (userDepartment) {
+      departments.add(userDepartment);
+    }
+
+    callback({
+      departments: Array.from(departments),
+      usersWhoTaggedMe: Array.from(usersWhoTaggedMe)
+    });
+  });
+};
+
 // Send a new message
 export const sendNewMessage = async (messageData) => {
   try {

@@ -198,7 +198,7 @@ const MainLayout = ({ children, userData }) => {
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold truncate">
-                    {userData?.firstName || "John"} {userData?.lastName || "Doe"}
+                    {userData?.firstName} {userData?.lastName || ""}
                   </h2>
                   <p className={cn(
                     "text-sm font-medium truncate",

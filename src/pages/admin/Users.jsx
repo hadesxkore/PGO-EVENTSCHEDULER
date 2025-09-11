@@ -231,10 +231,10 @@ const Users = () => {
       setIsSubmitting(true);
 
       // Validate form
-      if (!addUserForm.firstName || !addUserForm.lastName || !addUserForm.email || 
+      if (!addUserForm.firstName || !addUserForm.email || 
           !addUserForm.username || !addUserForm.department || !addUserForm.password ||
           !addUserForm.confirmPassword) {
-        toast.error("Please fill in all fields");
+        toast.error("Please fill in all required fields");
         return;
       }
 
@@ -971,7 +971,7 @@ const Users = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName">Last Name (Optional)</Label>
                 <Input
                   id="lastName"
                   placeholder="Pedro"

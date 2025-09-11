@@ -153,7 +153,7 @@ const AdminLayout = ({ children, userData }) => {
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold truncate">
-                    {userData?.firstName || "Admin"} {userData?.lastName || "User"}
+                    {userData?.firstName} {userData?.lastName || ""}
                   </h2>
                   <div className="flex items-center gap-1 mt-1">
                     <Shield className="h-3 w-3 text-red-500" />
@@ -271,3 +271,4 @@ const AdminLayout = ({ children, userData }) => {
 };
 
 export default AdminLayout;
+s

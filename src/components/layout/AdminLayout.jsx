@@ -271,4 +271,3 @@ const AdminLayout = ({ children, userData }) => {
 };
 
 export default AdminLayout;
-s

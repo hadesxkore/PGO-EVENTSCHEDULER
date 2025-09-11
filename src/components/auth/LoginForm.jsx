@@ -8,7 +8,7 @@ import { Label } from "../ui/label";
 import { toast } from "sonner";
 import { loginUser } from "../../lib/firebase/firebase";
 
-const LoginForm = ({ onLoginSuccess, onForgotPassword }) => {
+const LoginForm = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -108,15 +108,6 @@ const LoginForm = ({ onLoginSuccess, onForgotPassword }) => {
           value={formData.password}
           onChange={handleChange}
         />
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onForgotPassword}
-            className="text-sm text-[#4263EB] hover:text-blue-700 font-medium transition-colors"
-          >
-            Forgot Password?
-          </button>
-        </div>
       </div>
 
       <Button

@@ -91,20 +91,13 @@ export const loginUser = async (username, password) => {
     // Now login with the email and password
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     
-    // Check if email is verified
-    if (!userCredential.user.emailVerified) {
-      throw new Error("Please verify your email before logging in");
-    }
-
-    // Update user's emailVerified status in Firestore if needed
-    if (!userData.emailVerified) {
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        ...userData,
-        emailVerified: true,
-        status: 'active',
-        updatedAt: serverTimestamp()
-      });
-    }
+    // Always set user as active and verified when logging in
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      ...userData,
+      emailVerified: true,
+      status: 'active',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
     
     return { 
       success: true, 

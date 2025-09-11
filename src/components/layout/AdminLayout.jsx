@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { useTheme } from "../../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Separator } from "../ui/separator";
 import {
@@ -11,8 +10,6 @@ import {
   Users,
   Shield,
   LogOut,
-  Moon,
-  Sun,
   ChevronLeft,
   ChevronRight,
   User,
@@ -25,7 +22,7 @@ import {
 const AdminLayout = ({ children, userData }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isDarkMode, toggleDarkMode } = useTheme();
+  const isDarkMode = false; // Always use light mode
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -212,29 +209,7 @@ const AdminLayout = ({ children, userData }) => {
               className={cn(
                 "justify-start gap-4 h-12",
                 collapsed ? "justify-center px-3" : "px-4",
-                isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-              )}
-              onClick={toggleDarkMode}
-            >
-              {isDarkMode ? (
-                <Sun className="h-6 w-6" />
-              ) : (
-                <Moon className="h-6 w-6" />
-              )}
-              {!collapsed && (
-                <span className="text-lg font-semibold">
-                  {isDarkMode ? "Light Mode" : "Dark Mode"}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              className={cn(
-                "justify-start gap-4 h-12",
-                collapsed ? "justify-center px-3" : "px-4",
-                isDarkMode 
-                  ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" 
-                  : "text-red-500 hover:text-red-600 hover:bg-red-50/10"
+                "text-red-500 hover:text-red-600 hover:bg-red-50/10"
               )}
               onClick={handleLogout}
             >

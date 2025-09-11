@@ -227,23 +227,20 @@ const Messages = () => {
 
   // Handle department-based messaging from MyEvents
   useEffect(() => {
-    if (location.state?.selectedUser && users.length > 0) {
-
-      
+    if (location.state?.selectedUser) {
       // Function to find and select user
       const findAndSelectUser = () => {
+        // If users are not loaded yet, wait for them
+        if (users.length === 0) return false;
+
         // Find the target user
         const targetUser = users.find(user => {
           // If it's a department message, match by department
           if (location.state.selectedUser.isDepartmentMessage) {
-            const match = user.department === location.state.selectedUser.department;
-
-            return match;
+            return user.department === location.state.selectedUser.department;
           }
           // Otherwise match by email or id
-          const match = user.email === location.state.selectedUser.email || user.id === location.state.selectedUser.id;
-
-          return match;
+          return user.email === location.state.selectedUser.email || user.id === location.state.selectedUser.id;
         });
         
         if (targetUser) {
@@ -262,12 +259,11 @@ const Messages = () => {
               userRef.style.backgroundColor = '';
             }, 1000);
           } else {
-
             setSelectedUser(targetUser);
             markAsRead(targetUser.email);
           }
+          return true;
         } else {
-
           // Try to find by partial department match
           const partialMatch = users.find(user => 
             user.department && 
@@ -277,20 +273,33 @@ const Messages = () => {
           );
           
           if (partialMatch) {
-
             setSelectedUser(partialMatch);
             markAsRead(partialMatch.email);
+            return true;
           }
         }
+        return false;
       };
       
       // Try immediately
-      findAndSelectUser();
+      const found = findAndSelectUser();
       
-      // Also try after a delay to ensure DOM is ready
-      const timer = setTimeout(findAndSelectUser, 200);
-      
-      return () => clearTimeout(timer);
+      // If not found and users are still loading, retry with increasing delays
+      if (!found) {
+        const retryDelays = [100, 300, 500, 1000]; // Multiple attempts with different delays
+        let attemptCount = 0;
+        
+        const attemptFind = () => {
+          if (findAndSelectUser() || attemptCount >= retryDelays.length) return;
+          
+          setTimeout(() => {
+            attemptCount++;
+            attemptFind();
+          }, retryDelays[attemptCount]);
+        };
+        
+        attemptFind();
+      }
     }
   }, [location.state?.selectedUser, users, isDarkMode, markAsRead]);
 
@@ -553,25 +562,34 @@ const Messages = () => {
        // Get grouped users
     const { eventGroups, individualUsers } = groupUsersByEvents(users);
     
-    // Debug logging removed to prevent re-renders
+    // Filter users based on relevance
+    const relevantUsers = individualUsers.filter(user => {
+      // Include users who:
+      // 1. Have a tagging relationship
+      // 2. Have exchanged messages
+      // 3. Are from tagged departments
+      return user.hasTaggingRelation || 
+             lastMessages[user.email] ||
+             (user.department && taggedDepartments.includes(user.department));
+    });
    
-   // Sort and filter users based on last message and search
-   const sortedAndFilteredUsers = individualUsers
-     .filter(user => 
-       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-       (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()))
-     )
-     .sort((a, b) => {
-       const lastMessageA = lastMessages[a.email];
-       const lastMessageB = lastMessages[b.email];
-       
-       if (!lastMessageA && !lastMessageB) return 0;
-       if (!lastMessageA) return 1;
-       if (!lastMessageB) return -1;
-       
-       return lastMessageB.timestamp?.toMillis() - lastMessageA.timestamp?.toMillis();
-     });
+    // Sort and filter users based on last message and search
+    const sortedAndFilteredUsers = relevantUsers
+      .filter(user => 
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+      .sort((a, b) => {
+        const lastMessageA = lastMessages[a.email];
+        const lastMessageB = lastMessages[b.email];
+        
+        if (!lastMessageA && !lastMessageB) return 0;
+        if (!lastMessageA) return 1;
+        if (!lastMessageB) return -1;
+        
+        return lastMessageB.timestamp?.toMillis() - lastMessageA.timestamp?.toMillis();
+      });
    
    // Sort event groups by timestamp
    const sortedEventGroups = eventGroups
@@ -663,7 +681,7 @@ const Messages = () => {
                 "px-2 py-0.5 text-xs font-medium",
                 isDarkMode ? "bg-slate-800 text-slate-200" : "bg-gray-100 text-gray-600"
               )}>
-                {users.length} contacts
+                {sortedAndFilteredUsers.length + sortedEventGroups.length} contacts
               </Badge>
             </div>
             <div className="relative">

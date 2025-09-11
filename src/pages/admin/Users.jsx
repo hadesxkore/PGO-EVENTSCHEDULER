@@ -76,6 +76,9 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 import { getAllUsers, getActiveUsers, getAdminUsers, updateUser } from "@/lib/firebase/users";
+import { getAllDepartments } from "@/lib/firebase/departments";
+import { db } from "@/lib/firebase/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const roleColors = {
   admin: "bg-purple-500/10 text-purple-500",
@@ -105,15 +108,28 @@ const Users = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [addUserForm, setAddUserForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    department: "",
+    password: "",
+    confirmPassword: "",
+    role: "user"
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [usersResult, activeCount, adminCount] = await Promise.all([
+        const [usersResult, activeCount, adminCount, departmentsResult] = await Promise.all([
           getAllUsers(),
           getActiveUsers(),
-          getAdminUsers()
+          getAdminUsers(),
+          getAllDepartments()
         ]);
 
         if (usersResult.success) {
@@ -122,6 +138,12 @@ const Users = () => {
           setAdminUsersCount(adminCount);
         } else {
           toast.error("Failed to fetch users");
+        }
+
+        if (departmentsResult.success) {
+          setDepartments(departmentsResult.departments);
+        } else {
+          toast.error("Failed to fetch departments");
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -204,6 +226,94 @@ const Users = () => {
     toast.success("User deleted successfully");
   };
 
+  const handleAddUser = async () => {
+    try {
+      setIsSubmitting(true);
+
+      // Validate form
+      if (!addUserForm.firstName || !addUserForm.lastName || !addUserForm.email || 
+          !addUserForm.username || !addUserForm.department || !addUserForm.password ||
+          !addUserForm.confirmPassword) {
+        toast.error("Please fill in all fields");
+        return;
+      }
+
+      // Check if passwords match
+      if (addUserForm.password !== addUserForm.confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+
+      // Create user in Firebase Auth
+      const API_KEY = "AIzaSyBlGubNYUGDbivxCCZp-ZqMpgFzSgw96bg";
+      if (!API_KEY) {
+        throw new Error("Firebase API key is not configured");
+      }
+
+      const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: addUserForm.email,
+          password: addUserForm.password,
+          returnSecureToken: true
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to create user');
+      }
+
+      // Create user document in Firestore
+      const userDocRef = doc(db, "users", data.localId);
+      await setDoc(userDocRef, {
+        firstName: addUserForm.firstName,
+        lastName: addUserForm.lastName,
+        username: addUserForm.username,
+        email: addUserForm.email,
+        department: addUserForm.department,
+        role: addUserForm.role,
+        status: 'active',
+        emailVerified: true,  // Set as verified by default
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Update users list
+      const usersResult = await getAllUsers();
+      if (usersResult.success) {
+        setUsers(usersResult.users);
+      }
+
+      // Close modal and reset form
+      setIsAddUserDialogOpen(false);
+      setAddUserForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        username: "",
+        department: "",
+        password: "",
+        role: "user"
+      });
+
+      toast.success("User created successfully");
+    } catch (error) {
+      console.error('Error creating user:', error);
+      if (error.message.includes('API key')) {
+        toast.error("Server configuration error. Please contact the administrator.");
+      } else {
+        toast.error(error.message || "Failed to create user");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleStatusChange = async () => {
     try {
       setIsSubmitting(true);
@@ -248,7 +358,10 @@ const Users = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-black hover:bg-gray-800 text-white gap-2">
+          <Button 
+            className="bg-black hover:bg-gray-800 text-white gap-2"
+            onClick={() => setIsAddUserDialogOpen(true)}
+          >
             <UserPlus className="h-4 w-4" />
             Add User
           </Button>
@@ -820,6 +933,243 @@ const Users = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[500px] border-none shadow-lg",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold leading-none tracking-tight">
+              Add New User
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Create a new user account
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-4">
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="Juan"
+                  value={addUserForm.firstName}
+                  onChange={(e) => setAddUserForm(prev => ({
+                    ...prev,
+                    firstName: e.target.value
+                  }))}
+                  className={cn(
+                    "border-0",
+                    isDarkMode 
+                      ? "bg-slate-800" 
+                      : "bg-gray-100"
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Pedro"
+                  value={addUserForm.lastName}
+                  onChange={(e) => setAddUserForm(prev => ({
+                    ...prev,
+                    lastName: e.target.value
+                  }))}
+                  className={cn(
+                    "border-0",
+                    isDarkMode 
+                      ? "bg-slate-800" 
+                      : "bg-gray-100"
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Email and Username */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="juanpedro@gmail.com"
+                    value={addUserForm.email}
+                    onChange={(e) => setAddUserForm(prev => ({
+                      ...prev,
+                      email: e.target.value
+                    }))}
+                    className={cn(
+                      "pl-9 border-0",
+                      isDarkMode 
+                        ? "bg-slate-800" 
+                        : "bg-gray-100"
+                    )}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="username"
+                    placeholder="juanpedro"
+                    value={addUserForm.username}
+                    onChange={(e) => setAddUserForm(prev => ({
+                      ...prev,
+                      username: e.target.value
+                    }))}
+                    className={cn(
+                      "pl-9 border-0",
+                      isDarkMode 
+                        ? "bg-slate-800" 
+                        : "bg-gray-100"
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Department and Role */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select 
+                  value={addUserForm.department}
+                  onValueChange={(value) => setAddUserForm(prev => ({
+                    ...prev,
+                    department: value
+                  }))}
+                >
+                  <SelectTrigger className={cn(
+                    "border-0",
+                    isDarkMode ? "bg-slate-800" : "bg-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-gray-400" />
+                      <SelectValue placeholder="Select department" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select 
+                  value={addUserForm.role}
+                  onValueChange={(value) => setAddUserForm(prev => ({
+                    ...prev,
+                    role: value
+                  }))}
+                >
+                  <SelectTrigger className={cn(
+                    "border-0",
+                    isDarkMode ? "bg-slate-800" : "bg-gray-100"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-gray-400" />
+                      <SelectValue placeholder="Select role" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Password Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={addUserForm.password}
+                  onChange={(e) => setAddUserForm(prev => ({
+                    ...prev,
+                    password: e.target.value
+                  }))}
+                  className={cn(
+                    "border-0",
+                    isDarkMode 
+                      ? "bg-slate-800" 
+                      : "bg-gray-100"
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={addUserForm.confirmPassword}
+                  onChange={(e) => setAddUserForm(prev => ({
+                    ...prev,
+                    confirmPassword: e.target.value
+                  }))}
+                  className={cn(
+                    "border-0",
+                    isDarkMode 
+                      ? "bg-slate-800" 
+                      : "bg-gray-100"
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddUserDialogOpen(false);
+                  setAddUserForm({
+                    firstName: "",
+                    lastName: "",
+                    email: "",
+                    username: "",
+                    department: "",
+                    password: "",
+                    confirmPassword: "",
+                    role: "user"
+                  });
+                }}
+                className={cn(
+                  "border-0",
+                  isDarkMode 
+                    ? "bg-slate-800 hover:bg-slate-700" 
+                    : "bg-gray-100 hover:bg-gray-200"
+                )}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-black hover:bg-gray-800 text-white"
+                onClick={handleAddUser}
+                disabled={isSubmitting}
+              >
+                Create User
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

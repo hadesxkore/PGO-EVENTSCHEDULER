@@ -17,6 +17,63 @@ const useEventStore = create((set, get) => ({
   lastDashboardFetch: null, // Timestamp of last dashboard fetch
   lastAllEventsFetch: null, // Timestamp of last all events fetch
   
+  // Preferred Dates State
+  preferredDates: {
+    location: '',
+    startDate: null,
+    endDate: null,
+    startTime: "10:30",
+    endTime: "11:30",
+    showModal: false,
+    bookedDates: [] // Array to store dates that are already booked
+  },
+
+  // Get booked dates for a specific location
+  getBookedDates: async (location) => {
+    try {
+      const result = await getAllEventRequests();
+      if (result.success) {
+        // Normalize the location for comparison
+        const normalizedSearchLocation = location.trim().toLowerCase();
+        
+        // Filter events for the specific location and get their date ranges
+        const bookedDates = result.requests
+          .filter(event => {
+            const eventLocation = (event.location || '').trim().toLowerCase();
+            return eventLocation === normalizedSearchLocation && 
+                   event.status !== 'disapproved' &&
+                   event.startDate && 
+                   event.endDate;
+          })
+          .map(event => {
+            
+            return {
+              start: event.startDate,  // Keep as Firestore Timestamp
+              end: event.endDate,      // Keep as Firestore Timestamp
+              department: event.department
+            };
+          });
+        
+        
+        // Only update state if we found booked dates
+        if (bookedDates.length > 0) {
+          set(state => ({
+            preferredDates: {
+              ...state.preferredDates,
+              bookedDates
+            }
+          }));
+        }
+        
+        return bookedDates;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching booked dates:', error);
+      return [];
+    }
+  },
+  
   // Dashboard state
   dashboardData: {
     totalEvents: 0,
@@ -355,9 +412,39 @@ const useEventStore = create((set, get) => ({
     }
   },
 
+  // Preferred Dates Actions
+  setPreferredDates: (dates) => {
+    set((state) => ({
+      preferredDates: {
+        ...state.preferredDates,
+        ...dates
+      }
+    }));
+  },
+
+  togglePreferredDatesModal: (show) => {
+    set((state) => ({
+      preferredDates: {
+        ...state.preferredDates,
+        showModal: show
+      }
+    }));
+  },
+
   // Clear store
   clearStore: () => {
-    set({ events: [], loading: false, error: null, lastFetched: null });
+    set({ 
+      events: [], 
+      loading: false, 
+      error: null, 
+      lastFetched: null,
+      preferredDates: {
+        location: '',
+        startDate: null,
+        endDate: null,
+        showModal: false
+      }
+    });
   }
 }));
 

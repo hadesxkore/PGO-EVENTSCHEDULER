@@ -32,6 +32,7 @@ import { auth } from "@/lib/firebase/firebase";
 import { db } from "@/lib/firebase/firebase";
 import { collection, query, where, getDocs, orderBy, doc, getDoc, Timestamp } from 'firebase/firestore';
 import useEventStore from "@/store/eventStore";
+import useMessageStore from "@/store/messageStore";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -46,6 +47,14 @@ const TaggedDepartments = () => {
 
   // State for events data
   const [events, setEvents] = useState([]);
+
+  // Get message store actions
+  const { usersWhoTaggedMe, setUsersWhoTaggedMe } = useMessageStore();
+
+  // Reset badge count when component mounts
+  useEffect(() => {
+    setUsersWhoTaggedMe([]);
+  }, [setUsersWhoTaggedMe]);
 
   // Fetch tagged departments events
   useEffect(() => {
@@ -224,7 +233,19 @@ const TaggedDepartments = () => {
           <Tabs defaultValue={location.state?.selectedTab || "created"} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="created">Created Events</TabsTrigger>
-              <TabsTrigger value="tagged">Tagged Events</TabsTrigger>
+              <TabsTrigger value="tagged" className="relative">
+                Tagged Events
+                {events.filter(event => event.tagType === 'received').length > 0 && (
+                  <span className={cn(
+                    "absolute -top-2 -right-2 min-w-[20px] h-5 rounded-full px-1 text-xs font-medium flex items-center justify-center",
+                    isDarkMode 
+                      ? "bg-purple-500 text-white" 
+                      : "bg-purple-600 text-white"
+                  )}>
+                    {events.filter(event => event.tagType === 'received').length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             {loading ? (

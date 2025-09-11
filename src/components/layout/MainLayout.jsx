@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { useTheme } from "../../contexts/ThemeContext";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Separator } from "../ui/separator";
 import { Badge } from "../ui/badge";
@@ -14,8 +13,6 @@ import {
   CalendarClock,
   CalendarDays,
   LogOut,
-  Moon,
-  Sun,
   ChevronLeft,
   ChevronRight,
   User,
@@ -28,7 +25,7 @@ import {
 const MainLayout = ({ children, userData }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isDarkMode, toggleDarkMode } = useTheme();
+  const isDarkMode = false; // Always use light mode
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -38,7 +35,9 @@ const MainLayout = ({ children, userData }) => {
     currentUser,
     setCurrentUser,
     subscribeToLastMessages,
-    fetchTaggedDepartments
+    fetchTaggedDepartments,
+    taggedDepartments,
+    usersWhoTaggedMe
   } = useMessageStore();
 
   // Subscribe to messages when component mounts
@@ -262,6 +261,19 @@ const MainLayout = ({ children, userData }) => {
                       {Object.values(unreadMessages).filter(Boolean).length}
                     </Badge>
                   )}
+                  {/* Show tagged departments count */}
+                  {item.title === "Tagged Departments" && usersWhoTaggedMe.length > 0 && (
+                    <Badge
+                      variant="default"
+                      className={cn(
+                        "absolute -top-2 -right-6 h-5 min-w-[20px] px-1",
+                        "bg-purple-500 text-white border-2",
+                        isDarkMode ? "border-slate-800" : "border-white"
+                      )}
+                    >
+                      {usersWhoTaggedMe.length}
+                    </Badge>
+                  )}
                 </div>
               </Button>
             ))}
@@ -276,29 +288,7 @@ const MainLayout = ({ children, userData }) => {
               className={cn(
                 "justify-start gap-4 py-6",
                 collapsed ? "justify-center px-3" : "px-3",
-                isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
-              )}
-              onClick={toggleDarkMode}
-            >
-              {isDarkMode ? (
-                <Sun className="h-6 w-6" />
-              ) : (
-                <Moon className="h-6 w-6" />
-              )}
-              {!collapsed && (
-                <span className="text-base font-semibold">
-                  {isDarkMode ? "Light Mode" : "Dark Mode"}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              className={cn(
-                "justify-start gap-4 py-6",
-                collapsed ? "justify-center px-3" : "px-3",
-                isDarkMode 
-                  ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" 
-                  : "text-red-500 hover:text-red-600 hover:bg-red-50/10"
+                "text-red-500 hover:text-red-600 hover:bg-red-50/10"
               )}
               onClick={handleLogout}
             >

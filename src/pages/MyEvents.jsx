@@ -8,6 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { auth, db } from "@/lib/firebase/firebase";
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import useEventStore from "@/store/eventStore";
+import useMessageStore from "@/store/messageStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -556,16 +557,29 @@ const MyEvents = () => {
                               Edit
                             </Button>
                             <Button
-                              onClick={() => navigate('/messages', {
-                                state: {
-                                  selectedUser: {
+                              onClick={() => {
+                                try {
+                                  // Create the selected user object
+                                  const selectedUser = {
                                     isDepartmentMessage: true,
                                     department: event.departmentRequirements?.[0]?.departmentName || event.department,
                                     eventTitle: event.title,
-                                    eventId: event.id
-                                  }
+                                    eventId: event.id,
+                                    email: `department@${(event.departmentRequirements?.[0]?.departmentName || event.department).toLowerCase().replace(/\s+/g, '')}`
+                                  };
+
+                                  // Navigate to messages page
+                                  navigate('/messages', { 
+                                    state: { 
+                                      selectedUser,
+                                      from: 'myEvents'
+                                    }
+                                  });
+                                } catch (error) {
+                                  console.error('Navigation error:', error);
+                                  toast.error('Failed to open messages');
                                 }
-                              })}
+                              }}
                               size="sm"
                               className="gap-2 bg-blue-400 hover:bg-blue-500 text-white"
                             >

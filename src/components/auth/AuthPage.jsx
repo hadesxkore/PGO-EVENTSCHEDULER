@@ -1,15 +1,9 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card } from "../ui/card";
 import LoginForm from "./LoginForm";
-import SignUpForm from "./SignUpForm";
-import ForgotPassword from "./ForgotPassword";
 import bataanLogo from "/images/bataanlogo.png";
 
 const AuthPage = ({ onLoginSuccess }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-
   return (
     <div className="min-h-screen w-full flex">
       {/* Left Section - Hidden on mobile */}
@@ -69,65 +63,24 @@ const AuthPage = ({ onLoginSuccess }) => {
             </h2>
           </div>
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={isForgotPassword ? "forgot" : isLogin ? "login" : "signup"}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              {!isForgotPassword && (
-                <div className="flex flex-col mb-8">
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                    {isLogin ? "Welcome Back" : "Create Account"}
-                  </h2>
-                  <p className="text-gray-500">
-                    {isLogin 
-                      ? "Sign in to manage your events" 
-                      : "Register to start scheduling events"}
-                  </p>
-                </div>
-              )}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex flex-col mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                Welcome Back
+              </h2>
+              <p className="text-gray-500">
+                Sign in to manage your events
+              </p>
+            </div>
 
-              {isForgotPassword ? (
-                <ForgotPassword onBack={() => setIsForgotPassword(false)} />
-              ) : isLogin ? (
-                <>
-                  <LoginForm 
-                    onLoginSuccess={onLoginSuccess}
-                    onForgotPassword={() => setIsForgotPassword(true)}
-                  />
-                  <div className="mt-6">
-                    <p className="text-gray-500 text-sm text-center">
-                      Don't have an account?{" "}
-                      <button
-                        className="text-[#4263EB] hover:text-blue-700 font-medium inline-flex items-center"
-                        onClick={() => setIsLogin(false)}
-                      >
-                        Sign up
-                      </button>
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <SignUpForm onSignUpSuccess={() => setIsLogin(true)} />
-                  <div className="mt-6">
-                    <p className="text-gray-500 text-sm text-center">
-                      Already have an account?{" "}
-                      <button
-                        className="text-[#4263EB] hover:text-blue-700 font-medium inline-flex items-center"
-                        onClick={() => setIsLogin(true)}
-                      >
-                        Log in
-                      </button>
-                    </p>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </AnimatePresence>
+            <LoginForm 
+              onLoginSuccess={onLoginSuccess}
+            />
+          </motion.div>
         </Card>
       </div>
     </div>

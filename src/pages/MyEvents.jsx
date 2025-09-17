@@ -6,13 +6,14 @@ import { downloadFile } from "@/lib/utils/downloadFile";
 import { getCloudinaryFileUrl } from "@/lib/cloudinary";
 import { useTheme } from "@/contexts/ThemeContext";
 import { auth, db } from "@/lib/firebase/firebase";
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, Timestamp, deleteField } from "firebase/firestore";
 import useEventStore from "@/store/eventStore";
 import useMessageStore from "@/store/messageStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Calendar,
+  CalendarIcon,
   Clock,
   MapPin,
   Users,
@@ -24,12 +25,16 @@ import {
   User,
   Download,
   X,
+  Check,
   Pencil,
   RotateCw,
   MessageCircle,
   AlertCircle,
+  ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
+import ModernCalendar from "@/components/ModernCalendar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -40,7 +45,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Pagination,
   PaginationContent,
@@ -97,16 +115,52 @@ const MyEvents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [selectedActivityType, setSelectedActivityType] = useState(null);
+  const [selectedEventActivity, setSelectedEventActivity] = useState(null);
   const [eventToEdit, setEventToEdit] = useState(null);
   const [editFormData, setEditFormData] = useState({
     title: "",
     location: "",
-    participants: "",
-    vip: "",
-    vvip: "",
-    classifications: "",
   });
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [customLocation, setCustomLocation] = useState("");
+  const [showCustomLocationInput, setShowCustomLocationInput] = useState(false);
+  const [editStartDate, setEditStartDate] = useState(new Date());
+  const [editEndDate, setEditEndDate] = useState(new Date());
+  const [editStartTime, setEditStartTime] = useState("10:30");
+  const [editEndTime, setEditEndTime] = useState("11:30");
+  const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
+  const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
+  
+  // Multiple locations state for edit modal
+  const [editMultipleLocations, setEditMultipleLocations] = useState([]);
+  const [editUseMultipleLocations, setEditUseMultipleLocations] = useState(false);
+  const [isEditMultipleLocationsOpen, setIsEditMultipleLocationsOpen] = useState(false);
+  const [editMultipleLocationDropdowns, setEditMultipleLocationDropdowns] = useState({});
+  const [editMultipleCustomLocations, setEditMultipleCustomLocations] = useState({});
+  const [editMultipleShowCustomInputs, setEditMultipleShowCustomInputs] = useState({});
   const itemsPerPage = 10;
+
+  // Default locations from RequestEvent page
+  const defaultLocations = [
+    "Atrium",
+    "Grand Lobby Entrance",
+    "Main Entrance Lobby",
+    "Main Entrance Leasable Area",
+    "4th Flr. Conference Room 1",
+    "4th Flr. Conference Room 2",
+    "4th Flr. Conference Room 3",
+    "5th Flr. Training Room 1 (BAC)",
+    "5th Flr. Training Room 2",
+    "6th Flr. Meeting Room 7",
+    "6th Flr. DPOD",
+    "Bataan Peoples Center",
+    "Capitol Quadrangle",
+    "1BOSSCO",
+    "Emiliana Hall",
+    "Pavilion"
+  ];
 
   // Zustand store
   const { 
@@ -115,6 +169,7 @@ const MyEvents = () => {
     error,
     fetchUserEvents, 
     deleteEvent,
+    updateEvent,
     clearStore
   } = useEventStore();
 
@@ -144,51 +199,7 @@ const MyEvents = () => {
   // Function to fetch events
   const fetchEvents = async (userId) => {
     try {
-      const eventsRef = collection(db, 'eventRequests');
-      const q = query(eventsRef, where('userId', '==', userId));
-      const snapshot = await getDocs(q);
-      
-      const updatedEvents = [];
-      snapshot.forEach((doc) => {
-        updatedEvents.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Transform events to handle both old and new date formats
-      const transformedEvents = updatedEvents.map(event => {
-        let parsedDate;
-        
-        // Handle different date formats
-        if (event.startDate) {
-          // New format: startDate field
-          if (event.startDate.toDate) {
-            parsedDate = event.startDate.toDate();
-          } else if (event.startDate.seconds) {
-            parsedDate = new Date(event.startDate.seconds * 1000);
-          } else {
-            parsedDate = new Date(event.startDate);
-          }
-        } else if (event.date?.seconds) {
-          // Old format: date field with seconds
-          parsedDate = new Date(event.date.seconds * 1000);
-        } else {
-          // Fallback: try to parse as string or use current date
-          parsedDate = new Date(event.date || Date.now());
-        }
-        
-        return {
-          ...event,
-          parsedDate,
-          displayDate: parsedDate
-        };
-      });
-
-      // Sort events by parsed date, most recent first
-      const sortedEvents = transformedEvents.sort((a, b) => {
-        if (!a.parsedDate || !b.parsedDate) return 0;
-        return new Date(b.parsedDate) - new Date(a.parsedDate);
-      });
-
-      useEventStore.setState({ events: sortedEvents });
+      await fetchUserEvents(userId, true); // Force fetch to get latest data
     } catch (error) {
       console.error("Error fetching events:", error);
       toast.error("Error fetching events");
@@ -384,96 +395,278 @@ const MyEvents = () => {
               </div>
             ) : (
               <div>
-                <Table>
+                <Table className="border-separate border-spacing-0">
                   <TableHeader>
                     <TableRow className={cn(
-                      isDarkMode ? "border-slate-700 hover:bg-transparent" : "border-gray-100 hover:bg-transparent"
+                      "border-b-2",
+                      isDarkMode 
+                        ? "border-slate-600 bg-slate-800/50 hover:bg-slate-800/50" 
+                        : "border-gray-300 bg-gray-50/80 hover:bg-gray-50/80"
                     )}>
-                      <TableHead className="w-[180px] py-4 font-semibold">Event Title</TableHead>
-                      <TableHead className="text-center font-semibold">Requestor</TableHead>
-                      <TableHead className="text-center font-semibold">Start Date</TableHead>
-                      <TableHead className="text-center font-semibold">End Date</TableHead>
-                      <TableHead className="text-center font-semibold">Location</TableHead>
-                      <TableHead className="text-center font-semibold">Participants</TableHead>
-                      <TableHead className="text-center font-semibold">Status</TableHead>
-                      <TableHead className="text-center font-semibold">Actions</TableHead>
+                      <TableHead className={cn(
+                        "w-[180px] py-5 px-6 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        Event Title
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        Requestor
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        Start Date
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        End Date
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        Location
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        isDarkMode 
+                          ? "text-slate-200 border-slate-600" 
+                          : "text-gray-700 border-gray-200"
+                      )}>
+                        Status
+                      </TableHead>
+                      <TableHead className={cn(
+                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider",
+                        isDarkMode 
+                          ? "text-slate-200" 
+                          : "text-gray-700"
+                      )}>
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredEvents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((event) => (
+                    {filteredEvents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((event, index) => (
                       <TableRow 
                         key={event.id} 
                         className={cn(
+                          "border-b transition-all duration-200 hover:shadow-sm",
                           isDarkMode 
-                            ? "border-slate-700" 
-                            : "border-gray-100"
+                            ? "border-slate-700 hover:bg-slate-800/30" 
+                            : "border-gray-200 hover:bg-gray-50/50",
+                          index % 2 === 0 
+                            ? isDarkMode 
+                              ? "bg-slate-900/20" 
+                              : "bg-white" 
+                            : isDarkMode 
+                              ? "bg-slate-900/40" 
+                              : "bg-gray-50/30"
                         )}
                       >
-                        <TableCell>
+                        <TableCell className={cn(
+                          "py-4 px-6 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
                           <div className="max-w-[250px]">
                             <span className={cn(
-                              "px-3 py-1.5 rounded-md inline-block font-medium whitespace-nowrap overflow-hidden text-ellipsis",
+                              "px-3 py-2 rounded-lg inline-block font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis shadow-sm",
                               isDarkMode 
-                                ? "bg-blue-500/10 text-blue-400" 
-                                : "bg-blue-50 text-blue-600"
+                                ? "bg-blue-500/15 text-blue-300 border border-blue-500/20" 
+                                : "bg-blue-50 text-blue-700 border border-blue-100"
                             )} title={event.title}>
-                              {event.title.length > 35 
-                                ? `${event.title.substring(0, 35)}...` 
+                              {event.title.length > 32 
+                                ? `${event.title.substring(0, 32)}...` 
                                 : event.title}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div>
+                        <TableCell className={cn(
+                          "text-center py-4 px-4 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
+                          <div className="space-y-1">
                             <p className={cn(
-                              "text-sm font-medium",
-                              isDarkMode ? "text-gray-100" : "text-gray-900"
+                              "text-sm font-semibold",
+                              isDarkMode ? "text-slate-100" : "text-gray-900"
                             )}>{event.requestor}</p>
                             <p className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                              "text-xs font-medium px-2 py-1 rounded-md",
+                              isDarkMode 
+                                ? "text-slate-300 bg-slate-700/50" 
+                                : "text-gray-600 bg-gray-100"
                             )}>{event.department}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="space-y-1">
-                            <p className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{event.startDate?.seconds ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
+                        <TableCell className={cn(
+                          "text-center py-4 px-4 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
+                          <div className="space-y-2">
+                            {event.locations && event.locations.length > 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
+                                  isDarkMode
+                                    ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
+                                    : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                                )}
+                              >
+                                View Schedule
+                              </Button>
+                            ) : (
+                              <div className={cn(
+                                "text-xs font-medium px-3 py-2 rounded-md",
+                                isDarkMode 
+                                  ? "text-slate-200 bg-slate-800/30" 
+                                  : "text-gray-800 bg-gray-100/80"
+                              )}>
+                                {event.startDate?.seconds ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
+                              </div>
+                            )}
+                            {event.recentActivity && event.recentActivity.some(activity => activity.type === 'startDateTime') && (
+                              <motion.div 
+                                className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+                                whileHover={{ scale: 1.05 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => {
+                                  setSelectedEventActivity(event);
+                                  setIsActivityDialogOpen(true);
+                                }}
+                              >
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-black">Updated</span>
+                              </motion.div>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="space-y-1">
-                            <p className={cn(
-                              "text-xs",
-                              isDarkMode ? "text-gray-100" : "text-gray-900"
-                            )}>{event.endDate?.seconds ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}</p>
+                        <TableCell className={cn(
+                          "text-center py-4 px-4 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
+                          <div className="space-y-2">
+                            {event.locations && event.locations.length > 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
+                                  isDarkMode
+                                    ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
+                                    : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                                )}
+                              >
+                                View Schedule
+                              </Button>
+                            ) : (
+                              <div className={cn(
+                                "text-xs font-medium px-3 py-2 rounded-md",
+                                isDarkMode 
+                                  ? "text-slate-200 bg-slate-800/30" 
+                                  : "text-gray-800 bg-gray-100/80"
+                              )}>
+                                {event.endDate?.seconds ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
+                              </div>
+                            )}
+                            {event.recentActivity && event.recentActivity.some(activity => activity.type === 'endDateTime') && (
+                              <motion.div 
+                                className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+                                whileHover={{ scale: 1.05 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => {
+                                  setSelectedEventActivity(event);
+                                  setIsActivityDialogOpen(true);
+                                }}
+                              >
+                                <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-black">Updated</span>
+                              </motion.div>
+                            )}
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-center">
-                          <p className={cn(
-                            "text-xs",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>{event.location}</p>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className={cn(
-                            "px-3 py-1.5 rounded-md text-sm font-medium inline-block",
-                            isDarkMode 
-                              ? "bg-green-500/10 text-green-400" 
-                              : "bg-green-50 text-green-600"
-                          )}>
-                            {event.participants} attendees
+                        <TableCell className={cn(
+                          "text-center py-4 px-4 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
+                          <div className="space-y-2">
+                            {event.locations && event.locations.length > 0 ? (
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-xs px-3 py-2 font-semibold shadow-sm border",
+                                  isDarkMode
+                                    ? "text-purple-300 border-purple-500/30 bg-purple-500/10"
+                                    : "text-purple-700 border-purple-200 bg-purple-50"
+                                )}
+                              >
+                                {event.locations.length} locations
+                              </Badge>
+                            ) : (
+                              <div className={cn(
+                                "text-xs font-medium px-3 py-2 rounded-md",
+                                isDarkMode 
+                                  ? "text-slate-200 bg-slate-800/30" 
+                                  : "text-gray-800 bg-gray-100/80"
+                              )}>
+                                {event.location}
+                              </div>
+                            )}
+                            {event.recentActivity && event.recentActivity.some(activity => activity.type === 'location') && (
+                              <motion.div 
+                                className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+                                whileHover={{ scale: 1.05 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => {
+                                  setSelectedEventActivity(event);
+                                  setIsActivityDialogOpen(true);
+                                }}
+                              >
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-black">Updated</span>
+                              </motion.div>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={cn(
+                          "py-4 px-4 border-r align-top",
+                          isDarkMode ? "border-slate-600" : "border-gray-200"
+                        )}>
                           {event.status === 'disapproved' ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center gap-2">
                               <Badge
                                 variant="destructive"
-                                className="bg-red-500/10 text-red-500"
+                                className={cn(
+                                  "font-semibold px-3 py-2 text-xs shadow-sm",
+                                  isDarkMode
+                                    ? "bg-red-500/15 text-red-300 border border-red-500/30"
+                                    : "bg-red-50 text-red-700 border border-red-200"
+                                )}
                               >
                                 Disapproved
                               </Badge>
@@ -483,14 +676,7 @@ const MyEvents = () => {
                                     <AlertCircle className="h-4 w-4 text-red-500" />
                                   </div>
                                 </HoverCardTrigger>
-                                <HoverCardContent
-                                  className={cn(
-                                    "w-80 border",
-                                    isDarkMode 
-                                      ? "bg-slate-900 border-slate-700/30" 
-                                      : "bg-white border-gray-200/70"
-                                  )}
-                                >
+                                <HoverCardContent className="w-80 p-4 bg-white border border-gray-200 shadow-lg rounded-lg">
                                   <div className="space-y-2">
                                     <h4 className={cn(
                                       "font-medium",
@@ -509,29 +695,40 @@ const MyEvents = () => {
                               </HoverCard>
                             </div>
                           ) : (
-                            <Badge
-                              variant={event.status === 'approved' ? 'success' : 'secondary'}
-                              className={cn(
-                                "font-medium",
-                                event.status === 'approved' 
-                                  ? "bg-green-500/10 text-green-500" 
-                                  : isDarkMode 
-                                    ? "bg-gray-500/10 text-gray-400" 
-                                    : "bg-gray-500/10 text-gray-500"
-                              )}
-                            >
-                              {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
-                            </Badge>
+                            <div className="flex justify-center">
+                              <Badge
+                                variant={event.status === 'approved' ? 'success' : 'secondary'}
+                                className={cn(
+                                  "font-semibold px-3 py-2 text-xs shadow-sm border",
+                                  event.status === 'approved' 
+                                    ? isDarkMode
+                                      ? "bg-green-500/15 text-green-300 border-green-500/30"
+                                      : "bg-green-50 text-green-700 border-green-200"
+                                    : isDarkMode 
+                                      ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" 
+                                      : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                )}
+                              >
+                                {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
+                              </Badge>
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
+                        <TableCell className={cn(
+                          "text-center py-4 px-4 align-top"
+                        )}>
+                          <div className="flex items-center justify-center gap-3">
                             <Button
                               onClick={() => {
                                 setSelectedEvent(event);
                                 setIsViewDialogOpen(true);
                               }}
-                              className="bg-black hover:bg-gray-800 text-white gap-2"
+                              className={cn(
+                                "gap-2 font-medium text-xs px-4 py-2 shadow-sm transition-all duration-200",
+                                isDarkMode
+                                  ? "bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-600"
+                                  : "bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:shadow-md"
+                              )}
                               size="sm"
                             >
                               <Eye className="h-4 w-4" />
@@ -540,18 +737,95 @@ const MyEvents = () => {
                             <Button
                               onClick={() => {
                                 setEventToEdit(event);
-                                setEditFormData({
-                                  title: event.title,
-                                  location: event.location,
-                                  participants: event.participants,
-                                  vip: event.vip || "",
-                                  vvip: event.vvip || "",
-                                  classifications: event.classifications || "",
-                                });
+                                
+                                // Automatically detect if event has multiple locations
+                                const hasMultipleLocations = event.isMultipleLocations && event.locations && event.locations.length > 0;
+                                
+                                // Always set the mode based on the event data - no user choice needed
+                                setEditUseMultipleLocations(hasMultipleLocations);
+                                
+                                if (hasMultipleLocations) {
+                                  // Initialize multiple locations mode
+                                  setEditMultipleLocations(event.locations.map((loc, idx) => {
+                                    // Handle the data structure where date and time are separate fields
+                                    let startDate, endDate;
+                                    
+                                    if (loc.startDate && loc.startTime) {
+                                      // Combine date string and time string into a proper Date object
+                                      const startDateTime = `${loc.startDate}T${loc.startTime}:00`;
+                                      startDate = new Date(startDateTime);
+                                    } else if (loc.startDate?.toDate) {
+                                      startDate = loc.startDate.toDate();
+                                    } else if (loc.startDate?.seconds) {
+                                      startDate = new Date(loc.startDate.seconds * 1000);
+                                    } else {
+                                      startDate = new Date();
+                                    }
+                                    
+                                    if (loc.endDate && loc.endTime) {
+                                      // Combine date string and time string into a proper Date object
+                                      const endDateTime = `${loc.endDate}T${loc.endTime}:00`;
+                                      endDate = new Date(endDateTime);
+                                    } else if (loc.endDate?.toDate) {
+                                      endDate = loc.endDate.toDate();
+                                    } else if (loc.endDate?.seconds) {
+                                      endDate = new Date(loc.endDate.seconds * 1000);
+                                    } else {
+                                      endDate = new Date();
+                                    }
+
+                                    return {
+                                      id: loc.id || Date.now() + Math.random(),
+                                      location: loc.location || "",
+                                      startDate: startDate,
+                                      endDate: endDate,
+                                      startTime: loc.startTime || format(startDate, "HH:mm"),
+                                      endTime: loc.endTime || format(endDate, "HH:mm")
+                                    };
+                                  }));
+                                  
+                                  // Set form data for title only
+                                  setEditFormData({
+                                    title: event.title,
+                                    location: "",
+                                  });
+                                } else {
+                                  // Initialize single location mode
+                                  setEditMultipleLocations([]);
+                                  setEditFormData({
+                                    title: event.title,
+                                    location: event.location,
+                                  });
+                                  
+                                  // Check if location is in default list
+                                  const isDefaultLocation = defaultLocations.includes(event.location);
+                                  setShowCustomLocationInput(!isDefaultLocation);
+                                  if (!isDefaultLocation) {
+                                    setCustomLocation(event.location);
+                                  }
+                                  
+                                  // Set dates and times
+                                  if (event.startDate) {
+                                    const startDate = event.startDate.toDate ? event.startDate.toDate() : new Date(event.startDate.seconds * 1000);
+                                    setEditStartDate(startDate);
+                                    setEditStartTime(format(startDate, "HH:mm"));
+                                  }
+                                  if (event.endDate) {
+                                    const endDate = event.endDate.toDate ? event.endDate.toDate() : new Date(event.endDate.seconds * 1000);
+                                    setEditEndDate(endDate);
+                                    setEditEndTime(format(endDate, "HH:mm"));
+                                  }
+                                }
+                                
                                 setIsEditDialogOpen(true);
                               }}
                               size="sm"
-                              className="gap-2 bg-black hover:bg-gray-800 text-white"
+                              className={cn(
+                                "gap-2 font-medium text-xs px-4 py-2 shadow-sm transition-all duration-200",
+                                isDarkMode
+                                  ? "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500"
+                                  : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 hover:shadow-md"
+                              )}
                             >
                               <Pencil className="h-4 w-4" />
                               Edit
@@ -581,7 +855,12 @@ const MyEvents = () => {
                                 }
                               }}
                               size="sm"
-                              className="gap-2 bg-blue-400 hover:bg-blue-500 text-white"
+                              className={cn(
+                                "gap-2 font-medium text-xs px-4 py-2 shadow-sm transition-all duration-200",
+                                isDarkMode
+                                  ? "bg-green-600 hover:bg-green-500 text-white border border-green-500"
+                                  : "bg-green-600 hover:bg-green-700 text-white border border-green-600 hover:shadow-md"
+                              )}
                             >
                               <MessageCircle className="h-4 w-4" />
                               Message
@@ -656,359 +935,352 @@ const MyEvents = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className={cn(
-          "sm:max-w-[700px] p-0 border-none",
-          isDarkMode ? "bg-slate-900" : "bg-white"
-        )}>
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
           {selectedEvent && (
-            <ScrollArea className="h-[80vh]">
-              {/* Content Section */}
-              <div className="p-4">
-                {/* Title and Department Section */}
-                <div className="mb-4 px-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className={cn(
-                      "font-medium px-2 py-0.5 text-xs",
-                      isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
-                    )}>
-                      {selectedEvent.department}
-                    </Badge>
-                  </div>
-                  <DialogTitle className={cn(
-                    "text-lg font-bold tracking-tight",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}>
+            <ScrollArea className="h-[85vh]">
+              {/* Header Section */}
+              <div className="relative bg-white p-8 border-b border-gray-200">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                
+                <div className="space-y-3">
+                  <Badge variant="outline" className="border-gray-300 text-gray-700 bg-gray-50">
+                    {selectedEvent.department}
+                  </Badge>
+                  <DialogTitle className="text-2xl font-bold text-gray-900 leading-tight">
                     {selectedEvent.title}
                   </DialogTitle>
+                  <p className="text-gray-600 text-sm">
+                    Event Details & Requirements
+                  </p>
                 </div>
+              </div>
 
+              {/* Content Section */}
+              <div className="p-8 bg-gray-50 space-y-8">
                 {/* Event Details Grid */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Requestor Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
-                      )}>
-                        <User className="h-4 w-4 text-blue-500" />
+                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-black">
+                        <User className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Requestor</h3>
+                      <h3 className="font-semibold text-gray-900">Requestor</h3>
                     </div>
-                    <div className="flex flex-col">
-                      <p className={cn(
-                        "text-lg font-medium mb-1",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
+                    <div className="space-y-1">
+                      <p className="text-lg font-medium text-gray-900">
                         {selectedEvent.requestor}
                       </p>
-                      <p className={cn(
-                        "text-sm",
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      )}>
+                      <p className="text-sm text-gray-500">
                         {selectedEvent.department}
                       </p>
                     </div>
                   </div>
 
                   {/* Date & Time Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
-                      )}>
-                        <Calendar className="h-4 w-4 text-blue-500" />
+                  {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm md:col-span-2">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <Calendar className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Multiple Location Schedule</h3>
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Date & Time</h3>
+                      <div className="space-y-4 max-h-60 overflow-y-auto">
+                        {selectedEvent.locations.map((location, index) => (
+                          <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium text-gray-900">{location.location}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                Location {index + 1}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  Start
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.startDate ? (() => {
+                                    // Handle Firebase timestamp conversion
+                                    let date;
+                                    if (location.startDate.toDate) {
+                                      date = location.startDate.toDate();
+                                    } else if (location.startDate.seconds) {
+                                      date = new Date(location.startDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.startDate);
+                                    }
+                                    return date.toLocaleDateString();
+                                  })() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(() => {
+                                    // Handle time display - either from startTime field or extract from startDate
+                                    if (location.startTime) {
+                                      const [hours, minutes] = location.startTime.split(':');
+                                      const hour = parseInt(hours);
+                                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                      const ampm = hour < 12 ? 'AM' : 'PM';
+                                      return `${displayHour}:${minutes} ${ampm}`;
+                                    } else if (location.startDate) {
+                                      // Extract time from startDate if startTime is not available
+                                      let date;
+                                      if (location.startDate.toDate) {
+                                        date = location.startDate.toDate();
+                                      } else if (location.startDate.seconds) {
+                                        date = new Date(location.startDate.seconds * 1000);
+                                      } else {
+                                        date = new Date(location.startDate);
+                                      }
+                                      return format(date, "h:mm a");
+                                    }
+                                    return "Not set";
+                                  })()}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  End
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.endDate ? (() => {
+                                    // Handle Firebase timestamp conversion
+                                    let date;
+                                    if (location.endDate.toDate) {
+                                      date = location.endDate.toDate();
+                                    } else if (location.endDate.seconds) {
+                                      date = new Date(location.endDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.endDate);
+                                    }
+                                    return date.toLocaleDateString();
+                                  })() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(() => {
+                                    // Handle time display - either from endTime field or extract from endDate
+                                    if (location.endTime) {
+                                      const [hours, minutes] = location.endTime.split(':');
+                                      const hour = parseInt(hours);
+                                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                      const ampm = hour < 12 ? 'AM' : 'PM';
+                                      return `${displayHour}:${minutes} ${ampm}`;
+                                    } else if (location.endDate) {
+                                      // Extract time from endDate if endTime is not available
+                                      let date;
+                                      if (location.endDate.toDate) {
+                                        date = location.endDate.toDate();
+                                      } else if (location.endDate.seconds) {
+                                        date = new Date(location.endDate.seconds * 1000);
+                                      } else {
+                                        date = new Date(location.endDate);
+                                      }
+                                      return format(date, "h:mm a");
+                                    }
+                                    return "Not set";
+                                  })()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-3">
-                      {/* Start Date */}
-                      <div>
-                        <p className={cn(
-                          "text-sm font-medium mb-1",
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>
-                          Start Date & Time
-                        </p>
-                        <p className={cn(
-                          "text-base font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>
-                          {selectedEvent.startDate ? 
-                            format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "MMMM d, yyyy h:mm a") :
-                            selectedEvent.date?.seconds ? 
-                              format(new Date(selectedEvent.date.seconds * 1000), "MMMM d, yyyy h:mm a") :
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <Calendar className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Schedule</h3>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                            Start
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {selectedEvent.startDate ? 
+                              format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "MMM d, yyyy") :
+                              selectedEvent.date?.seconds ? 
+                                format(new Date(selectedEvent.date.seconds * 1000), "MMM d, yyyy") :
+                                "Not available"
+                            }
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {selectedEvent.startDate ? 
+                              format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "h:mm a") :
+                              selectedEvent.date?.seconds ? 
+                                format(new Date(selectedEvent.date.seconds * 1000), "h:mm a") :
+                                ""
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                            End
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {selectedEvent.endDate ? 
+                              format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "MMM d, yyyy") :
                               "Not available"
-                          }
-                        </p>
+                            }
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {selectedEvent.endDate ? 
+                              format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "h:mm a") :
+                              ""
+                            }
+                          </p>
+                        </div>
                       </div>
-                      {/* End Date */}
-                      <div>
-                        <p className={cn(
-                          "text-sm font-medium mb-1",
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>
-                          End Date & Time
-                        </p>
-                        <p className={cn(
-                          "text-base font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>
-                          {selectedEvent.endDate ? 
-                            format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "MMMM d, yyyy h:mm a") :
-                            "Not available"
-                          }
-                        </p>
-                      </div>
-
                     </div>
-                  </div>
+                  )}
 
                   {/* Location Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-green-500/10" : "bg-green-50"
-                      )}>
-                        <MapPin className="h-4 w-4 text-green-500" />
+                  {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Locations</h3>
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Location</h3>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {selectedEvent.locations.map((location, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-900">
+                              {location.location}
+                            </p>
+                            <Badge variant="outline" className="text-xs">
+                              {index + 1}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-3">
+                        {selectedEvent.locations.length} Venues
+                      </p>
                     </div>
-                    <p className={cn(
-                      "text-lg font-medium mb-1",
-                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                    )}>
-                      {selectedEvent.location}
-                    </p>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      Venue
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Location</h3>
+                      </div>
+                      <p className="text-lg font-medium text-gray-900 mb-1">
+                        {selectedEvent.location}
+                      </p>
+                      <p className="text-sm text-gray-500">Venue</p>
+                    </div>
+                  )}
 
                   {/* Participants Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-orange-500/10" : "bg-orange-50"
-                      )}>
-                        <Users className="h-4 w-4 text-orange-500" />
+                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-black">
+                        <Users className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Participants</h3>
+                      <h3 className="font-semibold text-gray-900">Attendees</h3>
                     </div>
-                    <p className={cn(
-                      "text-lg font-medium mb-1",
-                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                    )}>
-                      {selectedEvent.participants} attendees
+                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                      {selectedEvent.participants}
                     </p>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      Expected Attendance
-                    </p>
+                    <p className="text-sm text-gray-500">Expected Participants</p>
                   </div>
 
                   {/* VIP Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
-                      )}>
-                        <User className="h-4 w-4 text-purple-500" />
+                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-black">
+                        <User className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>VIP</h3>
+                      <h3 className="font-semibold text-gray-900">VIP</h3>
                     </div>
-                    <p className={cn(
-                      "text-lg font-medium mb-1",
-                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                    )}>
-                      {selectedEvent.vip || 0} VIPs
+                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                      {selectedEvent.vip || 0}
                     </p>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      VIP Attendees
-                    </p>
+                    <p className="text-sm text-gray-500">VIP Attendees</p>
                   </div>
 
                   {/* VVIP Card */}
-                  <div className={cn(
-                    "rounded-md p-3 border",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border-slate-700" 
-                      : "bg-white border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-red-500/10" : "bg-red-50"
-                      )}>
-                        <User className="h-4 w-4 text-red-500" />
+                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-black">
+                        <User className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>VVIP</h3>
+                      <h3 className="font-semibold text-gray-900">VVIP</h3>
                     </div>
-                    <p className={cn(
-                      "text-lg font-medium mb-1",
-                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                    )}>
-                      {selectedEvent.vvip || 0} VVIPs
+                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                      {selectedEvent.vvip || 0}
                     </p>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      VVIP Attendees
-                    </p>
+                    <p className="text-sm text-gray-500">VVIP Attendees</p>
                   </div>
                 </div>
 
                 {/* Requirements Card */}
-                <div className={cn(
-                  "rounded-xl p-5 border",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between p-6 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-pink-500/10" : "bg-pink-50"
-                      )}>
-                        <FileText className="h-5 w-5 text-pink-500" />
+                      <div className="p-2 rounded-lg bg-black">
+                        <FileText className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Requirements</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">Requirements</h3>
                     </div>
                     <Button
                       size="sm"
-                      className={cn(
-                        "gap-2 bg-black hover:bg-gray-900 text-white border-0"
-                      )}
-                                             onClick={() => {
+                      className="bg-black hover:bg-gray-800 text-white border-0 gap-2"
+                      onClick={() => {
                          setIsRequirementsDialogOpen(true);
                        }}
                     >
                       <Eye className="h-4 w-4" />
-                      View Full Details
+                      View All
                     </Button>
                   </div>
-                  <div className="relative">
-                    <div className={cn(
-                      "rounded-lg p-4 text-sm relative",
-                      isDarkMode 
-                        ? "bg-slate-900/50 text-gray-300" 
-                        : "bg-gray-50 text-gray-600"
-                    )}>
+                  <div className="p-6">
+                    <div className="space-y-4">
                       {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
-                        <div key={deptIndex} className="mb-4 last:mb-0">
-                          <h4 className={cn(
-                            "text-sm font-medium mb-2",
-                            isDarkMode ? "text-gray-200" : "text-gray-700"
-                          )}>
+                        <div key={deptIndex} className="space-y-3">
+                          <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
                             {dept.departmentName}
                           </h4>
-                          {dept.requirements.slice(0, 2).map((req, reqIndex) => {
-                            const requirement = typeof req === 'string' ? { name: req } : req;
-                            return (
-                              <div
-                                key={`${deptIndex}-${reqIndex}`}
-                                className={cn(
-                                  "mb-2 last:mb-0 flex items-start gap-2",
-                                  isDarkMode ? "text-gray-300" : "text-gray-600"
-                                )}
-                              >
-                                <div className={cn(
-                                  "p-1.5 rounded-md mt-0.5",
-                                  isDarkMode ? "bg-slate-800" : "bg-white",
-                                  "shadow-sm"
-                                )}>
-                                  <FileText className="h-4 w-4 text-blue-500" />
-                                </div>
-                                <div>
-                                  <div>
-                                    <span className={cn(
-                                      "font-semibold block",
-                                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                                    )}>
+                          <div className="space-y-2">
+                            {dept.requirements.slice(0, 2).map((req, reqIndex) => {
+                              const requirement = typeof req === 'string' ? { name: req } : req;
+                              return (
+                                <div key={`${deptIndex}-${reqIndex}`} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                                  <div className="p-1.5 rounded-md bg-white shadow-sm mt-0.5">
+                                    <FileText className="h-4 w-4 text-black" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-900 text-sm">
                                       {requirement.name}
-                                    </span>
-                                    <div className="mt-1 space-y-0.5">
-                                      {requirement.note ? (
-                                        <div className={cn(
-                                          "text-xs whitespace-pre-line",
-                                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                                        )}>
-                                          {requirement.note}
-                                        </div>
-                                      ) : (
-                                        <span className={cn(
-                                          "text-xs block italic",
-                                          isDarkMode ? "text-gray-500" : "text-gray-400"
-                                        )}>
-                                          No notes provided for this requirement
-                                        </span>
-                                      )}
-                                    </div>
+                                    </p>
+                                    {requirement.note ? (
+                                      <p className="text-xs text-gray-600 mt-1 whitespace-pre-line">
+                                        {requirement.note}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-gray-400 mt-1 italic">
+                                        No notes provided
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                       
@@ -1016,133 +1288,78 @@ const MyEvents = () => {
                         selectedEvent.departmentRequirements.length > 2 || 
                         selectedEvent.departmentRequirements.some(dept => dept.requirements.length > 2)
                       ) && (
-                        <>
-                          <div className={cn(
-                            "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
-                            isDarkMode
-                              ? "bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent"
-                              : "bg-gradient-to-t from-gray-50/90 via-gray-50/50 to-transparent"
-                          )} />
-                          <div className={cn(
-                            "absolute bottom-2 left-0 right-0 text-sm font-medium text-center",
-                            isDarkMode ? "text-blue-400" : "text-blue-600"
-                          )}>
-                            Click "View Full Details" to see all requirements
-                          </div>
-                        </>
+                        <div className="text-center pt-4 border-t border-gray-100">
+                          <p className="text-sm text-gray-500">
+                            Click "View All" to see complete requirements
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Classifications Card */}
-                <div className={cn(
-                  "rounded-xl p-5 border mb-4",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={cn(
-                      "p-2.5 rounded-lg",
-                      isDarkMode ? "bg-indigo-500/10" : "bg-indigo-50"
-                    )}>
-                      <FileText className="h-5 w-5 text-indigo-500" />
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-3 p-6 border-b border-gray-100">
+                    <div className="p-2 rounded-lg bg-black">
+                      <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <h3 className={cn(
-                      "font-semibold",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>Classifications</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Classifications</h3>
                   </div>
-                  <div className={cn(
-                    "rounded-lg p-4",
-                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
-                  )}>
-                    <p className={cn(
-                      "text-base leading-relaxed whitespace-pre-wrap",
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    )}>
-                      {selectedEvent.classifications || "No classifications provided"}
-                    </p>
+                  <div className="p-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        {selectedEvent.classifications || "No classifications provided"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Attachments Card */}
-                <div className={cn(
-                  "rounded-xl p-4 border",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={cn(
-                      "p-2 rounded-lg",
-                      isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
-                    )}>
-                      <FileText className="h-5 w-5 text-teal-500" />
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-3 p-6 border-b border-gray-100">
+                    <div className="p-2 rounded-lg bg-black">
+                      <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <h3 className={cn(
-                      "font-semibold",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>Attachments</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Attachments</h3>
                   </div>
-                  <div className={cn(
-                    "rounded-lg mt-2",
-                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
-                  )}>
+                  <div className="p-6">
                     {selectedEvent.attachments && selectedEvent.attachments.length > 0 ? (
-                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      <div className="space-y-2">
                         {selectedEvent.attachments.map((file, index) => (
                           <div
                             key={index}
-                            className={cn(
-                              "flex items-center justify-between py-2 px-3",
-                              "first:rounded-t-lg last:rounded-b-lg",
-                              isDarkMode 
-                                ? "hover:bg-slate-900/80" 
-                                : "hover:bg-gray-100"
-                            )}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={cn(
-                                "p-1.5 rounded-md shrink-0",
-                                isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
-                              )}>
-                                <FileText className="h-3.5 w-3.5 text-teal-500" />
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-2 rounded-md bg-white shadow-sm">
+                                <FileText className="h-4 w-4 text-black" />
                               </div>
                               <div className="min-w-0">
-                                <p className={cn(
-                                  "text-sm font-medium truncate",
-                                  isDarkMode ? "text-gray-200" : "text-gray-900"
-                                )}>{file.name}</p>
-                                <p className={cn(
-                                  "text-xs",
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                )}>{(file.size / 1024).toFixed(1)} KB</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 ml-2">
+                            <div className="flex items-center gap-2 ml-3">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className={cn(
-                                  "h-7 w-7 p-0",
-                                  isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-200"
-                                )}
+                                className="h-8 w-8 p-0 hover:bg-gray-200"
                                 onClick={() => {
                                   const viewUrl = getCloudinaryFileUrl(file.url);
                                   window.open(viewUrl, '_blank');
                                 }}
                               >
-                                <Eye className="h-3.5 w-3.5" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className={cn(
-                                  "h-7 w-7 p-0",
-                                  isDarkMode ? "hover:bg-slate-800" : "hover:bg-gray-200"
-                                )}
+                                className="h-8 w-8 p-0 hover:bg-gray-200"
                                 onClick={async () => {
                                   try {
                                     await downloadFile(file.url, file.name);
@@ -1152,18 +1369,18 @@ const MyEvents = () => {
                                   }
                                 }}
                               >
-                                <Download className="h-3.5 w-3.5" />
+                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="py-3 px-4 text-center">
-                        <p className={cn(
-                          "text-sm",
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        )}>
+                      <div className="text-center py-8">
+                        <div className="p-3 rounded-lg bg-gray-100 inline-block mb-3">
+                          <FileText className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-500">
                           No attachments uploaded for this event
                         </p>
                       </div>
@@ -1178,119 +1395,93 @@ const MyEvents = () => {
 
       {/* Requirements Dialog */}
       <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
-        <DialogContent className={cn(
-          "sm:max-w-[800px] border-none shadow-lg p-6",
-          isDarkMode ? "bg-slate-900" : "bg-white"
-        )}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "absolute right-4 top-4 h-8 w-8 p-0 rounded-full",
-              isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
-            )}
-            onClick={() => setIsRequirementsDialogOpen(false)}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Button>
-
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
           {selectedEvent && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div>
-                <DialogTitle className={cn(
-                  "text-xl font-bold tracking-tight pr-8",
-                  isDarkMode ? "text-white" : "text-gray-900"
-                )}>
-                  Event Requirements
-                </DialogTitle>
-                <DialogDescription className="text-sm text-gray-500 mt-2">
-                  Requirements and specifications for {selectedEvent.title}
-                </DialogDescription>
-              </div>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full z-10"
+                onClick={() => setIsRequirementsDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
 
-              {/* Requirements List */}
-              <div className="space-y-4">
-                {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
-                  selectedEvent.departmentRequirements.map((dept, deptIndex) => (
-                    <div key={deptIndex} className="space-y-4">
-                      <h3 className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>
-                        {dept.departmentName}
-                      </h3>
-                      <div className={cn(
-                        "grid gap-3",
-                        {
-                          'grid-cols-1': dept.requirements.length <= 4,
-                          'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
-                          'grid-cols-3': dept.requirements.length > 8
-                        }
-                      )}>
-                        {dept.requirements.map((req, reqIndex) => {
-                          const requirement = typeof req === 'string' ? { name: req } : req;
-                          return (
-                            <div
-                              key={`${deptIndex}-${reqIndex}`}
-                              className={cn(
-                                "rounded-lg p-3",
-                                isDarkMode ? "bg-black" : "bg-gray-50"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={cn(
-                                  "p-1.5 rounded-lg shrink-0",
-                                  isDarkMode ? "bg-slate-800" : "bg-white"
-                                )}>
-                                  <FileText className="h-4 w-4 text-blue-500" />
-                                </div>
-                                <h3 className={cn(
-                                  "text-sm font-semibold",
-                                  isDarkMode ? "text-white" : "text-gray-900"
-                                )}>
-                                  {requirement.name}
-                                </h3>
-                              </div>
-                              <div className="mt-1 pl-8 space-y-0.5">
-                                {requirement.note ? (
-                                  <div className={cn(
-                                    "text-xs whitespace-pre-line",
-                                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                                  )}>
-                                    {requirement.note}
+              {/* Content Section */}
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-6">
+                  {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
+                    selectedEvent.departmentRequirements.map((dept, deptIndex) => (
+                      <div key={deptIndex} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Department Header */}
+                        <div className="bg-white border-b border-gray-200 p-6">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {dept.departmentName}
+                          </h3>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {dept.requirements.length} requirement{dept.requirements.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        
+                        {/* Requirements Grid */}
+                        <div className="p-6 bg-gray-50">
+                          <div className={cn(
+                            "grid gap-4",
+                            {
+                              'grid-cols-1': dept.requirements.length <= 2,
+                              'grid-cols-2': dept.requirements.length > 2 && dept.requirements.length <= 6,
+                              'grid-cols-3': dept.requirements.length > 6
+                            }
+                          )}>
+                            {dept.requirements.map((req, reqIndex) => {
+                              const requirement = typeof req === 'string' ? { name: req } : req;
+                              return (
+                                <div
+                                  key={`${deptIndex}-${reqIndex}`}
+                                  className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors shadow-sm"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-lg bg-black mt-0.5">
+                                      <FileText className="h-4 w-4 text-white" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-semibold text-gray-900 text-sm mb-2">
+                                        {requirement.name}
+                                      </h4>
+                                      {requirement.note ? (
+                                        <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">
+                                          {requirement.note}
+                                        </p>
+                                      ) : (
+                                        <p className="text-xs text-gray-400 italic">
+                                          No additional notes provided
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                ) : (
-                                  <span className={cn(
-                                    "text-xs block italic",
-                                    isDarkMode ? "text-gray-500" : "text-gray-400"
-                                  )}>
-                                    No notes provided for this requirement
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+                      <div className="p-4 rounded-xl bg-gray-100 inline-block mb-4">
+                        <FileText className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Requirements Found
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        No requirements have been specified for this event
+                      </p>
                     </div>
-                  ))
-                ) : (
-                  <div className={cn(
-                    "rounded-lg p-6 text-center",
-                    isDarkMode ? "bg-black" : "bg-gray-50"
-                  )}>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      No requirements specified for this event
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1325,126 +1516,358 @@ const MyEvents = () => {
               <Input
                 name="title"
                 value={editFormData.title}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                readOnly
                 className={cn(
-                  "h-10",
+                  "h-10 cursor-not-allowed",
                   isDarkMode 
-                    ? "bg-slate-800 border-slate-700" 
-                    : "bg-white border-gray-200"
+                    ? "bg-slate-900 border-slate-700 text-gray-400" 
+                    : "bg-gray-100 border-gray-200 text-gray-600"
                 )}
               />
             </div>
 
-            {/* Location */}
-            <div className="space-y-2">
+            {/* Location Section */}
+            <div className="space-y-4">
               <Label className={cn(
                 "text-sm font-medium",
                 isDarkMode ? "text-gray-200" : "text-gray-700"
               )}>
-                Location
+                {editUseMultipleLocations ? "Multiple Locations" : "Location & Schedule"}
               </Label>
-              <Input
-                name="location"
-                value={editFormData.location}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))}
-                className={cn(
-                  "h-10",
-                  isDarkMode 
-                    ? "bg-slate-800 border-slate-700" 
-                    : "bg-white border-gray-200"
-                )}
-              />
+
+              {editUseMultipleLocations ? (
+                /* Multiple Locations Mode */
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditMultipleLocationsOpen(true)}
+                    className={cn(
+                      "w-full h-12 justify-between hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all duration-200 hover:scale-[1.02]",
+                      isDarkMode 
+                        ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                        : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                    )}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>Configure multiple locations...</span>
+                      <span className={cn(
+                        "text-xs",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}>
+                        {editMultipleLocations.filter(loc => loc.location.trim()).length} location{editMultipleLocations.filter(loc => loc.location.trim()).length !== 1 ? 's' : ''} configured
+                      </span>
+                    </div>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </div>
+              ) : (
+                /* Single Location Mode */
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      Location
+                    </Label>
+                    <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={isLocationOpen}
+                          className={cn(
+                            "w-full justify-between h-10",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          {editFormData.location || "Select location..."}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        side="bottom"
+                        align="start"
+                        sideOffset={4}
+                        avoidCollisions={false}
+                        className={cn(
+                          "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
+                          isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                        )}
+                      >
+                        <Command className={isDarkMode ? "bg-slate-900" : "bg-white"}>
+                          <CommandInput 
+                            placeholder="Search locations..." 
+                            className={isDarkMode ? "text-white" : "text-gray-900"}
+                          />
+                          <CommandEmpty className={cn(
+                            "py-6 text-center text-sm",
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          )}>
+                            No location found.
+                          </CommandEmpty>
+                          <CommandGroup className="max-h-[200px] overflow-y-auto">
+                            <CommandItem
+                              onSelect={() => {
+                                setShowCustomLocationInput(true);
+                                setIsLocationOpen(false);
+                              }}
+                              className={cn(
+                                "cursor-pointer border-b",
+                                isDarkMode 
+                                  ? "text-blue-400 hover:bg-slate-800 border-slate-700" 
+                                  : "text-blue-600 hover:bg-gray-100 border-gray-200"
+                              )}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add custom location
+                            </CommandItem>
+                            {defaultLocations.map((location) => (
+                              <CommandItem
+                                key={location}
+                                value={location}
+                                onSelect={(currentValue) => {
+                                  setEditFormData(prev => ({ ...prev, location: currentValue }));
+                                  setShowCustomLocationInput(false);
+                                  setCustomLocation("");
+                                  setIsLocationOpen(false);
+                                }}
+                                className={cn(
+                                  "cursor-pointer",
+                                  isDarkMode 
+                                    ? "text-gray-200 hover:bg-slate-800" 
+                                    : "text-gray-900 hover:bg-gray-100"
+                                )}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editFormData.location === location ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {location}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    
+                    {/* Custom Location Input */}
+                    {showCustomLocationInput && (
+                      <div className="space-y-2 mt-2">
+                        <Label className={cn(
+                          "text-sm font-medium",
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        )}>
+                          Custom Location
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Enter custom location"
+                            value={customLocation}
+                            onChange={(e) => setCustomLocation(e.target.value)}
+                            className={cn(
+                              "h-10 flex-1",
+                              isDarkMode 
+                                ? "bg-slate-800 border-slate-700" 
+                                : "bg-white border-gray-200"
+                            )}
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (customLocation.trim()) {
+                                setEditFormData(prev => ({ ...prev, location: customLocation.trim() }));
+                                setShowCustomLocationInput(false);
+                                setCustomLocation("");
+                              }
+                            }}
+                            className="bg-black hover:bg-gray-800 text-white"
+                          >
+                            Add
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setShowCustomLocationInput(false);
+                              setCustomLocation("");
+                            }}
+                            className={cn(
+                              isDarkMode 
+                                ? "border-slate-700 text-gray-300 hover:bg-slate-800" 
+                                : "border-gray-200 text-gray-700 hover:bg-gray-100"
+                            )}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Participants, VIP, VVIP Grid */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* Participants */}
-              <div className="space-y-2">
-                <Label className={cn(
-                  "text-sm font-medium",
-                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                )}>
-                  No. of Participants
-                </Label>
-                <Input
-                  name="participants"
-                  type="number"
-                  value={editFormData.participants}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, participants: e.target.value }))}
-                  className={cn(
-                    "h-10",
-                    isDarkMode 
-                      ? "bg-slate-800 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}
-                />
-              </div>
+            {/* Start Date & Time - Only show in single location mode */}
+            {!editUseMultipleLocations && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      Start Date
+                    </Label>
+                    <Popover open={isStartCalendarOpen} onOpenChange={setIsStartCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start h-10",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(editStartDate, "MMM d, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-auto p-0" 
+                        align="start"
+                        side="bottom"
+                        sideOffset={4}
+                      >
+                        <ModernCalendar
+                          selectedDate={editStartDate}
+                          onDateSelect={(date) => {
+                            setEditStartDate(date);
+                            setIsStartCalendarOpen(false);
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      Start Time
+                    </Label>
+                    <Select value={editStartTime} onValueChange={setEditStartTime}>
+                      <SelectTrigger className={cn(
+                        "h-10",
+                        isDarkMode 
+                          ? "bg-slate-800 border-slate-700 text-white" 
+                          : "bg-white border-gray-200 text-gray-900"
+                      )}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"}>
+                        {Array.from({ length: 26 }, (_, i) => {
+                          const hour = Math.floor(i / 2) + 7;
+                          const minute = i % 2 === 0 ? "00" : "30";
+                          const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+                          const displayHour = hour > 12 ? hour - 12 : hour;
+                          const period = hour >= 12 ? 'PM' : 'AM';
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayHour}:{minute} {period}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-              {/* VIP */}
-              <div className="space-y-2">
-                <Label className={cn(
-                  "text-sm font-medium",
-                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                )}>
-                  No. of VIP
-                </Label>
-                <Input
-                  name="vip"
-                  type="number"
-                  value={editFormData.vip}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, vip: e.target.value }))}
-                  className={cn(
-                    "h-10",
-                    isDarkMode 
-                      ? "bg-slate-800 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}
-                />
-              </div>
-
-              {/* VVIP */}
-              <div className="space-y-2">
-                <Label className={cn(
-                  "text-sm font-medium",
-                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                )}>
-                  No. of VVIP
-                </Label>
-                <Input
-                  name="vvip"
-                  type="number"
-                  value={editFormData.vvip}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, vvip: e.target.value }))}
-                  className={cn(
-                    "h-10",
-                    isDarkMode 
-                      ? "bg-slate-800 border-slate-700" 
-                      : "bg-white border-gray-200"
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label className={cn(
-                "text-sm font-medium",
-                isDarkMode ? "text-gray-200" : "text-gray-700"
-              )}>
-                Description
-              </Label>
-              <textarea
-                name="classifications"
-                value={editFormData.classifications}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, classifications: e.target.value }))}
-                className={cn(
-                  "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
-                  isDarkMode 
-                    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
-                    : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                )}
-              />
-            </div>
+                {/* End Date & Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      End Date
+                    </Label>
+                    <Popover open={isEndCalendarOpen} onOpenChange={setIsEndCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start h-10",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(editEndDate, "MMM d, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-auto p-0" 
+                        align="start"
+                        side="bottom"
+                        sideOffset={4}
+                      >
+                        <ModernCalendar
+                          selectedDate={editEndDate}
+                          onDateSelect={(date) => {
+                            setEditEndDate(date);
+                            setIsEndCalendarOpen(false);
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      End Time
+                    </Label>
+                    <Select value={editEndTime} onValueChange={setEditEndTime}>
+                      <SelectTrigger className={cn(
+                        "h-10",
+                        isDarkMode 
+                          ? "bg-slate-800 border-slate-700 text-white" 
+                          : "bg-white border-gray-200 text-gray-900"
+                      )}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"}>
+                        {Array.from({ length: 26 }, (_, i) => {
+                          const hour = Math.floor(i / 2) + 7;
+                          const minute = i % 2 === 0 ? "00" : "30";
+                          const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+                          const displayHour = hour > 12 ? hour - 12 : hour;
+                          const period = hour >= 12 ? 'PM' : 'AM';
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayHour}:{minute} {period}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-3 pt-4">
@@ -1462,29 +1885,209 @@ const MyEvents = () => {
               <Button
                 onClick={async () => {
                   try {
-                    // Optimistically update the UI
-                    const updatedEvent = {
-                      ...eventToEdit,
-                      ...editFormData,
-                      updatedAt: new Date()
-                    };
+                    // Track what changes were made
+                    const changes = [];
                     
-                    useEventStore.setState(state => ({
-                      events: state.events.map(event => 
-                        event.id === eventToEdit.id ? updatedEvent : event
-                      )
-                    }));
+                    if (editUseMultipleLocations) {
+                      // Handle multiple locations mode
+                      
+                      // Validate multiple locations
+                      const validLocations = editMultipleLocations.filter(loc => loc.location.trim());
+                      if (validLocations.length === 0) {
+                        toast.error("Please add at least one location");
+                        return;
+                      }
+
+                      // Validate each location's date/time
+                      for (const loc of validLocations) {
+                        const [startHours, startMinutes] = loc.startTime.split(':');
+                        const startDateTime = new Date(loc.startDate);
+                        startDateTime.setHours(parseInt(startHours), parseInt(startMinutes));
+                        
+                        const [endHours, endMinutes] = loc.endTime.split(':');
+                        const endDateTime = new Date(loc.endDate);
+                        endDateTime.setHours(parseInt(endHours), parseInt(endMinutes));
+
+                        if (endDateTime <= startDateTime) {
+                          toast.error(`End date/time must be after start date/time for location: ${loc.location}`);
+                          return;
+                        }
+                      }
+
+                      // Check for multiple locations changes
+                      const originalHasMultiple = eventToEdit.isMultipleLocations && eventToEdit.locations && eventToEdit.locations.length > 0;
+                      const currentMultipleLocations = validLocations.map(loc => {
+                        const [startHours, startMinutes] = loc.startTime.split(':');
+                        const startDateTime = new Date(loc.startDate);
+                        startDateTime.setHours(parseInt(startHours), parseInt(startMinutes));
+                        
+                        const [endHours, endMinutes] = loc.endTime.split(':');
+                        const endDateTime = new Date(loc.endDate);
+                        endDateTime.setHours(parseInt(endHours), parseInt(endMinutes));
+
+                        return {
+                          location: loc.location,
+                          startDate: Timestamp.fromDate(startDateTime),
+                          endDate: Timestamp.fromDate(endDateTime)
+                        };
+                      });
+
+                      if (!originalHasMultiple || JSON.stringify(eventToEdit.locations) !== JSON.stringify(currentMultipleLocations)) {
+                        changes.push({
+                          type: 'multipleLocations',
+                          field: 'Multiple Locations',
+                          oldValue: originalHasMultiple ? `${eventToEdit.locations.length} locations` : 'Single location',
+                          newValue: `${validLocations.length} locations configured`,
+                          timestamp: new Date(),
+                          userId: auth.currentUser.uid,
+                          userName: auth.currentUser.displayName || auth.currentUser.email
+                        });
+                      }
+
+                      // Update in Firestore
+                      const docRef = doc(db, 'eventRequests', eventToEdit.id);
+                      const updateData = {
+                        title: editFormData.title,
+                        isMultipleLocations: true,
+                        locations: currentMultipleLocations,
+                        // Remove single location fields when using multiple locations
+                        location: deleteField(),
+                        startDate: deleteField(),
+                        endDate: deleteField(),
+                        updatedAt: serverTimestamp()
+                      };
+
+                      // Add recent activity if there are changes
+                      if (changes.length > 0) {
+                        updateData.recentActivity = [...(eventToEdit.recentActivity || []), ...changes.map(change => ({
+                          ...change,
+                          timestamp: Timestamp.fromDate(change.timestamp)
+                        }))];
+                      }
+
+                      await updateDoc(docRef, updateData);
+
+                      // Update Zustand store with the new data
+                      await updateEvent(eventToEdit.id, {
+                        title: editFormData.title,
+                        isMultipleLocations: true,
+                        locations: validLocations.map(loc => {
+                          const [startHours, startMinutes] = loc.startTime.split(':');
+                          const startDateTime = new Date(loc.startDate);
+                          startDateTime.setHours(parseInt(startHours), parseInt(startMinutes));
+                          
+                          const [endHours, endMinutes] = loc.endTime.split(':');
+                          const endDateTime = new Date(loc.endDate);
+                          endDateTime.setHours(parseInt(endHours), parseInt(endMinutes));
+
+                          return {
+                            location: loc.location,
+                            startDate: { seconds: Math.floor(startDateTime.getTime() / 1000) },
+                            endDate: { seconds: Math.floor(endDateTime.getTime() / 1000) }
+                          };
+                        }),
+                        recentActivity: [...(eventToEdit.recentActivity || []), ...changes]
+                      });
+
+                    } else {
+                      // Handle single location mode
+                      const originalStartDate = new Date(eventToEdit.startDate.seconds * 1000);
+                      const originalEndDate = new Date(eventToEdit.endDate.seconds * 1000);
+                      
+                      // Combine dates and times for comparison
+                      const [startHours, startMinutes] = editStartTime.split(':');
+                      const newStartDate = new Date(editStartDate);
+                      newStartDate.setHours(parseInt(startHours), parseInt(startMinutes));
+                      
+                      const [endHours, endMinutes] = editEndTime.split(':');
+                      const newEndDate = new Date(editEndDate);
+                      newEndDate.setHours(parseInt(endHours), parseInt(endMinutes));
+
+                      // Validate that end date/time is after start date/time
+                      if (newEndDate <= newStartDate) {
+                        toast.error("End date/time must be after start date/time");
+                        return;
+                      }
+
+                      // Check for location changes
+                      if (editFormData.location !== eventToEdit.location) {
+                        changes.push({
+                          type: 'location',
+                          field: 'Location',
+                          oldValue: eventToEdit.location,
+                          newValue: editFormData.location,
+                          timestamp: new Date(),
+                          userId: auth.currentUser.uid,
+                          userName: auth.currentUser.displayName || auth.currentUser.email
+                        });
+                      }
+
+                      // Check for start date/time changes
+                      if (newStartDate.getTime() !== originalStartDate.getTime()) {
+                        changes.push({
+                          type: 'startDateTime',
+                          field: 'Start Date & Time',
+                          oldValue: format(originalStartDate, 'MMM dd, yyyy hh:mm a'),
+                          newValue: format(newStartDate, 'MMM dd, yyyy hh:mm a'),
+                          timestamp: new Date(),
+                          userId: auth.currentUser.uid,
+                          userName: auth.currentUser.displayName || auth.currentUser.email
+                        });
+                      }
+
+                      // Check for end date/time changes
+                      if (newEndDate.getTime() !== originalEndDate.getTime()) {
+                        changes.push({
+                          type: 'endDateTime',
+                          field: 'End Date & Time',
+                          oldValue: format(originalEndDate, 'MMM dd, yyyy hh:mm a'),
+                          newValue: format(newEndDate, 'MMM dd, yyyy hh:mm a'),
+                          timestamp: new Date(),
+                          userId: auth.currentUser.uid,
+                          userName: auth.currentUser.displayName || auth.currentUser.email
+                        });
+                      }
+
+                      // Update in Firestore
+                      const docRef = doc(db, 'eventRequests', eventToEdit.id);
+                      const updateData = {
+                        title: editFormData.title,
+                        location: editFormData.location,
+                        startDate: Timestamp.fromDate(newStartDate),
+                        endDate: Timestamp.fromDate(newEndDate),
+                        // Remove multiple locations when using single location
+                        isMultipleLocations: false,
+                        locations: deleteField(),
+                        updatedAt: serverTimestamp()
+                      };
+
+                      // Add recent activity if there are changes
+                      if (changes.length > 0) {
+                        updateData.recentActivity = [...(eventToEdit.recentActivity || []), ...changes.map(change => ({
+                          ...change,
+                          timestamp: Timestamp.fromDate(change.timestamp)
+                        }))];
+                      }
+
+                      await updateDoc(docRef, updateData);
+
+                      // Update Zustand store with the new data
+                      await updateEvent(eventToEdit.id, {
+                        title: editFormData.title,
+                        location: editFormData.location,
+                        startDate: { seconds: Math.floor(newStartDate.getTime() / 1000) },
+                        endDate: { seconds: Math.floor(newEndDate.getTime() / 1000) },
+                        recentActivity: [...(eventToEdit.recentActivity || []), ...changes]
+                      });
+                    }
 
                     setIsEditDialogOpen(false);
-
-                    // Update in Firestore
-                    const docRef = doc(db, "eventRequests", eventToEdit.id);
-                    await updateDoc(docRef, {
-                      ...editFormData,
-                      updatedAt: serverTimestamp()
-                    });
-
-                    toast.success("Event updated successfully");
+                    
+                    if (changes.length > 0) {
+                      toast.success(`Event updated successfully. ${changes.length} change${changes.length > 1 ? 's' : ''} recorded.`);
+                    } else {
+                      toast.success("Event updated successfully");
+                    }
                   } catch (error) {
                     console.error("Error updating event:", error);
                     toast.error("Failed to update event");
@@ -1499,6 +2102,612 @@ const MyEvents = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Multiple Locations Modal for Edit */}
+      <Dialog open={isEditMultipleLocationsOpen} onOpenChange={setIsEditMultipleLocationsOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[800px] max-h-[90vh] overflow-y-auto",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader>
+            <DialogTitle className={cn(
+              "text-2xl font-bold tracking-tight",
+              isDarkMode ? "text-white" : "text-gray-900"
+            )}>
+              Configure Multiple Locations
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 mt-1">
+              Set up different locations with their respective dates and times
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-6 space-y-4">
+            {editMultipleLocations.map((location, index) => (
+              <div key={location.id} className={cn(
+                "p-6 rounded-lg space-y-4 shadow-sm border",
+                isDarkMode ? "border-slate-700 bg-slate-800" : "border-gray-200 bg-white shadow-sm"
+              )}>
+                <div className="flex items-center justify-between">
+                  <h3 className={cn(
+                    "text-lg font-semibold",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    Location {index + 1}
+                  </h3>
+                  {editMultipleLocations.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditMultipleLocations(prev => prev.filter((_, i) => i !== index));
+                      }}
+                      className={cn(
+                        "text-red-600 hover:text-red-700 hover:bg-red-50",
+                        isDarkMode ? "border-slate-600 hover:bg-red-900/20" : "border-gray-300"
+                      )}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Location Name */}
+                <div className="space-y-2">
+                  <Label className={cn(
+                    "text-sm font-medium",
+                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                  )}>
+                    Location Name
+                  </Label>
+                  <Popover 
+                    open={editMultipleLocationDropdowns[location.id]} 
+                    onOpenChange={(open) => {
+                      setEditMultipleLocationDropdowns(prev => ({
+                        ...prev,
+                        [location.id]: open
+                      }));
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={editMultipleLocationDropdowns[location.id]}
+                        className={cn(
+                          "w-full justify-between h-10",
+                          isDarkMode 
+                            ? "bg-slate-700 border-slate-600 text-white hover:bg-slate-600" 
+                            : "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
+                        )}
+                      >
+                        {location.location || "Select location..."}
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent 
+                      side="bottom"
+                      align="start"
+                      sideOffset={4}
+                      avoidCollisions={false}
+                      className={cn(
+                        "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
+                        isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"
+                      )}
+                    >
+                      <Command className={isDarkMode ? "bg-slate-800" : "bg-white"}>
+                        <CommandInput 
+                          placeholder="Search locations..." 
+                          className={isDarkMode ? "text-white" : "text-gray-900"}
+                        />
+                        <CommandEmpty className={cn(
+                          "py-6 text-center text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          No location found.
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-[200px] overflow-y-auto">
+                          <CommandItem
+                            onSelect={() => {
+                              setEditMultipleShowCustomInputs(prev => ({
+                                ...prev,
+                                [location.id]: true
+                              }));
+                              setEditMultipleLocationDropdowns(prev => ({
+                                ...prev,
+                                [location.id]: false
+                              }));
+                            }}
+                            className={cn(
+                              "cursor-pointer border-b",
+                              isDarkMode 
+                                ? "text-blue-400 hover:bg-slate-700 border-slate-600" 
+                                : "text-blue-600 hover:bg-gray-100 border-gray-200"
+                            )}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add custom location
+                          </CommandItem>
+                          {defaultLocations.map((defaultLocation) => (
+                            <CommandItem
+                              key={defaultLocation}
+                              value={defaultLocation}
+                              onSelect={(currentValue) => {
+                                const newLocations = [...editMultipleLocations];
+                                newLocations[index].location = currentValue;
+                                setEditMultipleLocations(newLocations);
+                                setEditMultipleShowCustomInputs(prev => ({
+                                  ...prev,
+                                  [location.id]: false
+                                }));
+                                setEditMultipleCustomLocations(prev => ({
+                                  ...prev,
+                                  [location.id]: ""
+                                }));
+                                setEditMultipleLocationDropdowns(prev => ({
+                                  ...prev,
+                                  [location.id]: false
+                                }));
+                              }}
+                              className={cn(
+                                "cursor-pointer",
+                                isDarkMode 
+                                  ? "text-gray-200 hover:bg-slate-700" 
+                                  : "text-gray-900 hover:bg-gray-100"
+                              )}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  location.location === defaultLocation ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {defaultLocation}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {/* Custom Location Input */}
+                  {editMultipleShowCustomInputs[location.id] && (
+                    <div className="space-y-2 mt-2">
+                      <Label className={cn(
+                        "text-sm font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>
+                        Custom Location
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter custom location"
+                          value={editMultipleCustomLocations[location.id] || ""}
+                          onChange={(e) => {
+                            setEditMultipleCustomLocations(prev => ({
+                              ...prev,
+                              [location.id]: e.target.value
+                            }));
+                          }}
+                          className={cn(
+                            "h-10 flex-1",
+                            isDarkMode 
+                              ? "bg-slate-700 border-slate-600 text-white" 
+                              : "bg-white border-gray-300"
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (editMultipleCustomLocations[location.id]?.trim()) {
+                              const newLocations = [...editMultipleLocations];
+                              newLocations[index].location = editMultipleCustomLocations[location.id].trim();
+                              setEditMultipleLocations(newLocations);
+                              setEditMultipleShowCustomInputs(prev => ({
+                                ...prev,
+                                [location.id]: false
+                              }));
+                              setEditMultipleCustomLocations(prev => ({
+                                ...prev,
+                                [location.id]: ""
+                              }));
+                            }
+                          }}
+                          className="bg-black hover:bg-gray-800 text-white"
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setEditMultipleShowCustomInputs(prev => ({
+                              ...prev,
+                              [location.id]: false
+                            }));
+                            setEditMultipleCustomLocations(prev => ({
+                              ...prev,
+                              [location.id]: ""
+                            }));
+                          }}
+                          className={cn(
+                            isDarkMode 
+                              ? "border-slate-600 text-gray-300 hover:bg-slate-700" 
+                              : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                          )}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Date and Time Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Start Date */}
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      Start Date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start h-10",
+                            isDarkMode 
+                              ? "bg-slate-700 border-slate-600 text-white hover:bg-slate-600" 
+                              : "bg-white border-gray-300 hover:bg-gray-50"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(location.startDate, "MMM d, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <ModernCalendar
+                          selectedDate={location.startDate}
+                          onDateSelect={(date) => {
+                            const newLocations = [...editMultipleLocations];
+                            newLocations[index].startDate = date;
+                            setEditMultipleLocations(newLocations);
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Start Time */}
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      Start Time
+                    </Label>
+                    <Select 
+                      value={location.startTime} 
+                      onValueChange={(time) => {
+                        const newLocations = [...editMultipleLocations];
+                        newLocations[index].startTime = time;
+                        setEditMultipleLocations(newLocations);
+                      }}
+                    >
+                      <SelectTrigger className={cn(
+                        "h-10",
+                        isDarkMode 
+                          ? "bg-slate-700 border-slate-600 text-white" 
+                          : "bg-white border-gray-300"
+                      )}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}>
+                        {Array.from({ length: 26 }, (_, i) => {
+                          const hour = Math.floor(i / 2) + 7;
+                          const minute = i % 2 === 0 ? "00" : "30";
+                          const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+                          const displayHour = hour > 12 ? hour - 12 : hour;
+                          const period = hour >= 12 ? 'PM' : 'AM';
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayHour}:{minute} {period}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* End Date */}
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      End Date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start h-10",
+                            isDarkMode 
+                              ? "bg-slate-700 border-slate-600 text-white hover:bg-slate-600" 
+                              : "bg-white border-gray-300 hover:bg-gray-50"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(location.endDate, "MMM d, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <ModernCalendar
+                          selectedDate={location.endDate}
+                          onDateSelect={(date) => {
+                            const newLocations = [...editMultipleLocations];
+                            newLocations[index].endDate = date;
+                            setEditMultipleLocations(newLocations);
+                          }}
+                          isDarkMode={isDarkMode}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* End Time */}
+                  <div className="space-y-2">
+                    <Label className={cn(
+                      "text-sm font-medium",
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    )}>
+                      End Time
+                    </Label>
+                    <Select 
+                      value={location.endTime} 
+                      onValueChange={(time) => {
+                        const newLocations = [...editMultipleLocations];
+                        newLocations[index].endTime = time;
+                        setEditMultipleLocations(newLocations);
+                      }}
+                    >
+                      <SelectTrigger className={cn(
+                        "h-10",
+                        isDarkMode 
+                          ? "bg-slate-700 border-slate-600 text-white" 
+                          : "bg-white border-gray-300"
+                      )}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}>
+                        {Array.from({ length: 26 }, (_, i) => {
+                          const hour = Math.floor(i / 2) + 7;
+                          const minute = i % 2 === 0 ? "00" : "30";
+                          const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+                          const displayHour = hour > 12 ? hour - 12 : hour;
+                          const period = hour >= 12 ? 'PM' : 'AM';
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {displayHour}:{minute} {period}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditMultipleLocationsOpen(false)}
+                className={cn(
+                  isDarkMode 
+                    ? "border-slate-600 text-gray-300 hover:bg-slate-800" 
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                )}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => setIsEditMultipleLocationsOpen(false)}
+                className="bg-black hover:bg-gray-800 text-white"
+              >
+                Save Locations
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Activity Changes Dialog */}
+      <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
+          {selectedEventActivity && (
+            <ScrollArea className="h-[80vh]">
+              <div className="relative bg-white p-6 border-b border-gray-200">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  onClick={() => setIsActivityDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
+                  Recent Changes
+                </DialogTitle>
+                <p className="text-gray-600">All change history for {selectedEventActivity.title}</p>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Location Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'location') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      Location Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'location')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Date & Time Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'startDateTime') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      Start Date & Time Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'startDateTime')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* End Date & Time Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'endDateTime') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                      End Date & Time Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'endDateTime')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* No Changes Message */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No recent changes found for this event.</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>

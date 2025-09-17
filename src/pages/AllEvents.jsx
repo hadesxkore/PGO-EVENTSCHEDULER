@@ -598,248 +598,233 @@ const AllEvents = ({ userData }) => {
 
       {/* Event Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent 
-          className={cn(
-            "sm:max-w-[700px] p-0 border-none overflow-hidden",
-            isDarkMode ? "bg-slate-900" : "bg-white"
-          )}
-          description="View event details and requirements"
-        >
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
           {selectedEvent && (
-            <ScrollArea className="h-[80vh]">
+            <ScrollArea className="h-[85vh]">
+              {/* Header Section */}
+              <div className="relative bg-white p-8 border-b border-gray-200">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-4 h-8 w-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+                <Badge variant="outline" className="mb-4 border-gray-300 text-gray-700 bg-gray-100">
+                  {selectedEvent.department}
+                </Badge>
+                <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">
+                  {selectedEvent.title}
+                </DialogTitle>
+                <p className="text-gray-600 text-sm">Event Details & Requirements</p>
+              </div>
+              
               {/* Content Section */}
-              <div className="p-4">
-                {/* Title and Department Section */}
-                <div className="mb-4 px-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className={cn(
-                      "font-medium px-2 py-0.5 text-xs",
-                      isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
-                    )}>
-                      {selectedEvent.department}
-                    </Badge>
-                  </div>
-                  <DialogTitle className={cn(
-                    "text-lg font-bold tracking-tight",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}>
-                    {selectedEvent.title}
-                  </DialogTitle>
-                </div>
+              <div className="p-8 bg-gray-50 space-y-8">
 
                 {/* Event Details Grid */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Requestor */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4 text-amber-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        Requestor
-                      </span>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Requestor</h3>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      {selectedEvent.requestor}
-                    </p>
+                    <div className="text-xl font-bold text-gray-900 mb-1">{selectedEvent.requestor}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">{selectedEvent.department}</div>
                   </div>
 
                   {/* Date & Time */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        Date & Time
-                      </span>
+                  {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm md:col-span-2">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <Clock className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Multiple Location Schedule</h3>
+                      </div>
+                      <div className="space-y-4 max-h-60 overflow-y-auto">
+                        {selectedEvent.locations.map((location, index) => (
+                          <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium text-gray-900">{location.location}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                Location {index + 1}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  Start
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.startDate ? new Date(location.startDate).toLocaleDateString() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {location.startTime ? (() => {
+                                    const [hours, minutes] = location.startTime.split(':');
+                                    const hour = parseInt(hours);
+                                    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                    const ampm = hour < 12 ? 'AM' : 'PM';
+                                    return `${displayHour}:${minutes} ${ampm}`;
+                                  })() : "Not set"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  End
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.endDate ? new Date(location.endDate).toLocaleDateString() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {location.endTime ? (() => {
+                                    const [hours, minutes] = location.endTime.split(':');
+                                    const hour = parseInt(hours);
+                                    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                    const ampm = hour < 12 ? 'AM' : 'PM';
+                                    return `${displayHour}:${minutes} ${ampm}`;
+                                  })() : "Not set"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      <div className="mb-2">
-                        <span className="font-medium">Start:</span><br />
-                        {format(selectedEvent.start, "MMMM d, yyyy")}
-                        <br />
-                        {format(selectedEvent.start, "h:mm a")}
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-black rounded-lg">
+                          <Clock className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Schedule</h3>
                       </div>
-                      <div>
-                        <span className="font-medium">End:</span><br />
-                        {format(selectedEvent.actualEndDate, "MMMM d, yyyy")}
-                        <br />
-                        {format(selectedEvent.actualEndDate, "h:mm a")}
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">START</div>
+                          <div className="text-sm font-semibold text-gray-900">{format(selectedEvent.start, "MMM d, yyyy")}</div>
+                          <div className="text-sm text-gray-600">{format(selectedEvent.start, "h:mm a")}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">END</div>
+                          <div className="text-sm font-semibold text-gray-900">{format(selectedEvent.actualEndDate, "MMM d, yyyy")}</div>
+                          <div className="text-sm text-gray-600">{format(selectedEvent.actualEndDate, "h:mm a")}</div>
+                        </div>
                       </div>
-                    </p>
-                  </div>
+                    </div>
+                  )}
 
                   {/* Location */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <MapPin className="h-4 w-4 text-green-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        Location
-                      </span>
+                  {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Locations</h3>
+                      </div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {selectedEvent.locations.map((location, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-900">
+                              {location.location}
+                            </p>
+                            <Badge variant="outline" className="text-xs">
+                              {index + 1}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-3">
+                        {selectedEvent.locations.length} Venues
+                      </p>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      {selectedEvent.location}
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-black rounded-lg">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Location</h3>
+                      </div>
+                      <div className="text-xl font-bold text-gray-900 mb-1">{selectedEvent.location}</div>
+                      <div className="text-sm text-gray-500 uppercase tracking-wide">Venue</div>
+                    </div>
+                  )}
 
                   {/* Participants */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-4 w-4 text-violet-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        Participants
-                      </span>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Users className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Attendees</h3>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      {selectedEvent.participants} attendees
-                    </p>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvent.participants}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">Expected Participants</div>
                   </div>
 
                   {/* VIP */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4 text-purple-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        VIP
-                      </span>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">VIPs</h3>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      {selectedEvent.vip || 0} VIPs
-                    </p>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvent.vip || 0}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">VIP Attendees</div>
                   </div>
 
                   {/* VVIP */}
-                  <div className={cn(
-                    "p-4 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/50 border border-slate-700" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4 text-red-500" />
-                      <span className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>
-                        VVIP
-                      </span>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">VVIPs</h3>
                     </div>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    )}>
-                      {selectedEvent.vvip || 0} VVIPs
-                    </p>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvent.vvip || 0}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">VVIP Attendees</div>
                   </div>
                 </div>
 
                 {/* Requirements Card */}
-                <div className={cn(
-                  "rounded-xl p-5 border",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-1.5 rounded",
-                        isDarkMode ? "bg-pink-500/10" : "bg-pink-50"
-                      )}>
-                        <FileText className="h-5 w-5 text-pink-500" />
+                      <div className="p-2 bg-black rounded-lg">
+                        <FileText className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className={cn(
-                        "font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>Requirements</h3>
+                      <h3 className="font-semibold text-gray-900">Attachments</h3>
                     </div>
                     <Button
                       size="sm"
-                      className={cn(
-                        "gap-2 bg-black hover:bg-gray-900 text-white border-0"
-                      )}
-                                             onClick={() => {
-                         setIsRequirementsDialogOpen(true);
-                       }}
+                      className="gap-2 bg-black hover:bg-gray-900 text-white border-0 rounded-lg"
+                      onClick={() => {
+                        setIsRequirementsDialogOpen(true);
+                      }}
                     >
                       <Eye className="h-4 w-4" />
                       View Full Details
                     </Button>
                   </div>
                   <div className="relative">
-                    <div className={cn(
-                      "rounded-lg p-4 text-sm relative",
-                      isDarkMode 
-                        ? "bg-slate-900/50 text-gray-300" 
-                        : "bg-gray-50 text-gray-600"
-                    )}>
+                    <div className="rounded-lg p-4 text-sm relative bg-gray-50 text-gray-600">
                       {selectedEvent.departmentRequirements ? (
                         selectedEvent.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
                           <div key={deptIndex} className="mb-4 last:mb-0">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className={cn(
-                                "text-sm font-medium",
-                                isDarkMode ? "text-gray-200" : "text-gray-700"
-                              )}>
+                              <h4 className="text-sm font-medium text-gray-700">
                                 {dept.departmentName}
                               </h4>
                               {dept.classification && (
-                                <Badge variant="outline" className={cn(
-                                  "font-medium px-2 py-0.5 text-xs",
-                                  isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
-                                )}>
+                                <Badge variant="outline" className="font-medium px-2 py-0.5 text-xs border-gray-300 text-gray-700 bg-gray-100">
                                   {dept.classification}
                                 </Badge>
                               )}
@@ -849,30 +834,17 @@ const AllEvents = ({ userData }) => {
                               return (
                                 <div
                                   key={`${deptIndex}-${reqIndex}`}
-                                  className={cn(
-                                    "mb-2 last:mb-0 flex items-start gap-2",
-                                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                                  )}
+                                  className="mb-2 last:mb-0 flex items-start gap-2 text-gray-600"
                                 >
-                                  <div className={cn(
-                                    "p-1.5 rounded-md mt-0.5",
-                                    isDarkMode ? "bg-slate-800" : "bg-white",
-                                    "shadow-sm"
-                                  )}>
-                                    <FileText className="h-4 w-4 text-blue-500" />
+                                  <div className="p-1.5 rounded-md mt-0.5 bg-black shadow-sm">
+                                    <FileText className="h-4 w-4 text-white" />
                                   </div>
                                   <div>
-                                    <span className={cn(
-                                      "font-semibold block",
-                                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                                    )}>
+                                    <span className="font-semibold block text-gray-700">
                                       {requirement.name}
                                     </span>
                                     <div className="mt-1 space-y-0.5">
-                                      <span className={cn(
-                                        "text-xs block",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
+                                      <span className="text-xs block text-gray-500">
                                         {requirement.note || "No notes provided for this requirement"}
                                       </span>
                                     </div>
@@ -888,30 +860,17 @@ const AllEvents = ({ userData }) => {
                           return (
                             <div
                               key={index}
-                              className={cn(
-                                "mb-3 last:mb-0 flex items-start gap-2",
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              )}
+                              className="mb-3 last:mb-0 flex items-start gap-2 text-gray-600"
                             >
-                              <div className={cn(
-                                "p-1.5 rounded-md mt-0.5",
-                                isDarkMode ? "bg-slate-800" : "bg-white",
-                                "shadow-sm"
-                              )}>
-                                <FileText className="h-4 w-4 text-blue-500" />
+                              <div className="p-1.5 rounded-md mt-0.5 bg-white shadow-sm">
+                                <FileText className="h-4 w-4 text-gray-600" />
                               </div>
                               <div>
-                                <span className={cn(
-                                  "font-semibold block",
-                                  isDarkMode ? "text-gray-200" : "text-gray-700"
-                                )}>
+                                <span className="font-semibold block text-gray-700">
                                   {requirement.name}
                                 </span>
                                 {requirement.note && (
-                                  <span className={cn(
-                                    "text-xs block mt-0.5",
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  )}>
+                                  <span className="text-xs block mt-0.5 text-gray-500">
                                     {requirement.note}
                                   </span>
                                 )}
@@ -926,16 +885,8 @@ const AllEvents = ({ userData }) => {
                          selectedEvent.departmentRequirements.some(dept => dept.requirements.length > 2))) ||
                         (selectedEvent.requirements && selectedEvent.requirements.length > 2)) && (
                         <>
-                          <div className={cn(
-                            "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
-                            isDarkMode
-                              ? "bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent"
-                              : "bg-gradient-to-t from-gray-50/90 via-gray-50/50 to-transparent"
-                          )} />
-                          <div className={cn(
-                            "absolute bottom-2 left-0 right-0 text-sm font-medium text-center",
-                            isDarkMode ? "text-blue-400" : "text-blue-600"
-                          )}>
+                          <div className="absolute bottom-0 left-0 right-0 h-24 rounded-b-lg bg-gradient-to-t from-gray-50/90 via-gray-50/50 to-transparent" />
+                          <div className="absolute bottom-2 left-0 right-0 text-sm font-medium text-center text-gray-700">
                             Click "View Full Details" to see all requirements
                           </div>
                         </>
@@ -945,66 +896,30 @@ const AllEvents = ({ userData }) => {
                 </div>
 
                 {/* Classifications Card */}
-                <div className={cn(
-                  "rounded-xl p-5 border mb-4",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={cn(
-                      "p-2.5 rounded-lg",
-                      isDarkMode ? "bg-indigo-500/10" : "bg-indigo-50"
-                    )}>
-                      <FileText className="h-5 w-5 text-indigo-500" />
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <FileText className="h-5 w-5 text-gray-700" />
                     </div>
-                    <h3 className={cn(
-                      "font-semibold",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>Classifications</h3>
+                    <h3 className="font-semibold text-gray-900">Classifications</h3>
                   </div>
-                  <div className={cn(
-                    "rounded-lg p-4",
-                    isDarkMode ? "bg-slate-900/50" : "bg-gray-50"
-                  )}>
-                    <p className={cn(
-                      "text-base leading-relaxed whitespace-pre-wrap",
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    )}>
+                  <div className="rounded-lg p-4 bg-gray-50">
+                    <p className="text-base leading-relaxed whitespace-pre-wrap text-gray-700">
                       {selectedEvent.classifications || "No classifications provided"}
                     </p>
                   </div>
                 </div>
 
                 {/* Attachments Card */}
-                <div className={cn(
-                  "rounded-xl p-5 border mt-4",
-                  isDarkMode 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-white border-gray-100"
-                )}>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={cn(
-                      "p-2.5 rounded-lg",
-                      isDarkMode ? "bg-teal-500/10" : "bg-teal-50"
-                    )}>
-                      <FileText className="h-5 w-5 text-teal-500" />
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <FileText className="h-5 w-5 text-gray-700" />
                     </div>
-                    <h3 className={cn(
-                      "font-semibold",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>Attachments</h3>
+                    <h3 className="font-semibold text-gray-900">Attachments</h3>
                   </div>
-                  <div className={cn(
-                    "rounded-lg p-4 text-center",
-                    isDarkMode 
-                      ? "bg-slate-900/50" 
-                      : "bg-gray-50"
-                  )}>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
+                  <div className="rounded-lg p-4 text-center bg-gray-50">
+                    <p className="text-sm text-gray-500">
                       To view and download attachments, please visit the "My Events" page.
                     </p>
                   </div>
@@ -1162,110 +1077,75 @@ const AllEvents = ({ userData }) => {
 
       {/* Requirements Dialog */}
       <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
-        <DialogContent className={cn(
-          "sm:max-w-[800px] border-none shadow-lg p-6",
-          isDarkMode ? "bg-slate-900" : "bg-white"
-        )}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "absolute right-4 top-4 h-8 w-8 p-0 rounded-full",
-              isDarkMode ? "hover:bg-gray-700 text-gray-400 hover:text-gray-100" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
-            )}
-            onClick={() => setIsRequirementsDialogOpen(false)}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Button>
-
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
           {selectedEvent && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div>
-                <DialogTitle className={cn(
-                  "text-xl font-bold tracking-tight pr-8",
-                  isDarkMode ? "text-white" : "text-gray-900"
-                )}>
-                  Event Requirements
-                </DialogTitle>
-                <DialogDescription className="text-sm text-gray-500 mt-2">
-                  Requirements and specifications for {selectedEvent.title}
-                </DialogDescription>
-              </div>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-4 h-8 w-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 z-10"
+                onClick={() => setIsRequirementsDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+              
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-6">
 
-              {/* Requirements List */}
-              <div className="space-y-4">
                 {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
                   selectedEvent.departmentRequirements.map((dept, deptIndex) => (
-                    <div key={deptIndex} className="space-y-4">
-                      <h3 className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      )}>
-                        {dept.departmentName}
-                      </h3>
-                      <div className={cn(
-                        "grid gap-3",
-                        {
-                          'grid-cols-1': dept.requirements.length <= 4,
-                          'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
-                          'grid-cols-3': dept.requirements.length > 8
-                        }
-                      )}>
-                        {dept.requirements.map((req, reqIndex) => {
-                          const requirement = typeof req === 'string' ? { name: req } : req;
-                          return (
-                            <div
-                              key={`${deptIndex}-${reqIndex}`}
-                              className={cn(
-                                "rounded-lg p-3",
-                                isDarkMode ? "bg-black" : "bg-gray-50"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={cn(
-                                  "p-1.5 rounded-lg shrink-0",
-                                  isDarkMode ? "bg-slate-800" : "bg-white"
-                                )}>
-                                  <FileText className="h-4 w-4 text-blue-500" />
+                    <div key={deptIndex} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-white border-b border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-gray-900">{dept.departmentName}</h3>
+                        <p className="text-gray-600 text-sm mt-1">{dept.requirements.length} requirement{dept.requirements.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      <div className="p-6 bg-gray-50">
+                        <div className={cn(
+                          "grid gap-4",
+                          {
+                            'grid-cols-1': dept.requirements.length <= 4,
+                            'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
+                            'grid-cols-3': dept.requirements.length > 8
+                          }
+                        )}>
+                          {dept.requirements.map((req, reqIndex) => {
+                            const requirement = typeof req === 'string' ? { name: req } : req;
+                            return (
+                              <div
+                                key={`${deptIndex}-${reqIndex}`}
+                                className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+                              >
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="p-1.5 bg-black rounded-lg shrink-0">
+                            <FileText className="h-4 w-4 text-white" />
+                                  </div>
+                                  <h4 className="font-semibold text-sm text-gray-900">
+                                    {requirement.name}
+                                  </h4>
                                 </div>
-                                <h3 className={cn(
-                                  "font-semibold text-sm",
-                                  isDarkMode ? "text-white" : "text-gray-900"
-                                )}>
-                                  {requirement.name}
-                                </h3>
+                                <div className="pl-8">
+                                  <span className="text-xs text-gray-600">
+                                    {requirement.note || "No notes provided for this requirement"}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="mt-2 pl-8 space-y-0.5">
-                                <span className={cn(
-                                  "text-xs block",
-                                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                                )}>
-                                  {requirement.note || "No notes provided for this requirement"}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className={cn(
-                    "rounded-lg p-6 text-center",
-                    isDarkMode ? "bg-black" : "bg-gray-50"
-                  )}>
-                    <p className={cn(
-                      "text-sm",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+                    <p className="text-sm text-gray-500">
                       No requirements specified for this event
                     </p>
                   </div>
                 )}
-              </div>
-            </div>
+                </div>
+              </ScrollArea>
+            </>
           )}
         </DialogContent>
       </Dialog>

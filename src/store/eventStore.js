@@ -181,6 +181,8 @@ const useEventStore = create((set, get) => ({
             requestor: event.requestor,
             department: event.department,
             location: event.location,
+            locations: event.locations, // Include multiple locations data
+            isMultipleLocations: event.isMultipleLocations,
             participants: event.participants,
             provisions: event.provisions,
             requirements: event.requirements,
@@ -191,6 +193,7 @@ const useEventStore = create((set, get) => ({
             userEmail: event.userEmail,
             vip: event.vip,
             vvip: event.vvip,
+            recentActivity: event.recentActivity || [], // Include recent activity data
           };
         }).filter(event => event !== null);
 
@@ -299,8 +302,8 @@ const useEventStore = create((set, get) => ({
       if (result.success) {
         // Sort events by date, most recent first
         const sortedEvents = result.requests.sort((a, b) => {
-          const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(0);
-          const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(0);
+          const dateA = a.startDate?.seconds ? new Date(a.startDate.seconds * 1000) : (a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(0));
+          const dateB = b.startDate?.seconds ? new Date(b.startDate.seconds * 1000) : (b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(0));
           return dateB - dateA;
         });
         
@@ -362,6 +365,37 @@ const useEventStore = create((set, get) => ({
       console.error('Error deleting event:', error);
       set({ error: 'An error occurred while deleting the event' });
       return { success: false, error: 'An error occurred while deleting the event' };
+    }
+  },
+
+  // Update event with recent activity
+  updateEvent: async (eventId, updatedData) => {
+    try {
+      set({ loading: true, error: null });
+      
+      // Update both events and allEvents arrays
+      const state = get();
+      const updatedEvents = state.events.map(event => 
+        event.id === eventId ? { ...event, ...updatedData } : event
+      );
+      const updatedAllEvents = state.allEvents.map(event => 
+        event.id === eventId ? { ...event, ...updatedData } : event
+      );
+      
+      set({ 
+        events: updatedEvents,
+        allEvents: updatedAllEvents,
+        lastFetched: Date.now(),
+        lastAllEventsFetch: Date.now()
+      });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating event in store:', error);
+      set({ error: 'Failed to update event' });
+      return { success: false, error: 'Failed to update event' };
+    } finally {
+      set({ loading: false });
     }
   },
 

@@ -198,7 +198,7 @@ const MainLayout = ({ children, userData }) => {
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold truncate">
-                    {userData?.firstName} {userData?.lastName || ""}
+                    {userData?.firstName}
                   </h2>
                   <p className={cn(
                     "text-sm font-medium truncate",
@@ -209,14 +209,6 @@ const MainLayout = ({ children, userData }) => {
                 </div>
               )}
             </div>
-            {!collapsed && (
-              <div className={cn(
-                "text-sm font-medium px-4 py-1.5 rounded-full w-fit",
-                isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"
-              )}>
-                {userData?.department || "Department"}
-              </div>
-            )}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { registerNotifications, saveSubscription } from "../lib/utils/notifications.jsx";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -32,45 +32,22 @@ import {
 } from "../components/ui/popover";
 import { ScrollArea } from "../components/ui/scroll-area";
 import useEventStore from "../store/eventStore";
-import { auth } from "../lib/firebase/firebase";
+import useNotificationStore from "../store/notificationStore";
+import { auth, db } from "../lib/firebase/firebase";
 import { format, isAfter, isBefore, addHours } from "date-fns";
 import { toast } from "sonner";
 
-// Helper function to generate consistent colors based on string
+// Helper function to generate consistent black and white theme
 const getEventColor = (title) => {
-  const colors = [
-    "ring-blue-500",
-    "ring-purple-500",
-    "ring-green-500",
-    "ring-yellow-500",
-    "ring-red-500",
-    "ring-indigo-500",
-    "ring-pink-500",
-    "ring-orange-500"
-  ];
-  
-  const index = title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[index % colors.length];
+  return "ring-gray-400";
 };
 
-// Helper function to get background color for avatar
+// Helper function to get background color for avatar - black and white theme
 const getEventBgColor = (title) => {
-  const colors = [
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-green-500",
-    "bg-yellow-500",
-    "bg-red-500",
-    "bg-indigo-500",
-    "bg-pink-500",
-    "bg-orange-500"
-  ];
-  
-  const index = title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[index % colors.length];
+  return "bg-black";
 };
 
-// Helper function to get status color based on event time
+// Helper function to get status color based on event time - black and white theme
 const getEventStatusColor = (event) => {
   try {
     if (!event?.date) return "bg-gray-400"; // No date set
@@ -88,9 +65,9 @@ const getEventStatusColor = (event) => {
       return "bg-gray-400"; // Past event
     }
     if (isAfter(eventDate, now)) {
-      return "bg-green-500"; // Upcoming event
+      return "bg-black"; // Upcoming event
     }
-    return "bg-yellow-500"; // Ongoing event
+    return "bg-gray-600"; // Ongoing event
   } catch (error) {
     return "bg-gray-400"; // Error case
   }
@@ -99,7 +76,8 @@ const getEventStatusColor = (event) => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const isDarkMode = false; // Always use light mode
-  // Get state and actions from Zustand store
+  
+  // Get state and actions from Zustand stores
   const { 
     dashboardData, 
     loading, 
@@ -107,21 +85,45 @@ const Dashboard = () => {
     fetchDashboardData 
   } = useEventStore();
 
+  // Get real-time notification data
+  const {
+    upcomingEvents,
+    taggedEvents,
+    statusUpdates,
+    loading: notificationsLoading,
+    error: notificationsError,
+    setupRealtimeListeners,
+    cleanupListeners,
+    getNotificationCounts,
+    getAllNotifications,
+    clearError
+  } = useNotificationStore();
+
   // Add state to track viewed notifications and popover state
   const [viewedNotifications, setViewedNotifications] = useState(new Set());
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [statusUpdates, setStatusUpdates] = useState([]);
+  const [userDepartment, setUserDepartment] = useState(null);
   
   // State for managing selected event and dialog
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  // Memoize notification counts to prevent unnecessary re-renders
+  const notificationCounts = useMemo(() => {
+    return {
+      upcoming: upcomingEvents.length,
+      tagged: taggedEvents.length,
+      status: statusUpdates.length,
+      total: upcomingEvents.length + taggedEvents.length + statusUpdates.length
+    };
+  }, [upcomingEvents.length, taggedEvents.length, statusUpdates.length]);
+
   // Function to mark notifications as read
   const markNotificationsAsRead = () => {
     const allNotificationIds = [
-      ...dashboardData.upcomingEventsList.map(event => `upcoming-${event.id || event.title}`),
-      ...dashboardData.taggedEventsList?.map(event => `tagged-${event.id || event.title}`) || [],
-      ...(dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').map(event => `status-${event.id || event.title}`) || [])
+      ...upcomingEvents.map(event => `upcoming-${event.id || event.title}`),
+      ...taggedEvents.map(event => `tagged-${event.id || event.title}`),
+      ...statusUpdates.map(event => `status-${event.id || event.title}`)
     ];
     setViewedNotifications(new Set(allNotificationIds));
   };
@@ -130,6 +132,19 @@ const Dashboard = () => {
     const loadDashboardData = async () => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
+
+      // Get user department for tagged events
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setUserDepartment(userData.department);
+        }
+      } catch (error) {
+        console.error('Error getting user department:', error);
+      }
 
       const result = await fetchDashboardData(currentUser.uid, true); // Force refresh
       if (!result.success) {
@@ -140,6 +155,26 @@ const Dashboard = () => {
     loadDashboardData();
   }, [fetchDashboardData]);
 
+  // Setup real-time listeners when user is available
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (currentUser && userDepartment) {
+      setupRealtimeListeners(currentUser.uid, userDepartment);
+    }
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      cleanupListeners();
+    };
+  }, [userDepartment, setupRealtimeListeners, cleanupListeners]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupListeners();
+    };
+  }, [cleanupListeners]);
+
   // Show error toast if there's an error
   useEffect(() => {
     if (error) {
@@ -147,44 +182,52 @@ const Dashboard = () => {
     }
   }, [error]);
 
+  // Show notification error toast
+  useEffect(() => {
+    if (notificationsError) {
+      toast.error(notificationsError);
+      clearError();
+    }
+  }, [notificationsError, clearError]);
+
 
 
   const stats = [
     {
       title: "Total Events",
       value: loading ? "-" : dashboardData.totalEvents.toString(),
-      icon: <CalendarDays className="h-6 w-6 text-indigo-500" />,
+      icon: <CalendarDays className="h-6 w-6 text-black" />,
       trend: "All time events",
       trendUp: true,
-      color: "bg-indigo-500/10",
-      borderColor: "border-indigo-500/20",
+      color: "bg-gray-100",
+      borderColor: "border-gray-200",
     },
     {
       title: "Upcoming Events",
       value: loading ? "-" : dashboardData.upcomingEvents.toString(),
-      icon: <Calendar className="h-6 w-6 text-emerald-500" />,
+      icon: <Calendar className="h-6 w-6 text-black" />,
       trend: dashboardData.nextEventIn ? `Next event in ${dashboardData.nextEventIn} days` : "No upcoming events",
       trendUp: !loading && dashboardData.upcomingEvents > 0,
-      color: "bg-emerald-500/10",
-      borderColor: "border-emerald-500/20",
+      color: "bg-gray-100",
+      borderColor: "border-gray-200",
     },
     {
       title: "Department Events",
       value: loading ? "-" : dashboardData.departmentEvents.toString(),
-      icon: <Users className="h-6 w-6 text-violet-500" />,
+      icon: <Users className="h-6 w-6 text-black" />,
       trend: `${dashboardData.thisWeekEvents} this week`,
       trendUp: dashboardData.thisWeekEvents > 0,
-      color: "bg-violet-500/10",
-      borderColor: "border-violet-500/20",
+      color: "bg-gray-100",
+      borderColor: "border-gray-200",
     },
     {
       title: "Hours Scheduled",
       value: loading ? "-" : dashboardData.totalHours.toString(),
-      icon: <Clock className="h-6 w-6 text-rose-500" />,
+      icon: <Clock className="h-6 w-6 text-black" />,
       trend: `${dashboardData.thisWeekHours} hours this week`,
       trendUp: dashboardData.thisWeekHours > 0,
-      color: "bg-rose-500/10",
-      borderColor: "border-rose-500/20",
+      color: "bg-gray-100",
+      borderColor: "border-gray-200",
     },
   ];
 
@@ -244,9 +287,9 @@ const Dashboard = () => {
                 )}
               >
                 <Bell className="h-5 w-5" />
-                {!loading && 
-                  (dashboardData.upcomingEventsList.length > 0 || dashboardData.taggedEventsList?.length > 0 || (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0) > 0) && 
-                  viewedNotifications.size < (dashboardData.upcomingEventsList.length + (dashboardData.taggedEventsList?.length || 0) + (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0)) && (
+                {!notificationsLoading && 
+                  notificationCounts.total > 0 && 
+                  viewedNotifications.size < notificationCounts.total && (
                   <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
                 )}
               </Button>
@@ -341,18 +384,18 @@ const Dashboard = () => {
                 <TabsContent value="all" className="p-0 m-0">
                   <ScrollArea className="h-[300px]">
                     <div className="p-4 space-y-4">
-                      {loading ? (
+                      {notificationsLoading ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Loading notifications...
                         </div>
-                      ) : dashboardData.upcomingEventsList.length === 0 && dashboardData.taggedEventsList?.length === 0 && (dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').length || 0) === 0 ? (
+                      ) : notificationCounts.total === 0 ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           No notifications
                         </div>
                       ) : (
                         <>
                           {/* Status Updates */}
-                          {dashboardData.allUserEvents?.filter(event => event.status === 'approved' || event.status === 'disapproved').map((event, index) => (
+                          {statusUpdates.map((event, index) => (
                             <div
                               key={`status-${index}`}
                               className={cn(
@@ -412,7 +455,7 @@ const Dashboard = () => {
                           ))}
                           
                           {/* Upcoming Events */}
-                          {dashboardData.upcomingEventsList.map((event, index) => (
+                          {upcomingEvents.map((event, index) => (
                             <div
                               key={`upcoming-${index}`}
                               className={cn(
@@ -446,7 +489,7 @@ const Dashboard = () => {
                           ))}
                           
                           {/* Tagged Events */}
-                          {dashboardData.taggedEventsList?.map((event, index) => (
+                          {taggedEvents.map((event, index) => (
                             <div
                               key={`tagged-${index}`}
                               onClick={() => {
@@ -502,16 +545,16 @@ const Dashboard = () => {
                 <TabsContent value="upcoming" className="p-0 m-0">
                   <ScrollArea className="h-[300px]">
                     <div className="p-4 space-y-4">
-                      {loading ? (
+                      {notificationsLoading ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Loading notifications...
                         </div>
-                      ) : dashboardData.upcomingEventsList.length === 0 ? (
+                      ) : upcomingEvents.length === 0 ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           No upcoming events
                         </div>
                       ) : (
-                        dashboardData.upcomingEventsList.map((event, index) => (
+                        upcomingEvents.map((event, index) => (
                           <div
                             key={index}
                             className={cn(
@@ -551,16 +594,16 @@ const Dashboard = () => {
                 <TabsContent value="tagged" className="p-0 m-0">
                   <ScrollArea className="h-[300px]">
                     <div className="p-4 space-y-4">
-                      {loading ? (
+                      {notificationsLoading ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Loading notifications...
                         </div>
-                      ) : !dashboardData.taggedEventsList || dashboardData.taggedEventsList.length === 0 ? (
+                      ) : taggedEvents.length === 0 ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           No department tags
                         </div>
                       ) : (
-                        dashboardData.taggedEventsList.map((event, index) => (
+                        taggedEvents.map((event, index) => (
                           <div
                             key={index}
                             onClick={() => {
@@ -615,18 +658,16 @@ const Dashboard = () => {
                 <TabsContent value="status" className="p-0 m-0">
                   <ScrollArea className="h-[300px]">
                     <div className="p-4 space-y-4">
-                      {loading ? (
+                      {notificationsLoading ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Loading status updates...
                         </div>
-                      ) : !dashboardData.allUserEvents || dashboardData.allUserEvents.filter(event => event.status === 'approved' || event.status === 'disapproved').length === 0 ? (
+                      ) : statusUpdates.length === 0 ? (
                         <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           No status updates
                         </div>
                       ) : (
-                        dashboardData.allUserEvents
-                          .filter(event => event.status === 'approved' || event.status === 'disapproved')
-                          .map((event, index) => (
+                        statusUpdates.map((event, index) => (
                             <div
                               key={index}
                               className={cn(
@@ -702,11 +743,10 @@ const Dashboard = () => {
         {stats.map((stat) => (
           <motion.div key={stat.title} variants={item}>
             <div className={cn(
-              "rounded-xl p-6 transition-all duration-300 cursor-pointer border",
+              "rounded-xl p-6 transition-all duration-300 cursor-pointer border shadow-sm hover:shadow-md",
               isDarkMode 
                 ? "bg-gray-800/50 hover:bg-gray-800 border-gray-700" 
-                : "bg-white hover:bg-gray-50/80 border-gray-100",
-              stat.borderColor
+                : "bg-white hover:bg-gray-50/80 border-white shadow-[0_1px_3px_0_rgb(0_0_0_/_0.1),_0_1px_2px_-1px_rgb(0_0_0_/_0.1)]"
             )}>
               <div className="flex items-center justify-between mb-4">
                 <div className={cn(
@@ -719,11 +759,11 @@ const Dashboard = () => {
                   "text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 border",
                   stat.trendUp 
                     ? isDarkMode 
-                      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" 
-                      : "text-emerald-600 bg-emerald-50 border-emerald-100"
+                      ? "text-white bg-black border-gray-600" 
+                      : "text-black bg-white border-gray-300"
                     : isDarkMode
-                      ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                      : "text-amber-600 bg-amber-50 border-amber-100"
+                      ? "text-gray-300 bg-gray-700 border-gray-600"
+                      : "text-gray-600 bg-gray-100 border-gray-300"
                 )}>
                   {stat.trend}
                 </div>
@@ -746,8 +786,8 @@ const Dashboard = () => {
       {/* Upcoming Events */}
       <motion.div variants={item}>
         <div className={cn(
-          "rounded-xl p-6 border",
-          isDarkMode ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-100"
+          "rounded-xl p-6 border shadow-sm",
+          isDarkMode ? "bg-gray-800/50 border-gray-700" : "bg-white border-white shadow-[0_1px_3px_0_rgb(0_0_0_/_0.1),_0_1px_2px_-1px_rgb(0_0_0_/_0.1)]"
         )}>
           <div className="flex items-center justify-between mb-6">
             <div className="space-y-1">
@@ -773,14 +813,14 @@ const Dashboard = () => {
             </Button>
           </div>
           <div className="space-y-3">
-            {loading ? (
+            {loading || notificationsLoading ? (
               <div className={cn(
                 "text-sm text-center py-8",
                 isDarkMode ? "text-gray-400" : "text-gray-500"
               )}>
                 Loading events...
               </div>
-            ) : dashboardData.upcomingEventsList.length === 0 ? (
+            ) : upcomingEvents.length === 0 ? (
               <div className={cn(
                 "text-sm text-center py-8",
                 isDarkMode ? "text-gray-400" : "text-gray-500"
@@ -789,7 +829,7 @@ const Dashboard = () => {
               </div>
             ) : (
               <>
-                {dashboardData.upcomingEventsList.slice(0, 5).map((event) => (
+                {upcomingEvents.slice(0, 5).map((event) => (
                 <motion.div
                   key={event.id}
                   variants={item}
@@ -805,7 +845,7 @@ const Dashboard = () => {
                       "h-12 w-12 ring-2 ring-offset-2",
                       isDarkMode 
                         ? "ring-gray-700 ring-offset-gray-800" 
-                        : "ring-gray-100 ring-offset-white",
+                        : "ring-gray-300 ring-offset-white",
                       getEventColor(event.title)
                     )}>
                       <AvatarFallback 
@@ -842,12 +882,12 @@ const Dashboard = () => {
                   </div>
                 </motion.div>
               ))}
-                {dashboardData.upcomingEventsList.length > 5 && (
+                {upcomingEvents.length > 5 && (
                   <div className={cn(
                     "text-sm text-center py-4 mt-2 border-t",
                     isDarkMode ? "text-gray-400 border-gray-700" : "text-gray-500 border-gray-200"
                   )}>
-                    {dashboardData.upcomingEventsList.length - 5} more events. Click "View All" to see them.
+                    {upcomingEvents.length - 5} more events. Click "View All" to see them.
                   </div>
                 )}
               </>
@@ -880,7 +920,7 @@ const Dashboard = () => {
                 <div className="space-y-1">
                   <Badge variant="outline" className={cn(
                     "font-medium",
-                    isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
+                    isDarkMode ? "border-gray-600 text-gray-300" : "border-gray-300 text-gray-700"
                   )}>
                     {selectedEvent.department}
                   </Badge>
@@ -898,9 +938,9 @@ const Dashboard = () => {
                 <div className="flex items-center gap-2">
                   <div className={cn(
                     "p-1.5 rounded",
-                    isDarkMode ? "bg-pink-500/10" : "bg-pink-50"
+                    isDarkMode ? "bg-gray-700" : "bg-gray-100"
                   )}>
-                    <FileText className="h-4 w-4 text-pink-500" />
+                    <FileText className="h-4 w-4 text-black" />
                   </div>
                   <h3 className={cn(
                     "font-semibold",
@@ -927,7 +967,7 @@ const Dashboard = () => {
                               "p-1.5 rounded-md shrink-0",
                               isDarkMode ? "bg-slate-800" : "bg-white"
                             )}>
-                              <FileText className="h-3.5 w-3.5 text-blue-500" />
+                              <FileText className="h-3.5 w-3.5 text-black" />
                             </div>
                             <div className={cn(
                               "text-sm",

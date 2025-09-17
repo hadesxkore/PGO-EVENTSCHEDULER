@@ -167,23 +167,66 @@ const EventReportPDF = ({ events }) => {
                   <Text style={styles.infoLabel}>Department:</Text>
                   <Text style={styles.infoValue}>{event.userDepartment || event.department || "Not specified"}</Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Start Date:</Text>
-                  <Text style={styles.infoValue}>
-                    {event.startDate ? format(new Date(event.startDate.seconds * 1000), "MMMM d, yyyy h:mm a") :
-                     event.date ? format(new Date(event.date.seconds * 1000), "MMMM d, yyyy h:mm a") : "Not specified"}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>End Date:</Text>
-                  <Text style={styles.infoValue}>
-                    {event.endDate ? format(new Date(event.endDate.seconds * 1000), "MMMM d, yyyy h:mm a") : "Not specified"}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Location:</Text>
-                  <Text style={styles.infoValue}>{event.location}</Text>
-                </View>
+                {/* Multiple Locations or Single Location */}
+                {event.locations && event.locations.length > 0 ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Schedule:</Text>
+                    <Text style={styles.infoValue}>Multiple locations (see detailed schedule below)</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Start Date:</Text>
+                      <Text style={styles.infoValue}>
+                        {event.startDate ? (() => {
+                          try {
+                            let date;
+                            if (event.startDate.toDate) {
+                              date = event.startDate.toDate();
+                            } else if (event.startDate.seconds) {
+                              date = new Date(event.startDate.seconds * 1000);
+                            } else {
+                              date = new Date(event.startDate);
+                            }
+                            return format(date, "MMMM d, yyyy h:mm a");
+                          } catch (error) {
+                            return "Invalid date";
+                          }
+                        })() : event.date ? (() => {
+                          try {
+                            return format(new Date(event.date.seconds * 1000), "MMMM d, yyyy h:mm a");
+                          } catch (error) {
+                            return "Invalid date";
+                          }
+                        })() : "Not specified"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>End Date:</Text>
+                      <Text style={styles.infoValue}>
+                        {event.endDate ? (() => {
+                          try {
+                            let date;
+                            if (event.endDate.toDate) {
+                              date = event.endDate.toDate();
+                            } else if (event.endDate.seconds) {
+                              date = new Date(event.endDate.seconds * 1000);
+                            } else {
+                              date = new Date(event.endDate);
+                            }
+                            return format(date, "MMMM d, yyyy h:mm a");
+                          } catch (error) {
+                            return "Invalid date";
+                          }
+                        })() : "Not specified"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Location:</Text>
+                      <Text style={styles.infoValue}>{event.location || "Not specified"}</Text>
+                    </View>
+                  </>
+                )}
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Participants:</Text>
                   <Text style={styles.infoValue}>{event.participants} attendees</Text>
@@ -197,6 +240,60 @@ const EventReportPDF = ({ events }) => {
                   <Text style={styles.infoValue}>{event.vvip || 0} VVIPs</Text>
                 </View>
               </View>
+
+              {/* Multiple Locations Schedule */}
+              {event.locations && event.locations.length > 0 && (
+                <View style={styles.infoSection}>
+                  <Text style={styles.sectionTitle}>Detailed Location Schedule</Text>
+                  {event.locations.map((location, index) => (
+                    <View key={index} style={{ marginBottom: 12, paddingLeft: 8, borderLeft: '2 solid #e5e5e5' }}>
+                      <Text style={[styles.infoLabel, { fontSize: 10, marginBottom: 4 }]}>
+                        Location {index + 1}: {location.location}
+                      </Text>
+                      <View style={styles.infoRow}>
+                        <Text style={[styles.infoLabel, { width: '30%', fontSize: 9 }]}>Start:</Text>
+                        <Text style={[styles.infoValue, { width: '70%', fontSize: 9 }]}>
+                          {location.startDate ? (() => {
+                            try {
+                              let date;
+                              if (location.startDate.toDate) {
+                                date = location.startDate.toDate();
+                              } else if (location.startDate.seconds) {
+                                date = new Date(location.startDate.seconds * 1000);
+                              } else {
+                                date = new Date(location.startDate);
+                              }
+                              return format(date, "MMM d, yyyy h:mm a");
+                            } catch (error) {
+                              return "Invalid date";
+                            }
+                          })() : "Not specified"}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={[styles.infoLabel, { width: '30%', fontSize: 9 }]}>End:</Text>
+                        <Text style={[styles.infoValue, { width: '70%', fontSize: 9 }]}>
+                          {location.endDate ? (() => {
+                            try {
+                              let date;
+                              if (location.endDate.toDate) {
+                                date = location.endDate.toDate();
+                              } else if (location.endDate.seconds) {
+                                date = new Date(location.endDate.seconds * 1000);
+                              } else {
+                                date = new Date(location.endDate);
+                              }
+                              return format(date, "MMM d, yyyy h:mm a");
+                            } catch (error) {
+                              return "Invalid date";
+                            }
+                          })() : "Not specified"}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Contact Information */}
               <View style={styles.infoSection}>
@@ -235,27 +332,23 @@ const EventReportPDF = ({ events }) => {
                     <Text style={styles.sectionTitle}>{dept.departmentName}</Text>
                     {dept.requirements.map((req, reqIndex) => {
                       const requirement = typeof req === 'string' ? { name: req } : req;
-                      const notes = [
-                        'Sample 1: orem ipsum dolor sit amet, consectetur adipiscing elit.',
-                        'Sample 2: orem ipsum dolor sit amet, consectetur adipiscing elit.',
-                        'Sample 3: orem ipsum dolor sit amet, consectetur adipiscing elit.'
-                      ];
                       return (
                         <View key={`${deptIndex}-${reqIndex}`} style={{ marginBottom: reqIndex < dept.requirements.length - 1 ? 10 : 0 }}>
                           <Text style={[styles.listItem, { marginBottom: 2 }]}>
                             • {requirement.name}
                           </Text>
-                          {notes.map((note, noteIndex) => (
-                            <Text key={noteIndex} style={[styles.listItem, { 
+                          {requirement.note && (
+                            <Text style={[styles.listItem, { 
                               paddingLeft: 20,
-                              marginTop: 0,
-                              marginBottom: 1,
+                              marginTop: 2,
+                              marginBottom: 4,
                               fontSize: 9,
-                              color: '#666666'
+                              color: '#666666',
+                              fontStyle: 'italic'
                             }]}>
-                              {note}
+                              Note: {requirement.note}
                             </Text>
-                          ))}
+                          )}
                         </View>
                       );
                     })}

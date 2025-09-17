@@ -24,9 +24,26 @@ import {
   Mail,
   FileOutput,
   AlertCircle,
+  X,
+  MoreHorizontal,
+  Check,
+  CheckCircle,
+  Settings,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -99,6 +116,8 @@ const EventRequests = () => {
   const [isDisapproveDialogOpen, setIsDisapproveDialogOpen] = useState(false);
   const [disapprovalReason, setDisapprovalReason] = useState("");
   const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [selectedEventActivity, setSelectedEventActivity] = useState(null);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -177,23 +196,55 @@ const EventRequests = () => {
           <div className="flex items-center gap-3">
             {isSelectMode ? (
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className={cn(
-                  "h-8 px-3",
-                  isDarkMode ? "border-slate-700" : "border-gray-200"
-                )}>
-                  {selectedEvents.length} events selected
-                </Badge>
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Badge variant="outline" className={cn(
+                    "h-10 px-4 text-sm font-semibold shadow-sm",
+                    selectedEvents.length > 0 
+                      ? isDarkMode
+                        ? "bg-slate-700 text-white border-slate-600"
+                        : "bg-gray-800 text-white border-gray-700"
+                      : isDarkMode 
+                        ? "border-slate-600 bg-slate-800/50 text-slate-300" 
+                        : "border-gray-300 bg-gray-50 text-gray-700"
+                  )}>
+                    <motion.span
+                      key={selectedEvents.length}
+                      initial={{ scale: 1.2 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {selectedEvents.length}
+                    </motion.span>
+                    {selectedEvents.length === 1 ? " event selected" : " events selected"}
+                  </Badge>
+                </motion.div>
                                 {selectedEvents.length > 0 && (
-                  <Button
-                    className="gap-2 shadow-sm bg-black hover:bg-gray-800 text-white"
-                    onClick={() => {
-                      setPreviewEvents(selectedEvents);
-                      setIsPreviewDialogOpen(true);
-                    }}
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
                   >
-                    <Eye className="h-4 w-4" />
-                    Preview Selected Reports
-                  </Button>
+                    <Button
+                      className={cn(
+                        "gap-2 shadow-sm transition-all duration-200",
+                        isDarkMode
+                          ? "bg-slate-700 hover:bg-slate-600 text-white border border-slate-600"
+                          : "bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
+                      )}
+                      onClick={() => {
+                        setPreviewEvents(selectedEvents);
+                        setIsPreviewDialogOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview Selected Reports
+                    </Button>
+                  </motion.div>
                 )}
                 <Button
                   variant="outline"
@@ -210,33 +261,52 @@ const EventRequests = () => {
                 </Button>
               </div>
             ) : (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              <Dialog>
+                <DialogTrigger asChild>
                   <Button
-                    className="bg-black hover:bg-gray-800 text-white gap-2 shadow-sm"
+                    className={cn(
+                      "gap-2 shadow-sm transition-all duration-200",
+                      isDarkMode
+                        ? "bg-slate-800 hover:bg-slate-700 text-white border border-slate-600"
+                        : "bg-gray-900 hover:bg-gray-800 text-white border border-gray-800"
+                    )}
                   >
                     <FileOutput className="h-4 w-4" />
                     Generate Report
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className={cn(
-                  "border-none",
+                </DialogTrigger>
+                <DialogContent className={cn(
+                  "sm:max-w-[500px] p-0 border-0 rounded-2xl overflow-hidden",
                   isDarkMode ? "bg-slate-900" : "bg-white"
                 )}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className={cn(
-                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                    )}>Generate Event Report</AlertDialogTitle>
-                    <AlertDialogDescription className={cn(
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                  {/* Header */}
+                  <div className={cn(
+                    "p-6 border-b",
+                    isDarkMode 
+                      ? "bg-slate-800 border-slate-700 text-white" 
+                      : "bg-gray-50 border-gray-200 text-gray-900"
+                  )}>
+                    <DialogTitle className="text-2xl font-bold mb-2">
+                      Generate Event Report
+                    </DialogTitle>
+                    <DialogDescription className={cn(
+                      isDarkMode ? "text-slate-300" : "text-gray-600"
                     )}>
-                      Choose whether to generate a report for all events or select specific events.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="flex flex-col gap-4 py-4">
-                    <div className="flex flex-col gap-4">
+                      Create comprehensive PDF reports for your events with detailed information and requirements.
+                    </DialogDescription>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6 space-y-6">
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
                       <Button
-                        className="w-full gap-2 bg-black hover:bg-gray-800 text-white"
+                        className={cn(
+                          "w-full h-14 gap-3 shadow-sm transition-all duration-200 rounded-xl",
+                          isDarkMode
+                            ? "bg-slate-700 hover:bg-slate-600 text-white border border-slate-600"
+                            : "bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
+                        )}
                         onClick={() => {
                           // Close the current dialog
                           const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
@@ -246,12 +316,29 @@ const EventRequests = () => {
                           setIsPreviewDialogOpen(true);
                         }}
                       >
-                        <Eye className="h-4 w-4" />
-                        Preview Report
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          isDarkMode ? "bg-slate-600" : "bg-gray-700"
+                        )}>
+                          <Eye className="h-5 w-5" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold">Preview All Events</div>
+                          <div className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-slate-300" : "text-gray-300"
+                          )}>Generate report for all {filteredEvents.length} events</div>
+                        </div>
                       </Button>
+                      
                       <Button
                         variant="outline"
-                        className="w-full gap-2"
+                        className={cn(
+                          "w-full h-14 gap-3 rounded-xl border-2 transition-all duration-200",
+                          isDarkMode 
+                            ? "border-slate-600 bg-slate-800/50 hover:bg-slate-700 text-slate-200" 
+                            : "border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                        )}
                         onClick={() => {
                           // Close the current dialog
                           const closeButton = document.querySelector('[data-state="open"] button[type="button"]');
@@ -260,20 +347,60 @@ const EventRequests = () => {
                           setIsSelectMode(true);
                         }}
                       >
-                        <Checkbox className="h-4 w-4 mr-1" />
-                        Select Specific Events
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          isDarkMode ? "bg-slate-700" : "bg-gray-100"
+                        )}>
+                          <Checkbox className="h-5 w-5 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold">Select Specific Events</div>
+                          <div className={cn(
+                            "text-sm",
+                            isDarkMode ? "text-slate-400" : "text-gray-500"
+                          )}>Choose which events to include in the report</div>
+                        </div>
                       </Button>
                     </div>
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className={cn(
+
+                    {/* Info Note */}
+                    <div className={cn(
+                      "p-4 rounded-xl border-l-4",
                       isDarkMode 
-                        ? "bg-slate-800 hover:bg-slate-700 text-gray-100" 
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                    )}>Cancel</AlertDialogCancel>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                        ? "border-slate-500 bg-slate-800/50" 
+                        : "border-gray-400 bg-gray-50"
+                    )}>
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "p-1 rounded-full mt-0.5",
+                          isDarkMode ? "bg-slate-700" : "bg-gray-200"
+                        )}>
+                          <FileText className={cn(
+                            "h-4 w-4",
+                            isDarkMode ? "text-slate-300" : "text-gray-600"
+                          )} />
+                        </div>
+                        <div>
+                          <div className={cn(
+                            "font-medium text-sm mb-1",
+                            isDarkMode ? "text-slate-200" : "text-gray-800"
+                          )}>
+                            Report Features
+                          </div>
+                          <div className={cn(
+                            "text-xs",
+                            isDarkMode ? "text-slate-400" : "text-gray-600"
+                          )}>
+                            • Detailed event information and schedules<br/>
+                            • Multiple location support<br/>
+                            • Department requirements and contact details
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         </div>
@@ -382,18 +509,39 @@ const EventRequests = () => {
             <Table>
               <TableHeader>
                 <TableRow className={cn(
+                  "border-b h-12",
                   isDarkMode 
-                    ? "border-slate-700 bg-slate-800/50" 
-                    : "border-gray-200 bg-gray-50"
+                    ? "border-slate-700 bg-slate-800/30" 
+                    : "border-gray-200 bg-gray-50/50"
                 )}>
-                                      <TableHead className="w-[250px] py-4 text-sm font-medium">Event Title</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">Requestor</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">Start Date</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">End Date</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">Location</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">Participants</TableHead>
-                    <TableHead className="py-4 text-sm font-medium">Status</TableHead>
-                    <TableHead className="text-center py-4 text-sm font-medium">Actions</TableHead>
+                  <TableHead className={cn(
+                    "w-[250px] py-3 px-4 text-xs font-medium",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Event Title</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Requestor</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Start Date</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>End Date</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Location</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium text-center",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Status</TableHead>
+                  <TableHead className={cn(
+                    "py-3 px-4 text-xs font-medium text-center",
+                    isDarkMode ? "text-slate-400" : "text-gray-600"
+                  )}>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -417,20 +565,23 @@ const EventRequests = () => {
                   filteredEvents
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                   .map((event, index) => (
-                    <TableRow 
+                    <motion.tr 
                       key={event.id} 
                       className={cn(
-                        "transition-colors",
+                        "transition-all duration-200 ease-in-out border-b",
                         isDarkMode 
                           ? "border-slate-700" 
                           : "border-gray-100",
                         isSelectMode && (isDarkMode
-                          ? "bg-blue-500/5 hover:bg-blue-500/20 cursor-pointer"
-                          : "bg-blue-50/50 hover:bg-blue-100 cursor-pointer"),
+                          ? "hover:bg-slate-800/50 cursor-pointer hover:shadow-sm"
+                          : "hover:bg-gray-50 cursor-pointer hover:shadow-sm"),
                         isSelectMode && selectedEvents.includes(event) && (isDarkMode 
-                          ? "bg-blue-500/20 hover:bg-blue-500/30" 
-                          : "bg-blue-200 hover:bg-blue-300"
-                        )
+                          ? "bg-slate-800 shadow-sm border-slate-600" 
+                          : "bg-gray-100 shadow-sm border-gray-300"
+                        ),
+                        !isSelectMode && (isDarkMode 
+                          ? "hover:bg-slate-800/50" 
+                          : "hover:bg-gray-50")
                       )}
                       onClick={() => {
                         if (isSelectMode) {
@@ -441,78 +592,220 @@ const EventRequests = () => {
                           );
                         }
                       }}
+                      whileHover={isSelectMode ? { scale: 1.01 } : {}}
+                      transition={{ duration: 0.2 }}
                     >
-                      <TableCell className="py-4">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="py-3 px-4">
+                        <div className="flex items-center gap-3">
                           {isSelectMode && (
-                            <Checkbox
-                              checked={selectedEvents.includes(event)}
-                              className={cn(
-                                "pointer-events-none",
-                                isDarkMode 
-                                  ? "border-slate-700 data-[state=checked]:bg-blue-600" 
-                                  : "border-gray-200 data-[state=checked]:bg-blue-500"
-                              )}
-                            />
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Checkbox
+                                checked={selectedEvents.includes(event)}
+                                className={cn(
+                                  "pointer-events-none h-4 w-4 rounded transition-all duration-200",
+                                  "border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
+                                )}
+                              />
+                            </motion.div>
                           )}
-                          <span className={cn(
-                            "text-blue-500 hover:text-blue-600 cursor-pointer font-medium"
-                          )}>
-                            {event.title}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className={cn(
+                                "font-medium text-sm cursor-pointer transition-colors duration-200 truncate",
+                                isDarkMode 
+                                  ? "text-slate-100 hover:text-white" 
+                                  : "text-gray-900 hover:text-black"
+                              )}>
+                                {event.title}
+                              </h3>
+                              {event.recentActivity && event.recentActivity.length > 0 && (
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shrink-0"></div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex flex-col">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
+                      <TableCell className="py-3 px-4">
+                        <div>
+                          <p className={cn(
+                            "font-medium text-sm truncate",
+                            isDarkMode ? "text-slate-100" : "text-gray-900"
                           )}>
                             {event.requestor}
-                          </span>
-                          <span className={cn(
-                            "text-xs",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          </p>
+                          <p className={cn(
+                            "text-xs mt-0.5 truncate",
+                            isDarkMode ? "text-slate-400" : "text-gray-500"
                           )}>
                             {event.userDepartment || event.department || "No department"}
-                          </span>
+                          </p>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <span className={cn(
-                          "text-sm",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>
-                          {event.startDate ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
-                           event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
-                        </span>
+                      <TableCell className="py-3 px-4">
+                        <div className="space-y-1">
+                          {event.locations && event.locations.length > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(event);
+                                setIsViewDialogOpen(true);
+                              }}
+                              className={cn(
+                                "text-xs px-2 py-1 h-auto transition-all duration-200",
+                                isDarkMode 
+                                  ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
+                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                              )}
+                            >
+                              View Schedule
+                            </Button>
+                          ) : (
+                            <div>
+                              <p className={cn(
+                                "font-medium text-sm",
+                                isDarkMode ? "text-slate-100" : "text-gray-900"
+                              )}>
+                                {event.startDate ? format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy") : 
+                                 event.date ? format(new Date(event.date.seconds * 1000), "MMM d, yyyy") : "Not set"}
+                              </p>
+                              <p className={cn(
+                                "text-xs mt-0.5",
+                                isDarkMode ? "text-slate-400" : "text-gray-500"
+                              )}>
+                                {event.startDate ? format(new Date(event.startDate.seconds * 1000), "h:mm a") : 
+                                 event.date ? format(new Date(event.date.seconds * 1000), "h:mm a") : ""}
+                              </p>
+                            </div>
+                          )}
+                          {event.recentActivity && event.recentActivity.some(activity => activity.type === 'startDateTime') && (
+                            <motion.div 
+                              className={cn(
+                                "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                              )}
+                              whileHover={{ scale: 1.02 }}
+                              transition={{ duration: 0.2 }}
+                              onClick={() => {
+                                setSelectedEventActivity(event);
+                                setIsActivityDialogOpen(true);
+                              }}
+                            >
+                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className={cn(
+                                "text-xs font-medium",
+                                isDarkMode ? "text-green-400" : "text-green-600"
+                              )}>Updated</span>
+                            </motion.div>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <span className={cn(
-                          "text-sm",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>
-                          {event.endDate ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : "Not set"}
-                        </span>
+                      <TableCell className="py-3 px-4">
+                        <div className="space-y-1">
+                          {event.locations && event.locations.length > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(event);
+                                setIsViewDialogOpen(true);
+                              }}
+                              className={cn(
+                                "text-xs px-2 py-1 h-auto transition-all duration-200",
+                                isDarkMode 
+                                  ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
+                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                              )}
+                            >
+                              View Schedule
+                            </Button>
+                          ) : (
+                            <div>
+                              <p className={cn(
+                                "font-medium text-sm",
+                                isDarkMode ? "text-slate-100" : "text-gray-900"
+                              )}>
+                                {event.endDate ? format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy") : "Not set"}
+                              </p>
+                              <p className={cn(
+                                "text-xs mt-0.5",
+                                isDarkMode ? "text-slate-400" : "text-gray-500"
+                              )}>
+                                {event.endDate ? format(new Date(event.endDate.seconds * 1000), "h:mm a") : ""}
+                              </p>
+                            </div>
+                          )}
+                          {event.recentActivity && event.recentActivity.some(activity => activity.type === 'endDateTime') && (
+                            <motion.div 
+                              className={cn(
+                                "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                              )}
+                              whileHover={{ scale: 1.02 }}
+                              transition={{ duration: 0.2 }}
+                              onClick={() => {
+                                setSelectedEventActivity(event);
+                                setIsActivityDialogOpen(true);
+                              }}
+                            >
+                              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                              <span className={cn(
+                                "text-xs font-medium",
+                                isDarkMode ? "text-orange-400" : "text-orange-600"
+                              )}>Updated</span>
+                            </motion.div>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <span className={cn(
-                          "text-sm",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>
-                          {event.location}
-                        </span>
+                      <TableCell className="py-3 px-4">
+                        <div className="space-y-1">
+                          {event.locations && event.locations.length > 0 ? (
+                            <Badge variant="outline" className={cn(
+                              "text-xs px-2 py-1",
+                              isDarkMode 
+                                ? "bg-slate-800 border-slate-600 text-slate-200" 
+                                : "bg-white border-gray-300 text-gray-700"
+                            )}>
+                              {event.locations.length} locations
+                            </Badge>
+                          ) : (
+                            <p className={cn(
+                              "text-sm font-medium truncate",
+                              isDarkMode ? "text-slate-100" : "text-gray-900"
+                            )}>
+                              {event.location}
+                            </p>
+                          )}
+                          {event.recentActivity && event.recentActivity.some(activity => activity.type === 'location') && (
+                            <motion.div 
+                              className={cn(
+                                "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                              )}
+                              whileHover={{ scale: 1.02 }}
+                              transition={{ duration: 0.2 }}
+                              onClick={() => {
+                                setSelectedEventActivity(event);
+                                setIsActivityDialogOpen(true);
+                              }}
+                            >
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                              <span className={cn(
+                                "text-xs font-medium",
+                                isDarkMode ? "text-blue-400" : "text-blue-600"
+                              )}>Updated</span>
+                            </motion.div>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="py-4">
-                        <span className={cn(
-                          "text-sm text-green-600 font-medium",
-                          isDarkMode ? "text-green-400" : "text-green-600"
-                        )}>
-                          {event.participants} attendees
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        {event.status === 'disapproved' ? (
+                      <TableCell className="py-4 text-center">
+                        <div className="flex items-center justify-center">
+                          {event.status === 'disapproved' ? (
                           <div className="flex items-center gap-2">
                             <Badge
                               variant="destructive"
@@ -565,184 +858,266 @@ const EventRequests = () => {
                           >
                             {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
                           </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="flex items-center gap-2">
-                            <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    className="bg-green-500 hover:bg-green-600 text-white gap-1.5 h-8 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsApproveDialogOpen(true);
-                                    }}
-                                  >
-                                    Approve
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className={cn(
-                                  "sm:max-w-[425px] border-none",
-                                  isDarkMode ? "bg-slate-900" : "bg-white"
-                                )}>
-                                  <DialogHeader>
-                                    <DialogTitle className={cn(
-                                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                                    )}>Approve Event Request</DialogTitle>
-                                    <DialogDescription className={cn(
-                                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                                    )}>
-                                      Are you sure you want to approve this event request? This will notify the requestor.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="flex justify-end gap-3 mt-4">
-                                    <Button
-                                      variant="outline"
-                                      className={cn(
-                                        isDarkMode 
-                                          ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
-                                          : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
-                                      )}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsApproveDialogOpen(false);
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      className="bg-green-500 hover:bg-green-600 text-white"
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          // TODO: Get actual admin ID from auth context
-                                          const adminId = "admin"; // Temporary admin ID
-                                          const result = await updateEventRequestStatus(event.id, 'approved', adminId);
-                                          if (result.success) {
-                                            toast.success("Event request approved successfully");
-                                            await fetchEvents();
-                                            setIsApproveDialogOpen(false);
-                                          } else {
-                                            toast.error("Failed to approve event request");
-                                          }
-                                        } catch (error) {
-                                          console.error('Error approving event:', error);
-                                          toast.error("Failed to approve event request");
-                                        }
-                                      }}
-                                    >
-                                      Approve
-                                    </Button>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                              <Dialog open={isReasonDialogOpen} onOpenChange={setIsReasonDialogOpen}>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    className="bg-red-500 hover:bg-red-600 text-white gap-1.5 h-8 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDisapprovalReason("");
-                                      setIsReasonDialogOpen(true);
-                                    }}
-                                  >
-                                    Disapprove
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className={cn(
-                                  "sm:max-w-[425px] border-none",
-                                  isDarkMode ? "bg-slate-900" : "bg-white"
-                                )}>
-                                  <DialogHeader>
-                                    <DialogTitle className={cn(
-                                      isDarkMode ? "text-gray-100" : "text-gray-900"
-                                    )}>Provide Disapproval Reason</DialogTitle>
-                                    <DialogDescription className={cn(
-                                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                                    )}>
-                                      Please provide a reason for disapproving this event request. This will be shown to the requestor.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="mt-6 space-y-6">
-                                    <div className="space-y-2">
-                                      <Label className={cn(
-                                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                                      )}>Reason for Disapproval</Label>
-                                      <textarea
-                                        value={disapprovalReason}
-                                        onChange={(e) => setDisapprovalReason(e.target.value)}
-                                        placeholder="Enter the reason for disapproving this event request..."
-                                        className={cn(
-                                          "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
-                                          isDarkMode 
-                                            ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
-                                            : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                                        )}
-                                      />
-                                    </div>
-                                    <div className="flex justify-end gap-3">
-                                      <Button
-                                        variant="outline"
-                                        className={cn(
-                                          isDarkMode 
-                                            ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
-                                            : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
-                                        )}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setIsReasonDialogOpen(false);
-                                        }}
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        className="bg-red-500 hover:bg-red-600 text-white"
-                                        disabled={!disapprovalReason.trim()}
-                                        onClick={async () => {
-                                          try {
-                                            // TODO: Get actual admin ID from auth context
-                                            const adminId = "admin"; // Temporary admin ID
-                                            const result = await updateEventRequestStatus(event.id, 'disapproved', adminId, disapprovalReason.trim());
-                                            if (result.success) {
-                                              toast.success("Event request disapproved with reason provided");
-                                              await fetchEvents();
-                                              setIsReasonDialogOpen(false);
-                                              setDisapprovalReason(""); // Reset the reason after successful update
-                                            } else {
-                                              toast.error("Failed to disapprove event request");
-                                            }
-                                          } catch (error) {
-                                            console.error('Error disapproving event:', error);
-                                            toast.error("Failed to disapprove event request");
-                                          }
-                                        }}
-                                      >
-                                        Submit
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                          </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRequest(event);
-                              setIsViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          )}
                         </div>
                       </TableCell>
-                    </TableRow>
-                  ))
+                      <TableCell className="py-4">
+                        <div className="flex items-center justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent 
+                              align="end" 
+                              className={cn(
+                                "w-56 p-2 border-0 shadow-xl bg-white/95 backdrop-blur-md rounded-xl",
+                                isDarkMode ? "bg-slate-900/95 border-slate-700/50" : "bg-white/95 border-gray-200/50"
+                              )}
+                              sideOffset={8}
+                            >
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedRequest(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                  "flex items-center gap-3 group",
+                                  isDarkMode 
+                                    ? "hover:bg-slate-800/80 text-gray-200 hover:text-white" 
+                                    : "hover:bg-gray-100/80 text-gray-700 hover:text-gray-900"
+                                )}
+                              >
+                                <div className={cn(
+                                  "p-2 rounded-lg transition-colors",
+                                  isDarkMode 
+                                    ? "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20" 
+                                    : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
+                                )}>
+                                  <Eye className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">View Details</span>
+                                  <span className={cn(
+                                    "text-xs opacity-70",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    See full event information
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsApproveDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                  "flex items-center gap-3 group",
+                                  isDarkMode 
+                                    ? "hover:bg-green-500/10 text-gray-200 hover:text-green-400" 
+                                    : "hover:bg-green-50 text-gray-700 hover:text-green-600"
+                                )}
+                              >
+                                <div className={cn(
+                                  "p-2 rounded-lg transition-colors",
+                                  isDarkMode 
+                                    ? "bg-green-500/10 text-green-400 group-hover:bg-green-500/20" 
+                                    : "bg-green-50 text-green-600 group-hover:bg-green-100"
+                                )}>
+                                  <Check className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">Approve</span>
+                                  <span className={cn(
+                                    "text-xs opacity-70",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    Accept this event request
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDisapprovalReason("");
+                                  setIsReasonDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "cursor-pointer rounded-lg p-3 transition-all duration-200 hover:scale-[1.02]",
+                                  "flex items-center gap-3 group",
+                                  isDarkMode 
+                                    ? "hover:bg-red-500/10 text-gray-200 hover:text-red-400" 
+                                    : "hover:bg-red-50 text-gray-700 hover:text-red-600"
+                                )}
+                              >
+                                <div className={cn(
+                                  "p-2 rounded-lg transition-colors",
+                                  isDarkMode 
+                                    ? "bg-red-500/10 text-red-400 group-hover:bg-red-500/20" 
+                                    : "bg-red-50 text-red-600 group-hover:bg-red-100"
+                                )}>
+                                  <XCircle className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">Disapprove</span>
+                                  <span className={cn(
+                                    "text-xs opacity-70",
+                                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                                  )}>
+                                    Reject with reason
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {/* Approve Dialog */}
+                          <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+                            <DialogContent className={cn(
+                              "sm:max-w-[425px] border-none",
+                              isDarkMode ? "bg-slate-900" : "bg-white"
+                            )}>
+                              <DialogHeader>
+                                <DialogTitle className={cn(
+                                  isDarkMode ? "text-gray-100" : "text-gray-900"
+                                )}>Approve Event Request</DialogTitle>
+                                <DialogDescription className={cn(
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  Are you sure you want to approve this event request? This will notify the requestor.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="flex justify-end gap-3 mt-4">
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    isDarkMode 
+                                      ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                                      : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsApproveDialogOpen(false);
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  className="bg-green-500 hover:bg-green-600 text-white"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      // TODO: Get actual admin ID from auth context
+                                      const adminId = "admin"; // Temporary admin ID
+                                      const result = await updateEventRequestStatus(event.id, 'approved', adminId);
+                                      if (result.success) {
+                                        toast.success("Event request approved successfully");
+                                        await fetchEvents();
+                                        setIsApproveDialogOpen(false);
+                                      } else {
+                                        toast.error("Failed to approve event request");
+                                      }
+                                    } catch (error) {
+                                      console.error('Error approving event:', error);
+                                      toast.error("Failed to approve event request");
+                                    }
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Disapprove Dialog */}
+                          <Dialog open={isReasonDialogOpen} onOpenChange={setIsReasonDialogOpen}>
+                            <DialogContent className={cn(
+                              "sm:max-w-[425px] border-none",
+                              isDarkMode ? "bg-slate-900" : "bg-white"
+                            )}>
+                              <DialogHeader>
+                                <DialogTitle className={cn(
+                                  isDarkMode ? "text-gray-100" : "text-gray-900"
+                                )}>Provide Disapproval Reason</DialogTitle>
+                                <DialogDescription className={cn(
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  Please provide a reason for disapproving this event request. This will be shown to the requestor.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="mt-6 space-y-6">
+                                <div className="space-y-2">
+                                  <Label className={cn(
+                                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                                  )}>Reason for Disapproval</Label>
+                                  <textarea
+                                    value={disapprovalReason}
+                                    onChange={(e) => setDisapprovalReason(e.target.value)}
+                                    placeholder="Enter the reason for disapproving this event request..."
+                                    className={cn(
+                                      "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
+                                      isDarkMode 
+                                        ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                                    )}
+                                  />
+                                </div>
+                                <div className="flex justify-end gap-3">
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      isDarkMode 
+                                        ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                                        : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                                    )}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsReasonDialogOpen(false);
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    className="bg-red-500 hover:bg-red-600 text-white"
+                                    disabled={!disapprovalReason.trim()}
+                                    onClick={async () => {
+                                      try {
+                                        // TODO: Get actual admin ID from auth context
+                                        const adminId = "admin"; // Temporary admin ID
+                                        const result = await updateEventRequestStatus(event.id, 'disapproved', adminId, disapprovalReason.trim());
+                                        if (result.success) {
+                                          toast.success("Event request disapproved with reason provided");
+                                          await fetchEvents();
+                                          setIsReasonDialogOpen(false);
+                                          setDisapprovalReason(""); // Reset the reason after successful update
+                                        } else {
+                                          toast.error("Failed to disapprove event request");
+                                        }
+                                      } catch (error) {
+                                        console.error('Error disapproving event:', error);
+                                        toast.error("Failed to disapprove event request");
+                                      }
+                                    }}
+                                  >
+                                    Submit
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </TableCell>
+                      </motion.tr>
+                    ))
                 )}
               </TableBody>
             </Table>
@@ -809,594 +1184,523 @@ const EventRequests = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className={cn(
-          "sm:max-w-[700px] overflow-hidden border-none [&>button]:top-4 [&>button]:right-4 [&>button]:focus:outline-none [&>button]:focus-visible:ring-0 [&>button]:focus:ring-0 [&>button]:ring-0 [&>button]:focus:ring-offset-0 [&>button]:active:ring-0 [&>button]:active:outline-none",
-          isDarkMode ? "bg-slate-900" : "bg-white"
-        )}>
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
           {selectedRequest && (
-            <>
-                            <ScrollArea className="max-h-[80vh] px-6 pt-6">
-                <div className="space-y-6">
-                  {/* Header */}
-                  <div className="mb-6">
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "capitalize font-medium px-2 py-0.5 text-xs mb-2",
-                        isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-500/10 text-blue-500"
-                      )}
-                    >
-                      {selectedRequest.userDepartment || selectedRequest.department}
-                    </Badge>
-                    <DialogTitle className={cn(
-                      "text-lg font-bold tracking-tight",
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    )}>
-                      {selectedRequest.title}
-                    </DialogTitle>
+            <ScrollArea className="h-[85vh]">
+              {/* Header Section */}
+              <div className="relative bg-white p-8 border-b border-gray-200">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <Badge
+                  variant="outline"
+                  className="mb-3 border-gray-300 text-gray-600 bg-gray-50"
+                >
+                  {selectedRequest.userDepartment || selectedRequest.department}
+                </Badge>
+                <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">
+                  {selectedRequest.title}
+                </DialogTitle>
+                <p className="text-gray-600">Event Details & Requirements</p>
+              </div>
+              
+              {/* Content Section */}
+              <div className="p-8 bg-gray-50 space-y-8">
+
+                {/* Event Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Requestor */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Requestor</h3>
+                    </div>
+                    <div className="text-xl font-bold text-gray-900 mb-1">{selectedRequest.requestor}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">{selectedRequest.userDepartment}</div>
                   </div>
 
-                  {/* Info Cards Grid */}
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Requestor Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <User className="h-5 w-5 text-purple-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Requestor</h4>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={selectedRequest.userAvatar} />
-                          <AvatarFallback className={isDarkMode ? "bg-slate-700" : "bg-gray-100"}>
-                            <User className="h-4 w-4 text-purple-500" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className={cn(
-                            "font-semibold",
-                            isDarkMode ? "text-gray-100" : "text-gray-900"
-                          )}>
-                            {selectedRequest.requestor}
-                          </p>
-                          <p className={cn(
-                            "text-sm",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>
-                            {selectedRequest.userDepartment}
-                          </p>
+                  {/* Date & Time */}
+                  {selectedRequest.locations && selectedRequest.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm md:col-span-2">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <Clock className="h-5 w-5 text-white" />
                         </div>
+                        <h3 className="font-semibold text-gray-900">Multiple Location Schedule</h3>
                       </div>
-                    </div>
-
-                    {/* Date & Time Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <Calendar className="h-5 w-5 text-blue-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Date & Time</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {/* Start Date */}
-                        <div>
-                          <p className={cn(
-                            "text-sm font-medium mb-1",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>
-                            Start Date & Time
-                          </p>
-                          <p className={cn(
-                            "text-base font-medium",
-                            isDarkMode ? "text-gray-200" : "text-gray-700"
-                          )}>
-                            {selectedRequest.startDate ? 
-                              format(selectedRequest.startDate.toDate ? selectedRequest.startDate.toDate() : new Date(selectedRequest.startDate), "MMMM d, yyyy h:mm a") :
-                              selectedRequest.date?.seconds ? 
-                                format(new Date(selectedRequest.date.seconds * 1000), "MMMM d, yyyy h:mm a") :
-                                "Not available"
-                            }
-                          </p>
-                        </div>
-                        {/* End Date */}
-                        <div>
-                          <p className={cn(
-                            "text-sm font-medium mb-1",
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          )}>
-                            End Date & Time
-                          </p>
-                          <p className={cn(
-                            "text-base font-medium",
-                            isDarkMode ? "text-gray-200" : "text-gray-700"
-                          )}>
-                            {selectedRequest.endDate ? 
-                              format(selectedRequest.endDate.toDate ? selectedRequest.endDate.toDate() : new Date(selectedRequest.endDate), "MMMM d, yyyy h:mm a") :
-                              "Not available"
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Location Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <MapPin className="h-5 w-5 text-green-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Location</h4>
-                      </div>
-                      <p className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>
-                        {selectedRequest.location}
-                      </p>
-                    </div>
-
-                    {/* Participants Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <Users className="h-5 w-5 text-orange-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Participants</h4>
-                      </div>
-                      <p className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>
-                        {selectedRequest.participants} attendees
-                      </p>
-                    </div>
-
-                    {/* VIP Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <User className="h-5 w-5 text-purple-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>VIP</h4>
-                      </div>
-                      <p className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>
-                        {selectedRequest.vip || 0} VIPs
-                      </p>
-                    </div>
-
-                    {/* VVIP Card */}
-                    <div className={cn(
-                      "p-4 rounded-xl transition-colors",
-                      isDarkMode 
-                        ? "bg-slate-800/20 hover:bg-slate-800/30" 
-                        : "bg-gray-50/80 hover:bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <User className="h-5 w-5 text-red-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>VVIP</h4>
-                      </div>
-                      <p className={cn(
-                        "text-lg font-semibold",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}>
-                        {selectedRequest.vvip || 0} VVIPs
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Requirements Section */}
-                  <div className={cn(
-                    "p-5 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/20" 
-                      : "bg-gray-50/80"
-                  )}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-pink-500" />
-                        <h4 className={cn(
-                          "font-medium",
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
-                        )}>Requirements</h4>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="bg-black hover:bg-gray-800 text-white gap-1.5 h-8 text-xs min-w-[140px] transition-all duration-200 ease-in-out"
-                        onClick={() => setIsRequirementsDialogOpen(true)}
-                      >
-                        View Full Details →
-                      </Button>
-                    </div>
-                    <div className="relative">
-                      <div className={cn(
-                        "rounded-lg p-4 text-sm relative",
-                        isDarkMode 
-                          ? "bg-slate-900/30 text-gray-300" 
-                          : "bg-white/50 text-gray-600"
-                      )}>
-                        {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
-                          <div key={deptIndex} className="mb-4 last:mb-0">
-                            <h4 className={cn(
-                              "text-sm font-medium mb-2",
-                              isDarkMode ? "text-gray-200" : "text-gray-700"
-                            )}>
-                              {dept.departmentName}
-                            </h4>
-                            {dept.requirements.slice(0, 2).map((req, reqIndex) => {
-                              const requirement = typeof req === 'string' ? { name: req } : req;
-                              return (
-                                <div
-                                  key={`${deptIndex}-${reqIndex}`}
-                                  className={cn(
-                                    "mb-2 last:mb-0 flex items-start gap-2",
-                                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "p-1.5 rounded-md mt-0.5",
-                                    isDarkMode ? "bg-slate-800" : "bg-white",
-                                    "shadow-sm"
-                                  )}>
-                                    <FileText className="h-4 w-4 text-blue-500" />
-                                  </div>
-                                  <div>
-                                    <span className={cn(
-                                      "font-semibold block",
-                                      isDarkMode ? "text-gray-200" : "text-gray-700"
-                                    )}>
-                                      {requirement.name}
-                                    </span>
-                                    {requirement.note && (
-                                      <span className={cn(
-                                        "text-xs block mt-0.5",
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                      )}>
-                                        {requirement.note}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ))}
-                        
-                        {selectedRequest.departmentRequirements && (
-                          selectedRequest.departmentRequirements.length > 2 || 
-                          selectedRequest.departmentRequirements.some(dept => dept.requirements.length > 2)
-                        ) && (
-                          <>
-                            <div className={cn(
-                              "absolute bottom-0 left-0 right-0 h-24 rounded-b-lg",
-                              isDarkMode
-                                ? "bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent"
-                                : "bg-gradient-to-t from-white/90 via-white/50 to-transparent"
-                            )} />
-                            <div className={cn(
-                              "absolute bottom-2 left-0 right-0 text-sm font-medium text-center",
-                              isDarkMode ? "text-blue-400" : "text-blue-600"
-                            )}>
-                              Click "View Full Details" to see all requirements
+                      <div className="space-y-4 max-h-60 overflow-y-auto">
+                        {selectedRequest.locations.map((location, index) => (
+                          <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium text-gray-900">{location.location}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                Location {index + 1}
+                              </Badge>
                             </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Classifications Section */}
-                  <div className={cn(
-                    "p-5 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/20" 
-                      : "bg-gray-50/80"
-                  )}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <FileText className="h-5 w-5 text-indigo-500" />
-                      <h4 className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>Classifications</h4>
-                    </div>
-                    <div className={cn(
-                      "rounded-lg p-4",
-                      isDarkMode ? "bg-slate-900/30" : "bg-white/50"
-                    )}>
-                      <p className={cn(
-                        "text-base leading-relaxed whitespace-pre-wrap",
-                        isDarkMode ? "text-gray-300" : "text-gray-700"
-                      )}>
-                        {selectedRequest.classifications || "No classifications provided"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Contact Details Card */}
-                  <div className={cn(
-                    "p-5 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/20" 
-                      : "bg-gray-50/80"
-                  )}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <Phone className="h-5 w-5 text-indigo-500" />
-                      <h4 className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>Contact Details</h4>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Phone Number */}
-                      <div className={cn(
-                        "p-4 rounded-lg",
-                        isDarkMode 
-                          ? "bg-slate-900/30" 
-                          : "bg-white/50"
-                      )}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Phone className="h-4 w-4 text-indigo-500" />
-                          <span className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-gray-300" : "text-gray-600"
-                          )}>Phone Number</span>
-                        </div>
-                        <p className={cn(
-                          "text-base font-semibold",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>{selectedRequest.contactNumber || "Not provided"}</p>
-                      </div>
-
-                      {/* Email */}
-                      <div className={cn(
-                        "p-4 rounded-lg",
-                        isDarkMode 
-                          ? "bg-slate-900/30" 
-                          : "bg-white/50"
-                      )}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Mail className="h-4 w-4 text-indigo-500" />
-                          <span className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-gray-300" : "text-gray-600"
-                          )}>Email Address</span>
-                        </div>
-                        <p className={cn(
-                          "text-base font-semibold",
-                          isDarkMode ? "text-gray-100" : "text-gray-900"
-                        )}>{selectedRequest.contactEmail || selectedRequest.userEmail || "Not provided"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attachments Section */}
-                  <div className={cn(
-                    "p-5 rounded-xl",
-                    isDarkMode 
-                      ? "bg-slate-800/20" 
-                      : "bg-gray-50/80"
-                  )}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <FileText className="h-5 w-5 text-teal-500" />
-                      <h4 className={cn(
-                        "font-medium",
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      )}>Attachments</h4>
-                    </div>
-                    {selectedRequest.attachments && selectedRequest.attachments.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {selectedRequest.attachments.map((file, index) => (
-                          <div
-                            key={index}
-                            className={cn(
-                              "flex items-center justify-between p-4 rounded-lg transition-colors",
-                              isDarkMode 
-                                ? "bg-slate-900/30 hover:bg-slate-900/50" 
-                                : "bg-white/50 hover:bg-white"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-5 w-5 text-teal-500" />
+                            <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <p className={cn(
-                                  "font-medium",
-                                  isDarkMode ? "text-gray-100" : "text-gray-900"
-                                )}>{file.name}</p>
-                                <p className={cn(
-                                  "text-sm",
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                )}>{(file.size / 1024).toFixed(1)} KB</p>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  Start
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.startDate ? (() => {
+                                    // Handle Firebase timestamp conversion
+                                    let date;
+                                    if (location.startDate.toDate) {
+                                      date = location.startDate.toDate();
+                                    } else if (location.startDate.seconds) {
+                                      date = new Date(location.startDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.startDate);
+                                    }
+                                    return date.toLocaleDateString();
+                                  })() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(() => {
+                                    // Handle time display - either from startTime field or extract from startDate
+                                    if (location.startTime) {
+                                      const [hours, minutes] = location.startTime.split(':');
+                                      const hour = parseInt(hours);
+                                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                      const ampm = hour < 12 ? 'AM' : 'PM';
+                                      return `${displayHour}:${minutes} ${ampm}`;
+                                    } else if (location.startDate) {
+                                      // Extract time from startDate if startTime is not available
+                                      let date;
+                                      if (location.startDate.toDate) {
+                                        date = location.startDate.toDate();
+                                      } else if (location.startDate.seconds) {
+                                        date = new Date(location.startDate.seconds * 1000);
+                                      } else {
+                                        date = new Date(location.startDate);
+                                      }
+                                      return format(date, "h:mm a");
+                                    }
+                                    return "Not set";
+                                  })()}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                  End
+                                </p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {location.endDate ? (() => {
+                                    // Handle Firebase timestamp conversion
+                                    let date;
+                                    if (location.endDate.toDate) {
+                                      date = location.endDate.toDate();
+                                    } else if (location.endDate.seconds) {
+                                      date = new Date(location.endDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.endDate);
+                                    }
+                                    return date.toLocaleDateString();
+                                  })() : "Not set"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(() => {
+                                    // Handle time display - either from endTime field or extract from endDate
+                                    if (location.endTime) {
+                                      const [hours, minutes] = location.endTime.split(':');
+                                      const hour = parseInt(hours);
+                                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                      const ampm = hour < 12 ? 'AM' : 'PM';
+                                      return `${displayHour}:${minutes} ${ampm}`;
+                                    } else if (location.endDate) {
+                                      // Extract time from endDate if endTime is not available
+                                      let date;
+                                      if (location.endDate.toDate) {
+                                        date = location.endDate.toDate();
+                                      } else if (location.endDate.seconds) {
+                                        date = new Date(location.endDate.seconds * 1000);
+                                      } else {
+                                        date = new Date(location.endDate);
+                                      }
+                                      return format(date, "h:mm a");
+                                    }
+                                    return "Not set";
+                                  })()}
+                                </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                className="bg-black hover:bg-gray-800 text-white gap-1.5"
-                                onClick={() => window.open(file.url, '_blank')}
-                              >
-                                <Eye className="h-4 w-4" />
-                                View
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-black hover:bg-gray-800 text-white gap-1.5"
-                                onClick={async () => {
-                                  try {
-                                    await downloadFile(file.url, file.name);
-                                  } catch (error) {
-                                    console.error('Download error:', error);
-                                    toast.error('Failed to download file');
-                                  }
-                                }}
-                              >
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
-                              </Button>
-                            </div>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className={cn(
-                        "p-4 rounded-lg text-center",
-                        isDarkMode 
-                          ? "bg-slate-900/30 text-gray-400" 
-                          : "bg-white/50 text-gray-500"
-                      )}>
-                        No attachments uploaded
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-black rounded-lg">
+                          <Clock className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Schedule</h3>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">START</div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {selectedRequest.startDate ? 
+                              format(selectedRequest.startDate.toDate ? selectedRequest.startDate.toDate() : new Date(selectedRequest.startDate), "MMM d, yyyy") :
+                              selectedRequest.date?.seconds ? 
+                                format(new Date(selectedRequest.date.seconds * 1000), "MMM d, yyyy") :
+                                "Not available"
+                            }
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {selectedRequest.startDate ? 
+                              format(selectedRequest.startDate.toDate ? selectedRequest.startDate.toDate() : new Date(selectedRequest.startDate), "h:mm a") :
+                              selectedRequest.date?.seconds ? 
+                                format(new Date(selectedRequest.date.seconds * 1000), "h:mm a") :
+                                "Not available"
+                            }
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">END</div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {selectedRequest.endDate ? 
+                              format(selectedRequest.endDate.toDate ? selectedRequest.endDate.toDate() : new Date(selectedRequest.endDate), "MMM d, yyyy") :
+                              "Not available"
+                            }
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {selectedRequest.endDate ? 
+                              format(selectedRequest.endDate.toDate ? selectedRequest.endDate.toDate() : new Date(selectedRequest.endDate), "h:mm a") :
+                              "Not available"
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {selectedRequest.locations && selectedRequest.locations.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-lg bg-black">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Locations</h3>
+                      </div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {selectedRequest.locations.map((location, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-900">
+                              {location.location}
+                            </p>
+                            <Badge variant="outline" className="text-xs">
+                              {index + 1}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-3">
+                        {selectedRequest.locations.length} Venues
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-black rounded-lg">
+                          <MapPin className="h-5 w-5 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Location</h3>
+                      </div>
+                      <div className="text-xl font-bold text-gray-900 mb-1">{selectedRequest.location}</div>
+                      <div className="text-sm text-gray-500 uppercase tracking-wide">Venue</div>
+                    </div>
+                  )}
+
+                  {/* Participants */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Users className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Attendees</h3>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedRequest.participants}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">Expected Participants</div>
+                  </div>
+
+                  {/* VIP */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">VIPs</h3>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedRequest.vip || 0}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">VIP Attendees</div>
+                  </div>
+
+                  {/* VVIP */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">VVIPs</h3>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">{selectedRequest.vvip || 0}</div>
+                    <div className="text-sm text-gray-500 uppercase tracking-wide">VVIP Attendees</div>
+                  </div>
+                </div>
+
+                {/* Requirements Card */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-black rounded-lg">
+                        <FileText className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Requirements</h3>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-black hover:bg-gray-900 text-white border-0 rounded-lg"
+                      onClick={() => setIsRequirementsDialogOpen(true)}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Full Details
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.slice(0, 2).map((dept, deptIndex) => (
+                      <div key={deptIndex} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="border-gray-300 text-gray-600 bg-gray-50">
+                            {dept.departmentName}
+                          </Badge>
+                        </div>
+                        {dept.requirements.slice(0, 2).map((req, reqIndex) => {
+                          const requirement = typeof req === 'string' ? { name: req } : req;
+                          return (
+                            <div
+                              key={`${deptIndex}-${reqIndex}`}
+                              className="mb-2 last:mb-0 flex items-start gap-2 text-gray-600"
+                            >
+                              <div className="p-1.5 rounded-md mt-0.5 bg-black shadow-sm">
+                                <FileText className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <span className="font-semibold block text-gray-700">
+                                  {requirement.name}
+                                </span>
+                                <div className="mt-1 space-y-0.5">
+                                  <span className="text-xs block text-gray-500">
+                                    {requirement.note || "No notes provided for this requirement"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                    {selectedRequest.departmentRequirements && (
+                      selectedRequest.departmentRequirements.length > 2 || 
+                      selectedRequest.departmentRequirements.some(dept => dept.requirements.length > 2)
+                    ) && (
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-gray-500">
+                          Click "View Full Details" to see all requirements
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
-              </ScrollArea>
-            </>
+
+                {/* Classifications Card */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-black rounded-lg">
+                      <FileText className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Classifications</h3>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-base leading-relaxed whitespace-pre-wrap text-gray-700">
+                      {selectedRequest.classifications || "No classifications provided"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Contact Details Card */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-black rounded-lg">
+                      <Phone className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Contact Details</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Phone Number */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Phone className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-600">Phone Number</span>
+                      </div>
+                      <p className="text-base font-semibold text-gray-900">{selectedRequest.contactNumber || "Not provided"}</p>
+                    </div>
+
+                    {/* Email */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Mail className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-600">Email Address</span>
+                      </div>
+                      <p className="text-base font-semibold text-gray-900">{selectedRequest.contactEmail || selectedRequest.userEmail || "Not provided"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attachments Card */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-black rounded-lg">
+                      <FileText className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Attachments</h3>
+                  </div>
+                  {selectedRequest.attachments && selectedRequest.attachments.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedRequest.attachments.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => window.open(file.url, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(file.url, file.name);
+                                } catch (error) {
+                                  console.error('Download error:', error);
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                      No attachments uploaded
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Requirements Dialog */}
       <Dialog open={isRequirementsDialogOpen} onOpenChange={setIsRequirementsDialogOpen}>
-        <DialogContent className={cn(
-          "sm:max-w-[800px] border-none shadow-lg p-6",
-          isDarkMode ? "bg-slate-900" : "bg-white"
-        )}>
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
           {selectedRequest && (
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className={cn(
-                    "text-xl font-semibold tracking-tight",
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  )}>
-                    Event Requirements
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-gray-500 mt-1">
-                    Detailed requirements for {selectedRequest.title}
-                  </DialogDescription>
-                </div>
-                <Badge variant="outline" className={cn(
-                  "font-medium",
-                  isDarkMode ? "border-blue-500/20 text-blue-400" : "border-blue-500/20 text-blue-500"
-                )}>
-                  {selectedRequest.userDepartment}
-                </Badge>
-              </div>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-4 h-8 w-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 z-10"
+                onClick={() => setIsRequirementsDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+              
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-6">
 
-              {/* Content */}
-              <div className={cn(
-                "mt-4 rounded-lg p-6",
-                isDarkMode ? "bg-slate-800" : "bg-gray-50"
-              )}>
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="space-y-4">
-                    {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.length > 0 ? (
-                      selectedRequest.departmentRequirements.map((dept, deptIndex) => (
-                        <div key={deptIndex} className="space-y-4">
-                          <h3 className={cn(
-                            "text-lg font-semibold",
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          )}>
-                            {dept.departmentName}
-                          </h3>
-                          <div className={cn(
-                            "grid gap-3",
-                            {
-                              'grid-cols-1': dept.requirements.length <= 4,
-                              'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
-                              'grid-cols-3': dept.requirements.length > 8
-                            }
-                          )}>
-                            {dept.requirements.map((req, reqIndex) => {
-                              const requirement = typeof req === 'string' ? { name: req } : req;
-                              return (
-                                <div
-                                  key={`${deptIndex}-${reqIndex}`}
-                                  className={cn(
-                                    "rounded-lg p-3",
-                                    isDarkMode ? "bg-black" : "bg-gray-50"
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className={cn(
-                                      "p-1.5 rounded-lg shrink-0",
-                                      isDarkMode ? "bg-slate-800" : "bg-white"
-                                    )}>
-                                      <FileText className="h-4 w-4 text-blue-500" />
-                                    </div>
-                                    <h3 className={cn(
-                                      "font-semibold text-sm",
-                                      isDarkMode ? "text-white" : "text-gray-900"
-                                    )}>
-                                      {requirement.name}
-                                    </h3>
-                                  </div>
-                                  {requirement.note && (
-                                    <div className={cn(
-                                      "mt-2 pl-8 text-xs",
-                                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                                    )}>
-                                      {requirement.note}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className={cn(
-                        "rounded-xl p-8 text-center border-2 border-dashed",
-                        isDarkMode 
-                          ? "bg-slate-900 border-slate-700 text-gray-400" 
-                          : "bg-white border-gray-200 text-gray-500"
-                      )}>
-                        <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                        <p className="text-lg font-medium mb-1">No Requirements</p>
-                        <p className="text-sm">No requirements specified for this event</p>
+                {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.length > 0 ? (
+                  selectedRequest.departmentRequirements.map((dept, deptIndex) => (
+                    <div key={deptIndex} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="bg-white border-b border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-gray-900">{dept.departmentName}</h3>
+                        <p className="text-gray-600 text-sm mt-1">{dept.requirements.length} requirement{dept.requirements.length !== 1 ? 's' : ''}</p>
                       </div>
-                    )}
+                      <div className="p-6 bg-gray-50">
+                        <div className={cn(
+                          "grid gap-4",
+                          {
+                            'grid-cols-1': dept.requirements.length <= 4,
+                            'grid-cols-2': dept.requirements.length > 4 && dept.requirements.length <= 8,
+                            'grid-cols-3': dept.requirements.length > 8
+                          }
+                        )}>
+                          {dept.requirements.map((req, reqIndex) => {
+                            const requirement = typeof req === 'string' ? { name: req } : req;
+                            return (
+                              <div
+                                key={`${deptIndex}-${reqIndex}`}
+                                className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+                              >
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="p-1.5 bg-black rounded-lg shrink-0">
+                            <FileText className="h-4 w-4 text-white" />
+                                  </div>
+                                  <h4 className="font-semibold text-sm text-gray-900">
+                                    {requirement.name}
+                                  </h4>
+                                </div>
+                                <div className="pl-8">
+                                  <span className="text-xs text-gray-600">
+                                    {requirement.note || "No notes provided for this requirement"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+                    <p className="text-sm text-gray-500">
+                      No requirements specified for this event
+                    </p>
                   </div>
-                </ScrollArea>
-              </div>
-            </div>
+                )}
+                </div>
+              </ScrollArea>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1459,6 +1763,187 @@ const EventRequests = () => {
               </PDFDownloadLink>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Activity Dialog */}
+      <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
+          {selectedEventActivity && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full z-10"
+                onClick={() => setIsActivityDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-black">Recent Activity</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Changes made to "{selectedEventActivity.title}"
+                </p>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Location Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'location') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      Location Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'location')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Date & Time Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'startDateTime') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      Start Date & Time Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'startDateTime')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* End Date & Time Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'endDateTime') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                      End Date & Time Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'endDateTime')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">From:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              </div>
+                              <div className="flex justify-between items-start">
+                                <span className="text-sm text-black font-medium">To:</span>
+                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    console.error('Date formatting error:', error);
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* No Changes Message */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No recent changes found for this event.</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>

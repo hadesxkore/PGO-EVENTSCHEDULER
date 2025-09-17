@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { cn } from "../lib/utils";
+import { cn } from "@/lib/utils";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { auth, db } from "../lib/firebase/firebase";
 import { doc, getDoc, Timestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { uploadFile, formatFileSize } from "../lib/cloudinary";
@@ -10,14 +12,25 @@ import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
 import { getAllDepartments } from "../lib/firebase/departments";
 import { Button } from "../components/ui/button";
-import { forwardRef } from "react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-
-
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogPortal, DialogOverlay } from "../components/ui/dialog";
+import { Card, CardContent } from "../components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "../components/ui/command";
 import {
   Select,
   SelectContent,
@@ -34,35 +47,37 @@ import {
   SheetTrigger,
 } from "../components/ui/sheet";
 import {
-  Dialog,
-  DialogContent,
-  DialogPortal,
-  DialogOverlay
-} from "../components/ui/dialog";
-
-import {
+  Calendar,
   CalendarIcon,
   Clock,
-  Users,
   MapPin,
+  Users,
   FileText,
-  Send,
-  Building2,
   Plus,
+  Search,
+  Filter,
+  Eye,
   User,
+  Download,
   X,
+  Check,
+  Pencil,
+  RotateCw,
+  MessageCircle,
+  AlertCircle,
+  Send,
+  ChevronRight,
+  Loader2,
   ChevronDown,
+  Building2,
+  Shield,
   Phone,
-  Mail,
+  Mail
 } from "lucide-react";
 import { format } from "date-fns";
-import { Calendar } from "../components/ui/calendar";
+import ModernCalendar from "../components/ModernCalendar";
 import { DatePicker } from "../components/DatePicker";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../components/ui/popover";
+import TemplateModal from "../components/TemplateModal";
 
 
 
@@ -82,6 +97,7 @@ const RequestEvent = () => {
     contactNumber: "",
     contactEmail: "",
     classifications: "",
+    withGov: false, // Default to false (without government)
   });
 
   // Process flow state
@@ -99,6 +115,13 @@ const RequestEvent = () => {
   const [endDate, setEndDate] = useState(new Date());
   const [startTime, setStartTime] = useState("10:30");
   const [endTime, setEndTime] = useState("11:30");
+  
+  // VVIP field visibility
+  const [showVVIP, setShowVVIP] = useState(false);
+  
+  // VIP/VVIP dropdown selections
+  const [vipCount, setVipCount] = useState("0");
+  const [vvipCount, setVvipCount] = useState("0");
   const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
   const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
   const [isPreferredStartCalendarOpen, setIsPreferredStartCalendarOpen] = useState(false);
@@ -109,6 +132,8 @@ const RequestEvent = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [skipAttachments, setSkipAttachments] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState(0);
 
   // Departments and requirements state
   const [departments, setDepartments] = useState([]);
@@ -126,6 +151,45 @@ const RequestEvent = () => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [filteredLocations, setFilteredLocations] = useState([]);
   const [locationSelectedFromDropdown, setLocationSelectedFromDropdown] = useState(false);
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [showCustomLocationInput, setShowCustomLocationInput] = useState(false);
+  const [customLocation, setCustomLocation] = useState("");
+  
+  // Multiple locations state
+  const [hasMultipleLocations, setHasMultipleLocations] = useState(false);
+  const [showMultipleLocationsModal, setShowMultipleLocationsModal] = useState(false);
+  const [multipleLocations, setMultipleLocations] = useState([
+    { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
+  ]);
+  
+  // Gov modal state
+  const [showGovModal, setShowGovModal] = useState(false);
+  const [govAttachments, setGovAttachments] = useState({
+    brieferTemplate: null,
+    availableForDLBriefer: null,
+    programme: null
+  });
+  
+  // Template modals state
+  const [showPostBrieferModal, setShowPostBrieferModal] = useState(false);
+  
+  // ECR modal state
+  const [showECRModal, setShowECRModal] = useState(false);
+  const [ecrFile, setEcrFile] = useState(null);
+  const [showPDFPreview, setShowPDFPreview] = useState(false);
+  const [ecrFormData, setEcrFormData] = useState({
+    eventTitle: "",
+    dateAndVenue: "",
+    organizingOffice: "",
+    numberOfParticipants: "",
+    summaryOfActivities: "",
+    highlightsAndResults: "",
+    challengesEncountered: "",
+    recommendations: "",
+    preparedBy: "",
+    preparedDate: ""
+  });
+  const [ecrPhotos, setEcrPhotos] = useState([]);
 
 
   const defaultLocations = [
@@ -142,7 +206,9 @@ const RequestEvent = () => {
     "6th Flr. DPOD",
     "Bataan Peoples Center",
     "Capitol Quadrangle",
-    "1BOSSCO"
+    "1BOSSCO",
+    "Emiliana Hall",
+    "Pavilion"
   ];
 
   // Helper function to determine if a step is currently active
@@ -176,10 +242,14 @@ const RequestEvent = () => {
     const isEventDetailsComplete = 
       formData.title && 
       formData.requestor && 
-      formData.location && 
+      (hasMultipleLocations ? 
+        multipleLocations.some(loc => loc.location.trim()) : 
+        formData.location
+      ) && 
       formData.participants &&
       formData.vip &&
-      formData.classifications;
+      formData.classifications &&
+      formData.withGov !== undefined; // withGov checkbox is always defined
 
     // Check Attachments completion
     const isAttachmentsComplete = skipAttachments || (attachments && attachments.length > 0);
@@ -193,13 +263,26 @@ const RequestEvent = () => {
     ) && isTagDepartmentsComplete;
 
     // Check Schedule completion
-    const isScheduleComplete = 
+    const isScheduleComplete = hasMultipleLocations ? (
+      // For multiple locations: check if at least one location has complete date/time info
+      multipleLocations.some(loc => 
+        loc.location.trim() && 
+        loc.startDate && 
+        loc.endDate && 
+        loc.startTime && 
+        loc.endTime
+      ) && 
+      formData.contactNumber && 
+      formData.contactEmail
+    ) : (
+      // For single location: check traditional fields
       startDate && 
       endDate && 
       startTime && 
       endTime && 
       formData.contactNumber && 
-      formData.contactEmail;
+      formData.contactEmail
+    );
 
     const isReadyToSubmit = isEventDetailsComplete && 
       isAttachmentsComplete && 
@@ -215,7 +298,18 @@ const RequestEvent = () => {
       schedule: isScheduleComplete,
       readyToSubmit: isReadyToSubmit
     });
-  }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments]);
+  }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments, hasMultipleLocations, multipleLocations]);
+
+  // Debug logging for validation state changes
+  useEffect(() => {
+    console.log('🔄 VALIDATION STATE UPDATE:');
+    console.log('- eventDetails:', completedSteps.eventDetails);
+    console.log('- attachments:', completedSteps.attachments);
+    console.log('- tagDepartments:', completedSteps.tagDepartments);
+    console.log('- requirements:', completedSteps.requirements);
+    console.log('- schedule:', completedSteps.schedule);
+    console.log('- readyToSubmit:', completedSteps.readyToSubmit);
+  }, [completedSteps]);
 
 
 
@@ -366,8 +460,370 @@ const RequestEvent = () => {
     }
   };
 
+  const handleEcrInputChange = (e) => {
+    const { name, value } = e.target;
+    setEcrFormData(prev => ({ ...prev, [name]: value }));
+  };
 
+  // Helper function to compress image
+  const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  };
 
+  // Helper function to compress PDF files
+  const compressPDF = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          // For PDF compression, we'll reduce quality by re-encoding
+          // This is a basic approach - in production you might want to use a dedicated PDF library
+          const arrayBuffer = e.target.result;
+          const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+          
+          // Create a compressed version (this is a simplified approach)
+          // In a real scenario, you'd use libraries like PDF-lib or similar
+          const compressedBlob = new Blob([arrayBuffer], { 
+            type: 'application/pdf',
+            // This doesn't actually compress, but represents where compression would happen
+          });
+          
+          // For now, we'll simulate compression by reducing file size conceptually
+          // In practice, you'd need a proper PDF compression library
+          resolve(compressedBlob);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // Helper function to compress files before upload
+  const compressFileForUpload = async (file) => {
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    // Only compress if file is above 2MB
+    if (fileSizeMB > 2) {
+      try {
+        if (file.type.startsWith('image/')) {
+          // Compress images
+          const compressedBlob = await compressImage(file, 1200, 0.7);
+          return new File([compressedBlob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+        } else if (file.type === 'application/pdf') {
+          // For PDF files, we'll use Cloudinary's auto-optimization instead
+          // Since client-side PDF compression is complex and requires large libraries
+          console.log('PDF file will be optimized by Cloudinary during upload');
+          return file;
+        } else if (file.type.includes('document') || file.type.includes('word')) {
+          // For DOCX files, client-side compression is very complex
+          // We'll rely on Cloudinary's optimization
+          console.log('Document file will be optimized by Cloudinary during upload');
+          return file;
+        }
+      } catch (error) {
+        console.warn('File compression failed, using original:', error);
+        return file;
+      }
+    }
+    
+    // For files under 2MB, return as is
+    return file;
+  };
+
+  // PDF Generation Functions
+  const generatePDFPreview = async () => {
+    const pdf = new jsPDF({
+      orientation: 'p',
+      unit: 'mm',
+      format: 'a4',
+      compress: true // Enable PDF compression
+    });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPosition = margin;
+
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.src = '/images/bataanlogo.png';
+      
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = reject;
+      });
+
+      // Add logo (top left)
+      const logoSize = 25;
+      pdf.addImage(logoImg, 'PNG', margin, yPosition, logoSize, logoSize);
+      
+      // Header text next to logo
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('PROVINCIAL GOVERNMENT OF BATAAN', margin + logoSize + 10, yPosition + 8);
+      
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Republic of the Philippines', margin + logoSize + 10, yPosition + 15);
+      
+      // Generation date and time (below Republic of the Philippines)
+      const now = new Date();
+      const dateTime = now.toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated: ${dateTime}`, margin + logoSize + 10, yPosition + 22);
+      
+      yPosition += logoSize + 10;
+    } catch (error) {
+      console.warn('Could not load logo, proceeding without it');
+      // Fallback header without logo
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('PROVINCIAL GOVERNMENT OF BATAAN', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 8;
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Republic of the Philippines', pageWidth / 2, yPosition, { align: 'center' });
+      
+      // Generation date and time (below Republic of the Philippines - fallback)
+      const now = new Date();
+      const dateTime = now.toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated: ${dateTime}`, pageWidth / 2, yPosition + 8, { align: 'center' });
+      
+      yPosition += 20;
+    }
+
+    // Main title - moved closer to header
+    yPosition += 5;
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('EVENT COMPLETION REPORT (ECR)', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 10;
+
+    // Add a line separator
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 10;
+
+    // Create table for form fields
+    const tableStartY = yPosition;
+    const tableWidth = pageWidth - 2 * margin;
+    const labelColumnWidth = tableWidth * 0.35; // 35% for labels
+    const valueColumnWidth = tableWidth * 0.65; // 65% for values
+    const rowHeight = 12;
+    
+    const fields = [
+      { label: 'Event Title:', value: ecrFormData.eventTitle },
+      { label: 'Date and Venue:', value: ecrFormData.dateAndVenue },
+      { label: 'Organizing Office:', value: ecrFormData.organizingOffice },
+      { label: 'Number of Participants:', value: ecrFormData.numberOfParticipants },
+      { label: 'Summary of Activities Conducted:', value: ecrFormData.summaryOfActivities, isTextArea: true },
+      { label: 'Highlights and Key Results:', value: ecrFormData.highlightsAndResults, isTextArea: true },
+      { label: 'Challenges Encountered:', value: ecrFormData.challengesEncountered, isTextArea: true },
+      { label: 'Recommendations:', value: ecrFormData.recommendations, isTextArea: true },
+      { label: 'Prepared By:', value: ecrFormData.preparedBy },
+      { label: 'Date:', value: ecrFormData.preparedDate }
+    ];
+
+    pdf.setFontSize(10);
+    pdf.setLineWidth(0.3);
+    
+    fields.forEach((field, index) => {
+      // Check if we need a new page
+      if (yPosition > pageHeight - 60) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+
+      let currentRowHeight = rowHeight;
+      
+      // Calculate height needed for text areas
+      if (field.isTextArea && field.value) {
+        const lines = pdf.splitTextToSize(field.value, valueColumnWidth - 4);
+        currentRowHeight = Math.max(rowHeight, lines.length * 4 + 8);
+      }
+
+      // Draw cell borders
+      pdf.rect(margin, yPosition, labelColumnWidth, currentRowHeight);
+      pdf.rect(margin + labelColumnWidth, yPosition, valueColumnWidth, currentRowHeight);
+
+      // Add label text
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(field.label, margin + 2, yPosition + 7);
+
+      // Add value text
+      pdf.setFont('helvetica', 'normal');
+      if (field.isTextArea && field.value) {
+        const lines = pdf.splitTextToSize(field.value, valueColumnWidth - 4);
+        pdf.text(lines, margin + labelColumnWidth + 2, yPosition + 7);
+      } else {
+        pdf.text(field.value || 'N/A', margin + labelColumnWidth + 2, yPosition + 7);
+      }
+      
+      yPosition += currentRowHeight;
+    });
+
+    // Add photos section if photos exist
+    if (ecrPhotos.length > 0) {
+      // Add new page for photos
+      pdf.addPage();
+      yPosition = margin;
+      
+      // Add photo page header
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('PHOTO DOCUMENTATION', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 20;
+      
+      // Photo grid settings
+      const photosPerRow = 2; // 2 photos per row
+      const photoWidth = 70; // Fixed width in mm
+      const photoHeight = 50; // Fixed height in mm
+      const photoSpacing = 10; // Space between photos
+      const startX = (pageWidth - (photosPerRow * photoWidth + (photosPerRow - 1) * photoSpacing)) / 2;
+      
+      let currentRow = 0;
+      let currentCol = 0;
+      
+      // Process and add photos in grid layout
+      for (let i = 0; i < ecrPhotos.length; i++) {
+        const photo = ecrPhotos[i];
+        
+        try {
+          // Compress image before adding to PDF
+          const compressedImage = await compressImage(photo, 800, 0.6);
+          
+          // Convert compressed file to base64 for PDF
+          const reader = new FileReader();
+          const imageData = await new Promise((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(compressedImage);
+          });
+          
+          // Calculate position
+          const xPos = startX + currentCol * (photoWidth + photoSpacing);
+          const yPos = yPosition + currentRow * (photoHeight + photoSpacing + 15);
+          
+          // Check if we need a new page
+          if (yPos + photoHeight > pageHeight - margin) {
+            pdf.addPage();
+            yPosition = margin;
+            currentRow = 0;
+            currentCol = 0;
+            const newYPos = yPosition + currentRow * (photoHeight + photoSpacing + 15);
+            
+            // Add image with fixed dimensions
+            pdf.addImage(imageData, 'JPEG', xPos, newYPos, photoWidth, photoHeight);
+            
+            // Add photo caption
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Photo ${i + 1}`, xPos, newYPos + photoHeight + 5);
+          } else {
+            // Add image with fixed dimensions
+            pdf.addImage(imageData, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+            
+            // Add photo caption
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Photo ${i + 1}`, xPos, yPos + photoHeight + 5);
+          }
+          
+          // Move to next position
+          currentCol++;
+          if (currentCol >= photosPerRow) {
+            currentCol = 0;
+            currentRow++;
+          }
+          
+        } catch (error) {
+          console.error(`Error processing photo ${i + 1}:`, error);
+          // Add error message instead of photo
+          const xPos = startX + currentCol * (photoWidth + photoSpacing);
+          const yPos = yPosition + currentRow * (photoHeight + photoSpacing + 15);
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(`Error loading photo ${i + 1}`, xPos, yPos + 20);
+          
+          // Move to next position
+          currentCol++;
+          if (currentCol >= photosPerRow) {
+            currentCol = 0;
+            currentRow++;
+          }
+        }
+      }
+    }
+
+    return pdf;
+  };
+
+  const downloadPDF = async () => {
+    try {
+      const pdf = await generatePDFPreview();
+      pdf.save(`ECR_${ecrFormData.eventTitle || 'Event'}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    }
+  };
+
+  const previewPDF = async () => {
+    try {
+      const pdf = await generatePDFPreview();
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Error previewing PDF:', error);
+      alert('Error previewing PDF. Please try again.');
+    }
+  };
 
   const handleLocationSelect = async (location) => {
     
@@ -423,6 +879,28 @@ const RequestEvent = () => {
        
        return dateToCheckTimestamp >= startTimestamp && dateToCheckTimestamp <= endTimestamp;
     });
+  };
+
+  // Helper function to get booked dates for calendar
+  const getBookedDates = () => {
+    if (!preferredDates.bookedDates?.length) return [];
+    const bookedDates = preferredDates.bookedDates.map(booking => {
+      const startDate = new Date(booking.start.seconds * 1000);
+      const endDate = new Date(booking.end.seconds * 1000);
+      const dates = [];
+      
+      // Generate all dates in the booking range
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return dates;
+    }).flat();
+    
+    // Debug logging
+    console.log('Booked dates for calendar:', bookedDates.map(d => d.toDateString()));
+    return bookedDates;
   };
 
   // Helper function to get booking info for a date
@@ -489,14 +967,67 @@ const RequestEvent = () => {
     try {
       setIsSubmitting(true);
 
-      // Validate required fields
-      const requiredFields = ['title', 'requestor', 'location', 'participants'];
+      // Validate required fields - adjust based on location mode
+      const baseRequiredFields = ['title', 'requestor', 'participants'];
+      const requiredFields = hasMultipleLocations 
+        ? baseRequiredFields // Skip location validation for multiple locations
+        : [...baseRequiredFields, 'location']; // Include location for single location mode
+      
       const missingFields = requiredFields.filter(field => !formData[field]);
       
+      // Additional validation for multiple locations
+      if (hasMultipleLocations) {
+        const hasValidMultipleLocations = multipleLocations.some(loc => 
+          loc.location && loc.location.trim() && 
+          loc.startDate && loc.endDate && 
+          loc.startTime && loc.endTime
+        );
+        
+        if (!hasValidMultipleLocations) {
+          console.log('❌ VALIDATION FAILED - No valid multiple locations configured');
+          toast.error("Please configure at least one complete location with dates and times");
+          return;
+        }
+      }
+      
+      // Debug logging for validation
+      console.log('=== FORM VALIDATION DEBUG ===');
+      console.log('hasMultipleLocations:', hasMultipleLocations);
+      console.log('formData:', formData);
+      console.log('multipleLocations:', multipleLocations);
+      console.log('completedSteps:', completedSteps);
+      console.log('requiredFields:', requiredFields);
+      console.log('missingFields:', missingFields);
+      console.log('startDate:', startDate);
+      console.log('endDate:', endDate);
+      console.log('startTime:', startTime);
+      console.log('endTime:', endTime);
+      console.log('selectedDepartments:', selectedDepartments);
+      console.log('departmentRequirements:', departmentRequirements);
+      console.log('attachments:', attachments);
+      console.log('skipAttachments:', skipAttachments);
+      
       if (missingFields.length > 0) {
-        toast.error("Please fill in all required fields");
+        console.log('❌ VALIDATION FAILED - Missing fields:', missingFields);
+        toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
         return;
       }
+      
+      // Additional validation checks
+      if (!completedSteps.readyToSubmit) {
+        console.log('❌ VALIDATION FAILED - Form not ready to submit');
+        console.log('Step completion status:');
+        console.log('- eventDetails:', completedSteps.eventDetails);
+        console.log('- attachments:', completedSteps.attachments);
+        console.log('- tagDepartments:', completedSteps.tagDepartments);
+        console.log('- requirements:', completedSteps.requirements);
+        console.log('- schedule:', completedSteps.schedule);
+        toast.error("Please complete all required steps before submitting");
+        return;
+      }
+      
+      console.log('✅ VALIDATION PASSED - Proceeding with submission');
+      console.log('==============================');
 
 
       // Get current Firebase user
@@ -535,6 +1066,122 @@ const RequestEvent = () => {
         return;
       }
 
+      // Upload local files to Cloudinary first
+      const uploadedAttachments = [];
+      for (const attachment of attachments) {
+        if (attachment.isLocal && attachment.file) {
+          try {
+            const uploadedFile = await uploadFile(attachment.file);
+            uploadedAttachments.push({
+              name: attachment.name,
+              size: attachment.size,
+              type: attachment.type,
+              url: uploadedFile.url,
+              publicId: uploadedFile.publicId
+            });
+          } catch (error) {
+            console.error('Error uploading file:', error);
+            toast.error(`Failed to upload ${attachment.name}`);
+            return;
+          }
+        } else {
+          // File already uploaded
+          uploadedAttachments.push({
+            name: attachment.name,
+            size: attachment.size,
+            type: attachment.type,
+            url: attachment.url,
+            publicId: attachment.publicId
+          });
+        }
+      }
+
+      // Prepare location data based on single or multiple locations
+      let locationData;
+      if (hasMultipleLocations) {
+        locationData = {
+          isMultipleLocations: true,
+          locations: multipleLocations.filter(loc => loc.location.trim() !== '')
+        };
+      } else {
+        locationData = {
+          isMultipleLocations: false,
+          location: formData.location
+        };
+      }
+
+      // Upload Governor's Requirements files
+      const uploadedGovAttachments = {};
+      if (govAttachments.brieferTemplate) {
+        try {
+          const uploadedFile = await uploadFile(govAttachments.brieferTemplate);
+          uploadedGovAttachments.brieferTemplate = {
+            name: govAttachments.brieferTemplate.name,
+            size: govAttachments.brieferTemplate.size,
+            type: govAttachments.brieferTemplate.type,
+            url: uploadedFile.url,
+            publicId: uploadedFile.publicId
+          };
+        } catch (error) {
+          console.error('Error uploading briefer template:', error);
+          toast.error('Failed to upload briefer template');
+          return;
+        }
+      }
+
+      if (govAttachments.programme) {
+        try {
+          const uploadedFile = await uploadFile(govAttachments.programme);
+          uploadedGovAttachments.programme = {
+            name: govAttachments.programme.name,
+            size: govAttachments.programme.size,
+            type: govAttachments.programme.type,
+            url: uploadedFile.url,
+            publicId: uploadedFile.publicId
+          };
+        } catch (error) {
+          console.error('Error uploading programme:', error);
+          toast.error('Failed to upload programme');
+          return;
+        }
+      }
+
+      if (govAttachments.availableForDLBriefer) {
+        try {
+          const uploadedFile = await uploadFile(govAttachments.availableForDLBriefer);
+          uploadedGovAttachments.availableForDLBriefer = {
+            name: govAttachments.availableForDLBriefer.name,
+            size: govAttachments.availableForDLBriefer.size,
+            type: govAttachments.availableForDLBriefer.type,
+            url: uploadedFile.url,
+            publicId: uploadedFile.publicId
+          };
+        } catch (error) {
+          console.error('Error uploading available for DL briefer:', error);
+          toast.error('Failed to upload available for DL briefer');
+          return;
+        }
+      }
+
+      // Upload ECR file if exists
+      let uploadedEcrFile = null;
+      if (ecrFile) {
+        try {
+          const uploadedFile = await uploadFile(ecrFile);
+          uploadedEcrFile = {
+            name: ecrFile.name,
+            size: ecrFile.size,
+            type: ecrFile.type,
+            url: uploadedFile.url,
+            publicId: uploadedFile.publicId
+          };
+        } catch (error) {
+          console.error('Error uploading ECR file:', error);
+          toast.error('Failed to upload ECR file');
+          return;
+        }
+      }
+
       // Create event request data
       // Format department requirements with notes
       const formattedDepartmentRequirements = selectedDepartments.map(deptId => {
@@ -551,16 +1198,13 @@ const RequestEvent = () => {
 
       const eventDataWithUser = {
         ...formData,
+        ...locationData,
         startDate: startTimestamp,
         endDate: endTimestamp,
         departmentRequirements: formattedDepartmentRequirements,
-        attachments: attachments.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: file.url,
-          publicId: file.publicId
-        })),
+        attachments: uploadedAttachments,
+        govAttachments: uploadedGovAttachments,
+        ecrFile: uploadedEcrFile,
         userId: currentUser.uid,
         userEmail: currentUser.email,
         userName: userData.username || userData.name || currentUser.email,
@@ -924,90 +1568,229 @@ const RequestEvent = () => {
                 </div>
               </div>
 
-                              {/* Location and Number of Participants */}
-              <div className="grid grid-cols-4 gap-4">
+              {/* Location and Number of Participants */}
+              <div className="grid grid-cols-2 gap-4">
                 {/* Location */}
-                <div className="col-span-1 space-y-2">
-                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                    Location
-                  </Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <Input
-                      name="location"
-                      type="text"
-                      required
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      onFocus={() => {
-                        if (formData.location.length > 0) {
-                          const filtered = defaultLocations.filter(location =>
-                            location.toLowerCase().includes(formData.location.toLowerCase())
-                          );
-                          setFilteredLocations(filtered);
-                          setShowLocationDropdown(true);
-                        }
-                      }}
-                      onBlur={() => {
-                        // Delay hiding to allow click on dropdown items
-                        setTimeout(() => {
-                          setShowLocationDropdown(false);
-                          
-                          // If location was typed (not selected from dropdown) and not empty
-                          if (!locationSelectedFromDropdown && formData.location.trim()) {
-                            const location = formData.location.trim();
-                            // Get booked dates for this location
-                            useEventStore.getState().getBookedDates(location).then(() => {
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                      Location
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+                        Multiple locations
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasMultipleLocations(!hasMultipleLocations);
+                          if (!hasMultipleLocations) {
+                            // Reset single location when switching to multiple
+                            setFormData(prev => ({ ...prev, location: '' }));
+                            setShowMultipleLocationsModal(true);
+                          } else {
+                            // Reset multiple locations when switching to single
+                            setMultipleLocations([
+                              { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
+                            ]);
+                            setShowMultipleLocationsModal(false);
+                          }
+                        }}
+                        className={cn(
+                          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2",
+                          hasMultipleLocations ? "bg-black" : "bg-gray-200"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block h-3 w-3 transform rounded-full bg-white transition-transform",
+                            hasMultipleLocations ? "translate-x-5" : "translate-x-1"
+                          )}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  {!hasMultipleLocations ? (
+                    <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={isLocationOpen}
+                          className={cn(
+                            "w-full justify-between h-12 text-base pl-12",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                          {formData.location || "Select location..."}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                    <PopoverContent 
+                      side="bottom"
+                      align="start"
+                      sideOffset={4}
+                      avoidCollisions={false}
+                      className={cn(
+                        "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
+                        isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                      )}
+                    >
+                      <Command className={isDarkMode ? "bg-slate-900" : "bg-white"}>
+                        <CommandInput 
+                          placeholder="Search locations..." 
+                          className={isDarkMode ? "text-white" : "text-gray-900"}
+                        />
+                        <CommandEmpty className={cn(
+                          "py-6 text-center text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          No location found.
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-[200px] overflow-y-auto">
+                          <CommandItem
+                            onSelect={() => {
+                              setShowCustomLocationInput(true);
+                              setIsLocationOpen(false);
+                            }}
+                            className={cn(
+                              "cursor-pointer border-b",
+                              isDarkMode 
+                                ? "text-blue-400 hover:bg-slate-800 border-slate-700" 
+                                : "text-blue-600 hover:bg-gray-100 border-gray-200"
+                            )}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add custom location
+                          </CommandItem>
+                          {defaultLocations.map((location) => (
+                            <CommandItem
+                              key={location}
+                              value={location}
+                              onSelect={async (currentValue) => {
+                                setFormData(prev => ({ ...prev, location: currentValue }));
+                                setShowCustomLocationInput(false);
+                                setCustomLocation("");
+                                setIsLocationOpen(false);
+                                
+                                // Get booked dates for this location
+                                await useEventStore.getState().getBookedDates(currentValue);
+                                
+                                // Show preferred dates modal
+                                useEventStore.getState().setPreferredDates({
+                                  location: currentValue,
+                                  startDate: null,
+                                  endDate: null
+                                });
+                                useEventStore.getState().togglePreferredDatesModal(true);
+                              }}
+                              className={cn(
+                                "cursor-pointer",
+                                isDarkMode 
+                                  ? "text-gray-200 hover:bg-slate-800" 
+                                  : "text-gray-900 hover:bg-gray-100"
+                              )}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.location === location ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {location}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
+                  ) : (
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowMultipleLocationsModal(true)}
+                        className="w-full h-12 justify-between hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                      >
+                        <div className="flex flex-col items-start">
+                          <span>Configure multiple locations...</span>
+                          <span className="text-xs text-gray-500">
+                            {multipleLocations.filter(loc => loc.location.trim()).length} location{multipleLocations.filter(loc => loc.location.trim()).length !== 1 ? 's' : ''} configured
+                          </span>
+                        </div>
+                        <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Custom Location Input */}
+                  {showCustomLocationInput && !hasMultipleLocations && (
+                    <div className="space-y-2 mt-2">
+                      <Label className={cn(
+                        "text-sm font-medium",
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      )}>
+                        Custom Location
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter custom location"
+                          value={customLocation}
+                          onChange={(e) => setCustomLocation(e.target.value)}
+                          className={cn(
+                            "h-12 flex-1",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700" 
+                              : "bg-white border-gray-200"
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            if (customLocation.trim()) {
+                              setFormData(prev => ({ ...prev, location: customLocation.trim() }));
+                              setShowCustomLocationInput(false);
+                              setCustomLocation("");
+                              
+                              // Get booked dates for this location
+                              await useEventStore.getState().getBookedDates(customLocation.trim());
+                              
+                              // Show preferred dates modal
                               useEventStore.getState().setPreferredDates({
-                                location: location,
+                                location: customLocation.trim(),
                                 startDate: null,
                                 endDate: null
                               });
                               useEventStore.getState().togglePreferredDatesModal(true);
-                            });
-                          }
-                        }, 200);
-                      }}
-                      autoComplete={isStepActive('eventDetails') ? "on" : "off"}
-                      placeholder="Event location"
-                      className={cn(
-                        "pl-12 rounded-lg h-12 text-base",
-                        isDarkMode 
-                          ? "bg-slate-900 border-slate-700" 
-                          : "bg-white border-gray-200"
-                      )}
-                    />
-                    
-                    {/* Location Dropdown */}
-                    {showLocationDropdown && filteredLocations.length > 0 && (
-                      <div className={cn(
-                        "absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border shadow-lg",
-                        "max-h-60 overflow-y-auto",
-                        isDarkMode 
-                          ? "bg-slate-800 border-slate-700" 
-                          : "bg-white border-gray-200"
-                      )}>
-                        {filteredLocations.map((location, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleLocationSelect(location)}
-                            className={cn(
-                              "w-full px-4 py-3 text-left text-sm transition-colors",
-                              "hover:bg-gray-100 dark:hover:bg-slate-700",
-                              "first:rounded-t-lg last:rounded-b-lg",
-                              isDarkMode ? "text-gray-200" : "text-gray-900"
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <span>{location}</span>
-                            </div>
-                          </button>
-                        ))}
+                            }
+                          }}
+                          className="bg-black hover:bg-gray-800 text-white h-12"
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowCustomLocationInput(false);
+                            setCustomLocation("");
+                          }}
+                          className={cn(
+                            "h-12",
+                            isDarkMode 
+                              ? "border-slate-700 text-gray-300 hover:bg-slate-800" 
+                              : "border-gray-200 text-gray-700 hover:bg-gray-100"
+                          )}
+                        >
+                          Cancel
+                        </Button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* No. of Participants */}
@@ -1036,13 +1819,17 @@ const RequestEvent = () => {
                   </div>
                 </div>
 
+              </div>
+
+              {/* VIP, VVIP, and Governor Row */}
+              <div className="grid grid-cols-3 gap-4">
                 {/* VIP */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Number of VIP
                   </Label>
                   <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       name="vip"
                       value={formData.vip}
@@ -1050,9 +1837,9 @@ const RequestEvent = () => {
                       type="number"
                       min="0"
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
-                      placeholder="Number of VIPs"
+                      placeholder="VIPs"
                       className={cn(
-                        "pl-12 rounded-lg h-12 text-base",
+                        "pl-10 rounded-lg h-12 text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -1067,7 +1854,7 @@ const RequestEvent = () => {
                     Number of VVIP
                   </Label>
                   <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       name="vvip"
                       value={formData.vvip}
@@ -1075,15 +1862,57 @@ const RequestEvent = () => {
                       type="number"
                       min="0"
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
-                      placeholder="Number of VVIPs"
+                      placeholder="VVIPs"
                       className={cn(
-                        "pl-12 rounded-lg h-12 text-base",
+                        "pl-10 rounded-lg h-12 text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
                       )}
                     />
                   </div>
+                </div>
+
+                {/* Governor Involvement */}
+                <div className="space-y-2">
+                  <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    With Governor
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newValue = !formData.withGov;
+                      setFormData(prev => ({ ...prev, withGov: newValue }));
+                      if (newValue) {
+                        setShowGovModal(true);
+                      }
+                    }}
+                    className={cn(
+                      "w-full h-12 rounded-lg border-2 transition-all duration-200 ease-in-out",
+                      "flex items-center justify-center gap-2 font-medium text-sm",
+                      "hover:scale-[1.02] active:scale-[0.98]",
+                      formData.withGov 
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/25" 
+                        : isDarkMode 
+                          ? "bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:border-slate-500" 
+                          : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400"
+                    )}
+                  >
+                    <Shield className={cn(
+                      "h-4 w-4 transition-all duration-200", 
+                      formData.withGov 
+                        ? "text-white" 
+                        : isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )} />
+                    <span className="transition-all duration-200">
+                      {formData.withGov ? "Governor Involved" : "No Governor"}
+                    </span>
+                    {formData.withGov && (
+                      <div className={cn(
+                        "w-2 h-2 rounded-full bg-white animate-pulse"
+                      )} />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -1145,7 +1974,7 @@ const RequestEvent = () => {
                   id="file-upload"
                   className="hidden"
                   multiple
-                  onChange={async (e) => {
+                  onChange={(e) => {
                     const files = Array.from(e.target.files);
                     const maxSize = 10 * 1024 * 1024; // 10MB
                     const allowedTypes = [
@@ -1166,40 +1995,19 @@ const RequestEvent = () => {
                       return;
                     }
 
-                    // Start upload process
-                    setIsUploading(true);
-                    setUploadProgress(0);
-                    
-                    // Upload files with progress
-                    const totalFiles = files.length;
-                    let completedFiles = 0;
-                    
-                    const uploadPromises = files.map(async (file) => {
-                      const result = await uploadFile(file);
-                      if (result.success) {
-                        completedFiles++;
-                        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-                        return {
-                          name: file.name,
-                          size: file.size,
-                          type: file.type,
-                          url: result.url,
-                          publicId: result.publicId
-                        };
-                      }
-                      toast.error(`Failed to upload ${file.name}`);
-                      return null;
-                    });
+                    // Store files locally without uploading to Cloudinary
+                    const fileObjects = files.map(file => ({
+                      name: file.name,
+                      size: file.size,
+                      type: file.type,
+                      file: file, // Store the actual file object for later upload
+                      url: null, // Will be set after upload during form submission
+                      publicId: null, // Will be set after upload during form submission
+                      isLocal: true // Flag to indicate this is a local file not yet uploaded
+                    }));
 
-                    const results = await Promise.all(uploadPromises);
-                    const successfulUploads = results.filter(result => result !== null);
-                    setAttachments(prev => [...prev, ...successfulUploads]);
-                    
-                    // End upload process
-                    setTimeout(() => {
-                      setIsUploading(false);
-                      setUploadProgress(0);
-                    }, 500); // Small delay to show 100% completion
+                    setAttachments(prev => [...prev, ...fileObjects]);
+                    toast.success(`${files.length} file${files.length > 1 ? 's' : ''} added. Files will be uploaded when you submit the event.`);
                   }}
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
@@ -1259,9 +2067,27 @@ const RequestEvent = () => {
                                 )}>
                                   <span className="truncate">{file.name}</span>
                                   <span className={cn(
-                                    "text-[11px] shrink-0",
+                                    "text-[11px] shrink-0 flex items-center gap-1",
                                     isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  )}>({formatFileSize(file.size)})</span>
+                                  )}>
+                                    ({formatFileSize(file.size)})
+                                    {file.wasCompressed && (
+                                      <span className={cn(
+                                        "text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700",
+                                        isDarkMode && "bg-green-900/30 text-green-400"
+                                      )}>
+                                        compressed
+                                      </span>
+                                    )}
+                                    {!file.wasCompressed && file.originalSize && (file.originalSize / (1024 * 1024)) > 2 && (
+                                      <span className={cn(
+                                        "text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-700",
+                                        isDarkMode && "bg-blue-900/30 text-blue-400"
+                                      )}>
+                                        optimized
+                                      </span>
+                                    )}
+                                  </span>
                                 </p>
                               </div>
                             </div>
@@ -1446,16 +2272,80 @@ const RequestEvent = () => {
             </div>
 
             <div className="space-y-6">
-              {/* Date and Time Selection */}
-              <div className="space-y-6">
-                {/* Start Date and Time */}
-                <div>
-                  <Label className={cn(
-                    "text-sm font-medium mb-3 block", 
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  )}>
-                    Start Date & Time
-                  </Label>
+              {hasMultipleLocations ? (
+                /* Multiple Locations Schedule Display */
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Schedule configured for multiple locations
+                  </div>
+                  {multipleLocations.map((locationItem, index) => {
+                    // Show all locations, even empty ones for editing
+                    const hasLocation = locationItem.location.trim();
+                    return (
+                      <div key={index} className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-0">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {hasLocation ? locationItem.location : `Location ${index + 1}`}
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowMultipleLocationsModal(true)}
+                            className="text-xs"
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Start:</span>
+                            <div className="font-medium">
+                              {locationItem.startDate && locationItem.startTime ? (
+                                `${new Date(locationItem.startDate).toLocaleDateString()} at ${(() => {
+                                  const [hours, minutes] = locationItem.startTime.split(':');
+                                  const hour = parseInt(hours);
+                                  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                  const ampm = hour < 12 ? 'AM' : 'PM';
+                                  return `${displayHour}:${minutes} ${ampm}`;
+                                })()}`
+                              ) : (
+                                <span className="text-gray-400">Not set</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">End:</span>
+                            <div className="font-medium">
+                              {locationItem.endDate && locationItem.endTime ? (
+                                `${new Date(locationItem.endDate).toLocaleDateString()} at ${(() => {
+                                  const [hours, minutes] = locationItem.endTime.split(':');
+                                  const hour = parseInt(hours);
+                                  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                  const ampm = hour < 12 ? 'AM' : 'PM';
+                                  return `${displayHour}:${minutes} ${ampm}`;
+                                })()}`
+                              ) : (
+                                <span className="text-gray-400">Not set</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Single Location Schedule */
+                <div className="space-y-6">
+                  {/* Start Date and Time */}
+                  <div>
+                    <Label className={cn(
+                      "text-sm font-medium mb-3 block", 
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    )}>
+                      Start Date & Time
+                    </Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="relative">
@@ -1490,10 +2380,9 @@ const RequestEvent = () => {
                             )}
                             align="start"
                           >
-                            <Calendar
-                              mode="single"
-                              selected={startDate}
-                              onSelect={(newDate) => {
+                            <ModernCalendar
+                              selectedDate={startDate}
+                              onDateSelect={(newDate) => {
                                 if (!isDateBooked(newDate)) {
                                   setStartDate(newDate);
                                   setIsStartCalendarOpen(false);
@@ -1502,23 +2391,8 @@ const RequestEvent = () => {
                                   toast.error(info || "This date is already booked");
                                 }
                               }}
-                              disabled={(date) => date < new Date() || isDateBooked(date)}
-                              modifiers={{
-                                booked: (date) => isDateBooked(date)
-                              }}
-                              modifiersStyles={{
-                                booked: {
-                                  backgroundColor: isDarkMode ? "#3f3f46" : "#f4f4f5",
-                                  color: isDarkMode ? "#71717a" : "#a1a1aa",
-                                  cursor: "not-allowed"
-                                }
-                              }}
-                              initialFocus
-                              showOutsideDays={false}
-                              className={cn(
-                                "rounded-md shadow-none",
-                                isDarkMode && "dark"
-                              )}
+                              disabledDates={getBookedDates()}
+                              isDarkMode={isDarkMode}
                             />
                           </PopoverContent>
                         </Popover>
@@ -1593,10 +2467,9 @@ const RequestEvent = () => {
                             )}
                             align="start"
                           >
-                            <Calendar
-                              mode="single"
-                              selected={endDate}
-                              onSelect={(newDate) => {
+                            <ModernCalendar
+                              selectedDate={endDate}
+                              onDateSelect={(newDate) => {
                                 if (!isDateBooked(newDate)) {
                                   setEndDate(newDate);
                                   setIsEndCalendarOpen(false);
@@ -1605,23 +2478,8 @@ const RequestEvent = () => {
                                   toast.error(info || "This date is already booked");
                                 }
                               }}
-                              disabled={(date) => date < startDate || isDateBooked(date)}
-                              modifiers={{
-                                booked: (date) => isDateBooked(date)
-                              }}
-                              modifiersStyles={{
-                                booked: {
-                                  backgroundColor: isDarkMode ? "#3f3f46" : "#f4f4f5",
-                                  color: isDarkMode ? "#71717a" : "#a1a1aa",
-                                  cursor: "not-allowed"
-                                }
-                              }}
-                              initialFocus
-                              showOutsideDays={false}
-                              className={cn(
-                                "rounded-md shadow-none",
-                                isDarkMode && "dark"
-                              )}
+                              disabledDates={getBookedDates()}
+                              isDarkMode={isDarkMode}
                             />
                           </PopoverContent>
                         </Popover>
@@ -1653,7 +2511,8 @@ const RequestEvent = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
               {/* Contact Details */}
               <div className="space-y-4 mt-6">
@@ -1791,33 +2650,76 @@ const RequestEvent = () => {
                   "font-semibold text-lg",
                   isDarkMode ? "text-gray-100" : "text-gray-900"
                 )}>
-                  Uploading Files...
+                  {isCompressing ? "Compressing Files..." : "Uploading Files..."}
                 </h3>
                 <p className={cn(
                   "text-sm",
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 )}>
-                  Please wait while we upload your files
+                  {isCompressing 
+                    ? "Compressing large files (>2MB) to reduce size..." 
+                    : "Please wait while we upload your files"
+                  }
                 </p>
               </div>
 
-              {/* Progress Bar */}
-              <div className="w-full space-y-2">
-                <div className="h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
-                  <div 
-                    className={cn(
-                      "h-full rounded-full transition-all duration-300",
-                      isDarkMode ? "bg-blue-500" : "bg-blue-600"
-                    )}
-                    style={{ width: `${uploadProgress}%` }}
-                  />
+              {/* Progress Bars */}
+              <div className="w-full space-y-3">
+                {/* Compression Progress */}
+                {isCompressing && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className={cn(
+                        "text-xs font-medium",
+                        isDarkMode ? "text-gray-300" : "text-gray-600"
+                      )}>
+                        Compression Progress
+                      </span>
+                      <span className={cn(
+                        "text-xs",
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      )}>
+                        {compressionProgress}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
+                      <div 
+                        className={cn(
+                          "h-full rounded-full transition-all duration-300",
+                          isDarkMode ? "bg-orange-500" : "bg-orange-600"
+                        )}
+                        style={{ width: `${compressionProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Progress */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className={cn(
+                      "text-xs font-medium",
+                      isDarkMode ? "text-gray-300" : "text-gray-600"
+                    )}>
+                      Upload Progress
+                    </span>
+                    <span className={cn(
+                      "text-xs",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      {uploadProgress}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        isDarkMode ? "bg-blue-500" : "bg-blue-600"
+                      )}
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
                 </div>
-                <p className={cn(
-                  "text-sm text-center font-medium",
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                )}>
-                  {uploadProgress}% Complete
-                </p>
               </div>
             </div>
           </div>
@@ -2272,15 +3174,14 @@ const RequestEvent = () => {
                       </PopoverTrigger>
                       <PopoverContent 
                         className={cn(
-                          "w-auto p-0",
-                          isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-white"
+                          "w-auto p-0 rounded-lg shadow-lg border-0",
+                          isDarkMode ? "bg-zinc-800 border-gray-600" : "bg-white border-gray-200"
                         )} 
-                        align="start"
+                        align="center"
                       >
-                        <Calendar
-                          mode="single"
-                          selected={preferredDates.startDate}
-                          onSelect={(date) => {
+                        <ModernCalendar
+                          selectedDate={preferredDates.startDate}
+                          onDateSelect={(date) => {
                             if (!isDateBooked(date)) {
                               setPreferredDates({ startDate: date });
                               setIsPreferredStartCalendarOpen(false);
@@ -2289,49 +3190,8 @@ const RequestEvent = () => {
                               toast.error(info || "This date is already booked");
                             }
                           }}
-                          disabled={(date) => date < new Date()}
-                          modifiers={{
-                            booked: (date) => isDateBooked(date)
-                          }}
-                          modifiersStyles={{
-                            booked: {
-                              backgroundColor: isDarkMode ? "rgba(239, 68, 68, 0.3)" : "rgba(239, 68, 68, 0.2)",
-                              color: isDarkMode ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.6)",
-                              cursor: "not-allowed",
-                              position: "relative",
-                              backdropFilter: "blur(1px)",
-                              textDecoration: "line-through",
-                              border: `1px solid ${isDarkMode ? "rgba(239, 68, 68, 0.3)" : "rgba(239, 68, 68, 0.2)"}`,
-                              borderRadius: "4px",
-                              "&:hover": {
-                                backgroundColor: isDarkMode ? "rgba(239, 68, 68, 0.4)" : "rgba(239, 68, 68, 0.3)"
-                              },
-                              "&::after": {
-                                content: '"🚫"',
-                                position: "absolute",
-                                top: "-8px",
-                                right: "-8px",
-                                fontSize: "12px",
-                                opacity: 0.7
-                              }
-                            }
-                          }}
-                          className={cn(
-                            "rounded-md border-0 p-0",
-                            isDarkMode ? "bg-zinc-900" : "bg-white",
-                            "shadow-lg shadow-zinc-500/10",
-                            "[&_.rdp-day]:h-10 [&_.rdp-day]:w-10",
-                            "[&_.rdp-day_span]:rounded-md",
-                            "[&_.rdp-day_span]:transition-all",
-                            "[&_.rdp-day_span]:duration-200",
-                            "[&_.rdp-day.rdp-day_selected]:bg-black",
-                            "[&_.rdp-day.rdp-day_selected]:dark:bg-white",
-                            "[&_.rdp-day.rdp-day_selected]:text-white",
-                            "[&_.rdp-day.rdp-day_selected]:dark:text-black",
-                            "[&_.rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_disabled):not(.rdp-day_outside)]:bg-zinc-100",
-                            "[&_.rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_disabled):not(.rdp-day_outside)]:dark:bg-zinc-800"
-                          )}
-                          initialFocus
+                          disabledDates={preferredDates.bookedDates?.map(booking => new Date(booking.start.seconds * 1000)) || []}
+                          isDarkMode={isDarkMode}
                         />
                       </PopoverContent>
                     </Popover>
@@ -2395,15 +3255,14 @@ const RequestEvent = () => {
                       </PopoverTrigger>
                       <PopoverContent 
                         className={cn(
-                          "w-auto p-0",
-                          isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-white"
+                          "w-auto p-0 rounded-lg shadow-lg border-0",
+                          isDarkMode ? "bg-zinc-800 border-gray-600" : "bg-white border-gray-200"
                         )} 
-                        align="start"
+                        align="center"
                       >
-                        <Calendar
-                          mode="single"
-                          selected={preferredDates.endDate}
-                          onSelect={(date) => {
+                        <ModernCalendar
+                          selectedDate={preferredDates.endDate}
+                          onDateSelect={(date) => {
                             if (!isDateBooked(date)) {
                               setPreferredDates({ endDate: date });
                               setIsPreferredEndCalendarOpen(false);
@@ -2412,37 +3271,8 @@ const RequestEvent = () => {
                               toast.error(info || "This date is already booked");
                             }
                           }}
-                          disabled={(date) => 
-                            date < (preferredDates.startDate || new Date()) || 
-                            isDateBooked(date)
-                          }
-                          modifiers={{
-                            booked: (date) => isDateBooked(date)
-                          }}
-                          modifiersStyles={{
-                            booked: {
-                              backgroundColor: isDarkMode ? "rgba(239, 68, 68, 0.3)" : "rgba(239, 68, 68, 0.2)",
-                              color: isDarkMode ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.6)",
-                              cursor: "not-allowed",
-                              position: "relative",
-                              backdropFilter: "blur(1px)",
-                              textDecoration: "line-through",
-                              border: `1px solid ${isDarkMode ? "rgba(239, 68, 68, 0.3)" : "rgba(239, 68, 68, 0.2)"}`,
-                              borderRadius: "4px",
-                              "&:hover": {
-                                backgroundColor: isDarkMode ? "rgba(239, 68, 68, 0.4)" : "rgba(239, 68, 68, 0.3)"
-                              },
-                              "&::after": {
-                                content: '"🚫"',
-                                position: "absolute",
-                                top: "-8px",
-                                right: "-8px",
-                                fontSize: "12px",
-                                opacity: 0.7
-                              }
-                            }
-                          }}
-                          initialFocus
+                          disabledDates={preferredDates.bookedDates?.map(booking => new Date(booking.start.seconds * 1000)) || []}
+                          isDarkMode={isDarkMode}
                         />
                       </PopoverContent>
                     </Popover>
@@ -2521,6 +3351,1042 @@ const RequestEvent = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Gov Modal - Modern 2-Column Design */}
+      <Dialog 
+        open={showGovModal} 
+        onOpenChange={(open) => {
+          if (!open) {
+            // Check if any required files are missing when closing modal
+            const hasAllRequiredFiles = govAttachments.brieferTemplate && 
+                                      govAttachments.availableForDLBriefer && 
+                                      govAttachments.programme;
+            
+            if (!hasAllRequiredFiles) {
+              // Automatically turn off withGov if no files uploaded
+              setFormData(prev => ({ ...prev, withGov: false }));
+              // Clear any partial uploads
+              setGovAttachments({
+                brieferTemplate: null,
+                availableForDLBriefer: null,
+                programme: null
+              });
+              toast.warning("Governor involvement disabled - required files not uploaded");
+            }
+          }
+          setShowGovModal(open);
+        }}>
+        <DialogContent className={cn(
+          "max-w-3xl max-h-[85vh] overflow-hidden",
+          "bg-gradient-to-br from-white to-gray-50 dark:from-slate-900 dark:to-slate-800",
+          "border-0 shadow-2xl backdrop-blur-sm",
+          "animate-in fade-in-0 zoom-in-95 duration-300"
+        )}>
+          {/* Header */}
+          <DialogHeader className="text-center pb-6 border-b border-gray-200/50 dark:border-slate-700/50 relative">
+            <button
+              onClick={() => {
+                // Check if any required files are missing
+                const hasAllRequiredFiles = govAttachments.brieferTemplate && 
+                                          govAttachments.availableForDLBriefer && 
+                                          govAttachments.programme;
+                
+                if (!hasAllRequiredFiles) {
+                  // Automatically turn off withGov if no files uploaded
+                  setFormData(prev => ({ ...prev, withGov: false }));
+                  // Clear any partial uploads
+                  setGovAttachments({
+                    brieferTemplate: null,
+                    availableForDLBriefer: null,
+                    programme: null
+                  });
+                  toast.warning("Governor involvement disabled - required files not uploaded");
+                }
+                setShowGovModal(false);
+              }}
+              className="absolute right-0 top-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            </button>
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <Shield className="h-8 w-8 text-white" />
+            </div>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              Governor's Requirements
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 text-base mt-2">
+              Upload the required documents for the governor's briefer
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto max-h-[60vh] px-8">
+            {/* Single Column Layout */}
+            <div className="py-8">
+              <div className="space-y-8">
+                {/* Briefer Template Upload */}
+                <div className="group">
+                  <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
+                    📋 Briefer Template *
+                  </Label>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Post briefer template for event documentation
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        size="sm"
+                        className="h-10 px-4 text-sm bg-black text-white hover:bg-gray-800 shadow-lg"
+                        onClick={() => setShowPostBrieferModal(true)}
+                      >
+                        View Post Briefer Template
+                      </Button>
+                      {govAttachments.brieferTemplate ? (
+                        <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-slate-800/70 rounded-lg">
+                          <FileText className="h-5 w-5 text-green-500" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">
+                            {govAttachments.brieferTemplate.name}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-3 text-xs hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                            onClick={() => setGovAttachments(prev => ({ ...prev, brieferTemplate: null }))}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setGovAttachments(prev => ({ ...prev, brieferTemplate: file }));
+                              }
+                            }}
+                            className="hidden"
+                            id="briefer-template-upload"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 px-4 text-sm bg-white/70 border-gray-200 text-gray-700 hover:bg-gray-50"
+                            onClick={() => document.getElementById('briefer-template-upload').click()}
+                          >
+                            Upload Briefer File
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ECR Template Section */}
+                <div className="group">
+                  <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
+                    📊 ECR Template *
+                  </Label>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Event Completion Report template for post-event documentation
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        size="sm"
+                        className="h-10 px-4 text-sm bg-black text-white hover:bg-gray-800 shadow-lg"
+                        onClick={() => setShowECRModal(true)}
+                      >
+                        View ECR Template
+                      </Button>
+                      {ecrFile ? (
+                        <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-slate-800/70 rounded-lg">
+                          <FileText className="h-5 w-5 text-green-500" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">
+                            {ecrFile.name}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-3 text-xs hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                            onClick={() => setEcrFile(null)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setEcrFile(file);
+                              }
+                            }}
+                            className="hidden"
+                            id="ecr-upload"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 px-4 text-sm bg-white/70 border-gray-200 text-gray-700 hover:bg-gray-50"
+                            onClick={() => document.getElementById('ecr-upload').click()}
+                          >
+                            Upload ECR File
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Available for DL Briefer Upload */}
+                <div className="group">
+                  <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
+                    👤 Available for DL Briefer *
+                  </Label>
+                  <div className={cn(
+                    "relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300",
+                    "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10",
+                    "group-hover:shadow-lg group-hover:scale-[1.02]",
+                    govAttachments.availableForDLBriefer 
+                      ? "border-green-300 bg-green-50/50 dark:bg-green-900/10" 
+                      : "border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-slate-800/50"
+                  )}>
+                    {govAttachments.availableForDLBriefer ? (
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
+                          <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {govAttachments.availableForDLBriefer.name}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-4 text-xs hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                          onClick={() => setGovAttachments(prev => ({ ...prev, availableForDLBriefer: null }))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                          <FileText className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Click to upload available for DL briefer
+                        </p>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setGovAttachments(prev => ({ ...prev, availableForDLBriefer: file }));
+                            }
+                          }}
+                          className="hidden"
+                          id="available-dl-briefer-upload"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-4 text-xs bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                          onClick={() => document.getElementById('available-dl-briefer-upload').click()}
+                        >
+                          Choose File
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Programme Upload */}
+                <div className="group">
+                  <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
+                    📅 Programme *
+                  </Label>
+                  <div className={cn(
+                    "relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300",
+                    "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10",
+                    "group-hover:shadow-lg group-hover:scale-[1.02]",
+                    govAttachments.programme 
+                      ? "border-green-300 bg-green-50/50 dark:bg-green-900/10" 
+                      : "border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-slate-800/50"
+                  )}>
+                    {govAttachments.programme ? (
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
+                          <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {govAttachments.programme.name}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-4 text-xs hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                          onClick={() => setGovAttachments(prev => ({ ...prev, programme: null }))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                          <FileText className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Click to upload programme document
+                        </p>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setGovAttachments(prev => ({ ...prev, programme: file }));
+                            }
+                          }}
+                          className="hidden"
+                          id="programme-upload"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-4 text-xs bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                          onClick={() => document.getElementById('programme-upload').click()}
+                        >
+                          Choose File
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Continue button */}
+                <div className="mt-6">
+                  <Button
+                    className={cn(
+                      "w-full h-12 text-sm shadow-lg font-medium transition-all duration-200",
+                      (!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile)
+                        ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                        : "bg-black text-white hover:bg-gray-800"
+                    )}
+                    onClick={() => {
+                      if (!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile) {
+                        toast.error("Please complete all required files before continuing");
+                        return;
+                      }
+                      setShowGovModal(false);
+                    }}
+                    disabled={!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-slate-700/50">
+            <Button
+              variant="outline"
+              className="px-6 py-2 hover:bg-gray-50 dark:hover:bg-slate-800"
+              onClick={() => {
+                setShowGovModal(false);
+                setFormData(prev => ({ ...prev, withGov: false }));
+                // Clear gov attachments when canceling
+                setGovAttachments({
+                  brieferTemplate: null,
+                  availableForDLBriefer: null,
+                  programme: null
+                });
+                toast.info("Governor involvement canceled");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className={cn(
+                "px-8 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg",
+                "hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed",
+                "transition-all duration-200"
+              )}
+              onClick={() => {
+                if (!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme) {
+                  toast.error("Please upload all required files before continuing");
+                  return;
+                }
+                setShowGovModal(false);
+                toast.success("Governor requirements completed");
+              }}
+              disabled={!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Multiple Locations Modal */}
+      <Dialog open={showMultipleLocationsModal} onOpenChange={setShowMultipleLocationsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+              Configure Multiple Locations
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
+              Add multiple locations with different dates and times for each venue
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-6">
+            {multipleLocations.map((locationItem, index) => (
+              <Card key={index} className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-0 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Location {index + 1}
+                    </h3>
+                    {multipleLocations.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMultipleLocations(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 border-red-200 hover:border-red-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Location Name
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between h-12 text-base mt-1",
+                              isDarkMode 
+                                ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                                : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                            )}
+                          >
+                            {locationItem.location || "Select location..."}
+                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent 
+                          side="bottom"
+                          align="start"
+                          sideOffset={4}
+                          avoidCollisions={false}
+                          className={cn(
+                            "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
+                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                          )}
+                        >
+                          <Command className={isDarkMode ? "bg-slate-900" : "bg-white"}>
+                            <CommandInput 
+                              placeholder="Search locations..." 
+                              className={isDarkMode ? "text-white" : "text-gray-900"}
+                            />
+                            <CommandEmpty className={cn(
+                              "py-6 text-center text-sm",
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            )}>
+                              No location found.
+                            </CommandEmpty>
+                            <CommandGroup className="max-h-[200px] overflow-y-auto">
+                              <CommandItem
+                                onSelect={() => {
+                                  setMultipleLocations(prev => prev.map((item, i) => 
+                                    i === index ? { ...item, location: '', showCustomInput: true } : item
+                                  ));
+                                }}
+                                className={cn(
+                                  "cursor-pointer border-b",
+                                  isDarkMode 
+                                    ? "text-blue-400 hover:bg-slate-800 border-slate-700" 
+                                    : "text-blue-600 hover:bg-gray-100 border-gray-200"
+                                )}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add custom location
+                              </CommandItem>
+                              {[
+                               "Atrium",
+                                "Grand Lobby Entrance",
+                                "Main Entrance Lobby",
+                                "Main Entrance Leasable Area",
+                                "4th Flr. Conference Room 1",
+                                "4th Flr. Conference Room 2",
+                                "4th Flr. Conference Room 3",
+                                "5th Flr. Training Room 1 (BAC)",
+                                "5th Flr. Training Room 2",
+                                "6th Flr. Meeting Room 7",
+                                "6th Flr. DPOD",
+                                "Bataan Peoples Center",
+                                "Capitol Quadrangle",
+                                "1BOSSCO",
+                                "Emiliana Hall",
+                                "Pavilion"
+                              ].map((location) => (
+                                <CommandItem
+                                  key={location}
+                                  value={location}
+                                  onSelect={() => {
+                                    setMultipleLocations(prev => prev.map((item, i) => 
+                                      i === index ? { ...item, location, showCustomInput: false } : item
+                                    ));
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer",
+                                    isDarkMode 
+                                      ? "text-gray-200 hover:bg-slate-800" 
+                                      : "text-gray-900 hover:bg-gray-100"
+                                  )}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      locationItem.location === location ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {location}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      
+                      {locationItem.showCustomInput && (
+                        <Input
+                          placeholder="Enter custom location"
+                          value={locationItem.location}
+                          onChange={(e) => {
+                            setMultipleLocations(prev => prev.map((item, i) => 
+                              i === index ? { ...item, location: e.target.value } : item
+                            ));
+                          }}
+                          className="mt-2 h-11 bg-white border-0 shadow-sm focus:shadow-md transition-shadow"
+                          autoFocus
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Start Date
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-11 mt-1 bg-white border-0 shadow-sm hover:shadow-md transition-shadow",
+                                !locationItem.startDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {locationItem.startDate ? (
+                                new Date(locationItem.startDate).toLocaleDateString()
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 border-0 shadow-lg" align="start">
+                            <ModernCalendar
+                              selectedDate={locationItem.startDate ? new Date(locationItem.startDate) : null}
+                              onDateSelect={(date) => {
+                                const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                                setMultipleLocations(prev => prev.map((item, i) => 
+                                  i === index ? { ...item, startDate: formattedDate } : item
+                                ));
+                              }}
+                              isDarkMode={isDarkMode}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          End Date
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-11 mt-1 bg-white border-0 shadow-sm hover:shadow-md transition-shadow",
+                                !locationItem.endDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {locationItem.endDate ? (
+                                new Date(locationItem.endDate).toLocaleDateString()
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 border-0 shadow-lg" align="start">
+                            <ModernCalendar
+                              selectedDate={locationItem.endDate ? new Date(locationItem.endDate) : null}
+                              onDateSelect={(date) => {
+                                const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                                setMultipleLocations(prev => prev.map((item, i) => 
+                                  i === index ? { ...item, endDate: formattedDate } : item
+                                ));
+                              }}
+                              isDarkMode={isDarkMode}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Start Time
+                        </Label>
+                        <Select
+                          value={locationItem.startTime || ""}
+                          onValueChange={(value) => {
+                            setMultipleLocations(prev => prev.map((item, i) => 
+                              i === index ? { ...item, startTime: value } : item
+                            ));
+                          }}
+                        >
+                          <SelectTrigger className={cn(
+                            "w-full h-11 mt-1",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}>
+                            <SelectValue placeholder="Select start time" />
+                          </SelectTrigger>
+                          <SelectContent className={cn(
+                            "max-h-[200px]",
+                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                          )}>
+                            {[
+                              "03:00", "03:30", "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                              "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+                              "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+                              "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
+                            ].map((time) => {
+                              const [hours, minutes] = time.split(':');
+                              const hour = parseInt(hours);
+                              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                              const ampm = hour < 12 ? 'AM' : 'PM';
+                              const displayTime = `${displayHour}:${minutes} ${ampm}`;
+                              
+                              return (
+                                <SelectItem 
+                                  key={time} 
+                                  value={time}
+                                  className={cn(
+                                    "cursor-pointer",
+                                    isDarkMode 
+                                      ? "text-gray-200 hover:bg-slate-800 focus:bg-slate-800" 
+                                      : "text-gray-900 hover:bg-gray-100 focus:bg-gray-100"
+                                  )}
+                                >
+                                  {displayTime}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          End Time
+                        </Label>
+                        <Select
+                          value={locationItem.endTime || ""}
+                          onValueChange={(value) => {
+                            setMultipleLocations(prev => prev.map((item, i) => 
+                              i === index ? { ...item, endTime: value } : item
+                            ));
+                          }}
+                        >
+                          <SelectTrigger className={cn(
+                            "w-full h-11 mt-1",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}>
+                            <SelectValue placeholder="Select end time" />
+                          </SelectTrigger>
+                          <SelectContent className={cn(
+                            "max-h-[200px]",
+                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                          )}>
+                            {[
+                              "03:00", "03:30", "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                              "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+                              "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+                              "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
+                            ].map((time) => {
+                              const [hours, minutes] = time.split(':');
+                              const hour = parseInt(hours);
+                              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                              const ampm = hour < 12 ? 'AM' : 'PM';
+                              const displayTime = `${displayHour}:${minutes} ${ampm}`;
+                              
+                              return (
+                                <SelectItem 
+                                  key={time} 
+                                  value={time}
+                                  className={cn(
+                                    "cursor-pointer",
+                                    isDarkMode 
+                                      ? "text-gray-200 hover:bg-slate-800 focus:bg-slate-800" 
+                                      : "text-gray-900 hover:bg-gray-100 focus:bg-gray-100"
+                                  )}
+                                >
+                                  {displayTime}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setMultipleLocations(prev => [...prev, 
+                  { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
+                ]);
+              }}
+              className="w-full h-12 border-dashed border-2 text-gray-600 hover:text-gray-900 hover:border-gray-400"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Another Location
+            </Button>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setShowMultipleLocationsModal(false)}
+              className="px-6"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => setShowMultipleLocationsModal(false)}
+              className="bg-black text-white hover:bg-gray-800 px-6"
+            >
+              Save Locations
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ECR Template Modal */}
+      <Dialog open={showECRModal} onOpenChange={setShowECRModal}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white border border-gray-200">
+          <DialogHeader className="text-center relative">
+            <button
+              onClick={() => setShowECRModal(false)}
+              className="absolute right-0 top-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            </button>
+            <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-3">
+              <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+              Event Completion Report (ECR) Template
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 text-sm">
+              Default format for documenting completed events
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 w-1/3">
+                      Field
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 w-2/3">
+                      Description
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Event Title
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        name="eventTitle"
+                        value={ecrFormData.eventTitle}
+                        onChange={handleEcrInputChange}
+                        placeholder="Enter the complete title of the event"
+                        className="w-full border-0 p-0 text-sm bg-transparent focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Date and Venue
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        name="dateAndVenue"
+                        value={ecrFormData.dateAndVenue}
+                        onChange={handleEcrInputChange}
+                        placeholder="Enter event date and location/venue"
+                        className="w-full border-0 p-0 text-sm bg-transparent focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Organizing Office
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        name="organizingOffice"
+                        value={ecrFormData.organizingOffice}
+                        onChange={handleEcrInputChange}
+                        placeholder="Enter the department/office that organized the event"
+                        className="w-full border-0 p-0 text-sm bg-transparent focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Number of Participants
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        name="numberOfParticipants"
+                        value={ecrFormData.numberOfParticipants}
+                        onChange={handleEcrInputChange}
+                        placeholder="Enter total number of attendees/participants"
+                        className="w-full border-0 p-0 text-sm bg-transparent focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 align-top">
+                      Summary of Activities Conducted
+                    </td>
+                    <td className="px-4 py-3">
+                      <textarea
+                        name="summaryOfActivities"
+                        value={ecrFormData.summaryOfActivities}
+                        onChange={handleEcrInputChange}
+                        placeholder="Provide a detailed summary of all activities, sessions, and programs conducted during the event"
+                        className="w-full min-h-[80px] border-0 p-0 text-sm bg-transparent focus:ring-0 resize-none"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 align-top">
+                      Highlights and Key Results
+                    </td>
+                    <td className="px-4 py-3">
+                      <textarea
+                        name="highlightsAndResults"
+                        value={ecrFormData.highlightsAndResults}
+                        onChange={handleEcrInputChange}
+                        placeholder="List the main achievements, outcomes, and significant results of the event"
+                        className="w-full min-h-[80px] border-0 p-0 text-sm bg-transparent focus:ring-0 resize-none"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 align-top">
+                      Challenges Encountered
+                    </td>
+                    <td className="px-4 py-3">
+                      <textarea
+                        name="challengesEncountered"
+                        value={ecrFormData.challengesEncountered}
+                        onChange={handleEcrInputChange}
+                        placeholder="Document any problems, issues, or challenges faced during the event"
+                        className="w-full min-h-[80px] border-0 p-0 text-sm bg-transparent focus:ring-0 resize-none"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 align-top">
+                      Recommendations
+                    </td>
+                    <td className="px-4 py-3">
+                      <textarea
+                        name="recommendations"
+                        value={ecrFormData.recommendations}
+                        onChange={handleEcrInputChange}
+                        placeholder="Provide suggestions for improvement for future similar events"
+                        className="w-full min-h-[80px] border-0 p-0 text-sm bg-transparent focus:ring-0 resize-none"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 align-top">
+                      Photo Documentation
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files);
+                            setEcrPhotos(prev => [...prev, ...files]);
+                          }}
+                          className="hidden"
+                          id="ecr-photo-upload"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs bg-black text-white hover:bg-gray-800"
+                          onClick={() => document.getElementById('ecr-photo-upload').click()}
+                        >
+                          Upload Photos
+                        </Button>
+                        {ecrPhotos.length > 0 && (
+                          <div className="space-y-1">
+                            {ecrPhotos.map((photo, index) => (
+                              <div key={index} className="flex items-center gap-2 text-xs">
+                                <FileText className="h-3 w-3 text-green-500" />
+                                <span className="text-gray-600 dark:text-gray-400 truncate">
+                                  {photo.name}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-5 px-1 text-xs"
+                                  onClick={() => setEcrPhotos(prev => prev.filter((_, i) => i !== index))}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Prepared By / Date
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Input
+                          name="preparedBy"
+                          value={ecrFormData.preparedBy}
+                          onChange={handleEcrInputChange}
+                          placeholder="Name of person who prepared the report"
+                          className="flex-1 border-0 p-0 text-sm bg-transparent focus:ring-0"
+                        />
+                        <span className="text-gray-400">/</span>
+                        <Input
+                          name="preparedDate"
+                          value={ecrFormData.preparedDate}
+                          onChange={handleEcrInputChange}
+                          placeholder="Date"
+                          className="flex-1 border-0 p-0 text-sm bg-transparent focus:ring-0"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2">
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-700 shadow-lg"
+                onClick={previewPDF}
+                disabled={!ecrFormData.eventTitle || !ecrFormData.dateAndVenue}
+              >
+                📄 Preview PDF
+              </Button>
+              <Button
+                className="bg-green-600 text-white hover:bg-green-700 shadow-lg"
+                onClick={downloadPDF}
+                disabled={!ecrFormData.eventTitle || !ecrFormData.dateAndVenue}
+              >
+                📥 Download PDF
+              </Button>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                className="hover:bg-gray-50 dark:hover:bg-slate-800"
+                onClick={() => setShowECRModal(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post Briefer Template Modal */}
+      <TemplateModal
+        isOpen={showPostBrieferModal}
+        onClose={() => setShowPostBrieferModal(false)}
+        title="Post Briefer Template"
+        description="Complete the post briefer template for event documentation"
+        icon={FileText}
+        templateType="post_briefer"
+        fields={[
+          { key: 'eventTitle', label: 'Event Title:', type: 'text' },
+          { key: 'proponentOffice', label: 'Proponent Office/Department:', type: 'text' },
+          { key: 'dateAndTime', label: 'Date and Time:', type: 'text' },
+          { key: 'venue', label: 'Venue:', type: 'text' },
+          { key: 'objective', label: 'Objective:', type: 'textarea' },
+          { key: 'targetAudience', label: 'Target Audience/Participants:', type: 'text' },
+          { key: 'expectedParticipants', label: 'Expected Number of Participants:', type: 'text' },
+          { key: 'briefDescription', label: 'Brief Description of the Activity:', type: 'textarea' }
+        ]}
+        onFileGenerated={(file) => {
+          setGovAttachments(prev => ({ ...prev, brieferTemplate: file }));
+        }}
+      />
     </motion.div>
   );
 };

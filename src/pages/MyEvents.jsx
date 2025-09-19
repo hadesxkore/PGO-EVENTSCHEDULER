@@ -250,8 +250,21 @@ const MyEvents = () => {
   }, [error]);
 
   const filteredEvents = events.filter(event => {
-    return event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const titleMatch = event.title?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+    
+    // Handle both single location and multiple locations
+    let locationMatch = false;
+    if (event.location) {
+      // Single location
+      locationMatch = event.location.toLowerCase().includes(searchTerm.toLowerCase());
+    } else if (event.locations && Array.isArray(event.locations)) {
+      // Multiple locations
+      locationMatch = event.locations.some(loc => 
+        loc.location?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    return titleMatch || locationMatch;
   });
 
   const container = {
@@ -466,10 +479,10 @@ const MyEvents = () => {
                       <TableRow 
                         key={event.id} 
                         className={cn(
-                          "border-b transition-all duration-200 hover:shadow-sm",
+                          "border-b-2 border-gray-300 dark:border-slate-600 transition-all duration-200 hover:shadow-sm",
                           isDarkMode 
-                            ? "border-slate-700 hover:bg-slate-800/30" 
-                            : "border-gray-200 hover:bg-gray-50/50",
+                            ? "hover:bg-slate-800/30" 
+                            : "hover:bg-gray-50/50",
                           index % 2 === 0 
                             ? isDarkMode 
                               ? "bg-slate-900/20" 
@@ -519,22 +532,38 @@ const MyEvents = () => {
                         )}>
                           <div className="space-y-2">
                             {event.locations && event.locations.length > 0 ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedEvent(event);
-                                  setIsViewDialogOpen(true);
-                                }}
-                                className={cn(
-                                  "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
-                                  isDarkMode
-                                    ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
-                                    : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                              <div className="space-y-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedEvent(event);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
+                                    isDarkMode
+                                      ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
+                                      : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                                  )}
+                                >
+                                  View Schedule
+                                </Button>
+                                {event.recentActivity && event.recentActivity.length > 0 && (
+                                  <motion.div 
+                                    className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+                                    whileHover={{ scale: 1.05 }}
+                                    transition={{ duration: 0.2 }}
+                                    onClick={() => {
+                                      setSelectedEventActivity(event);
+                                      setIsActivityDialogOpen(true);
+                                    }}
+                                  >
+                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs font-medium text-black">Updated</span>
+                                  </motion.div>
                                 )}
-                              >
-                                View Schedule
-                              </Button>
+                              </div>
                             ) : (
                               <div className={cn(
                                 "text-xs font-medium px-3 py-2 rounded-md",
@@ -567,22 +596,38 @@ const MyEvents = () => {
                         )}>
                           <div className="space-y-2">
                             {event.locations && event.locations.length > 0 ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedEvent(event);
-                                  setIsViewDialogOpen(true);
-                                }}
-                                className={cn(
-                                  "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
-                                  isDarkMode
-                                    ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
-                                    : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                              <div className="space-y-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedEvent(event);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "text-xs px-3 py-2 h-auto font-medium shadow-sm border transition-all duration-200",
+                                    isDarkMode
+                                      ? "text-slate-200 border-slate-500 bg-slate-800/50 hover:bg-slate-700/50 hover:border-slate-400"
+                                      : "text-gray-700 border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"
+                                  )}
+                                >
+                                  View Schedule
+                                </Button>
+                                {event.recentActivity && event.recentActivity.length > 0 && (
+                                  <motion.div 
+                                    className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+                                    whileHover={{ scale: 1.05 }}
+                                    transition={{ duration: 0.2 }}
+                                    onClick={() => {
+                                      setSelectedEventActivity(event);
+                                      setIsActivityDialogOpen(true);
+                                    }}
+                                  >
+                                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs font-medium text-black">Updated</span>
+                                  </motion.div>
                                 )}
-                              >
-                                View Schedule
-                              </Button>
+                              </div>
                             ) : (
                               <div className={cn(
                                 "text-xs font-medium px-3 py-2 rounded-md",
@@ -637,7 +682,7 @@ const MyEvents = () => {
                                 {event.location}
                               </div>
                             )}
-                            {event.recentActivity && event.recentActivity.some(activity => activity.type === 'location') && (
+                            {event.recentActivity && event.recentActivity.length > 0 && (
                               <motion.div 
                                 className="flex items-center justify-center gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
                                 whileHover={{ scale: 1.05 }}
@@ -1933,11 +1978,32 @@ const MyEvents = () => {
                       });
 
                       if (!originalHasMultiple || JSON.stringify(eventToEdit.locations) !== JSON.stringify(currentMultipleLocations)) {
+                        // Create detailed old value
+                        let oldValueDetails = 'Single location';
+                        if (originalHasMultiple && eventToEdit.locations) {
+                          oldValueDetails = eventToEdit.locations.map((loc, idx) => 
+                            `Location ${idx + 1}: ${loc.location}\n${format(new Date(loc.startDate.seconds * 1000), "MMM d, yyyy h:mm a")} - ${format(new Date(loc.endDate.seconds * 1000), "h:mm a")}`
+                          ).join('\n\n');
+                        }
+                        
+                        // Create detailed new value
+                        const newValueDetails = validLocations.map((loc, idx) => {
+                          const [startHours, startMinutes] = loc.startTime.split(':');
+                          const startDateTime = new Date(loc.startDate);
+                          startDateTime.setHours(parseInt(startHours), parseInt(startMinutes));
+                          
+                          const [endHours, endMinutes] = loc.endTime.split(':');
+                          const endDateTime = new Date(loc.endDate);
+                          endDateTime.setHours(parseInt(endHours), parseInt(endMinutes));
+                          
+                          return `Location ${idx + 1}: ${loc.location}\n${format(startDateTime, "MMM d, yyyy h:mm a")} - ${format(endDateTime, "h:mm a")}`;
+                        }).join('\n\n');
+                        
                         changes.push({
                           type: 'multipleLocations',
                           field: 'Multiple Locations',
-                          oldValue: originalHasMultiple ? `${eventToEdit.locations.length} locations` : 'Single location',
-                          newValue: `${validLocations.length} locations configured`,
+                          oldValue: oldValueDetails,
+                          newValue: newValueDetails,
                           timestamp: new Date(),
                           userId: auth.currentUser.uid,
                           userName: auth.currentUser.displayName || auth.currentUser.email
@@ -2552,124 +2618,162 @@ const MyEvents = () => {
               </div>
               
               <div className="p-6 space-y-6">
-                {/* Location Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'location') && (
+                {/* Combined Event Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      Location Changes
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      Event Configuration Changes
                     </h3>
-                    <div className="space-y-3">
-                      {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'location')
-                        .map((activity, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
-                              </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
-                              </div>
-                              <div className="text-sm text-black pt-2 border-t border-gray-200">
-                                Changed by {activity.userName} • {(() => {
-                                  try {
-                                    let date;
-                                    if (activity.timestamp?.toDate) {
-                                      date = activity.timestamp.toDate();
-                                    } else if (activity.timestamp?.seconds) {
-                                      date = new Date(activity.timestamp.seconds * 1000);
-                                    } else if (activity.timestamp) {
-                                      date = new Date(activity.timestamp);
-                                    } else {
-                                      return "Unknown time";
-                                    }
-                                    return format(date, 'MMM d, yyyy h:mm a');
-                                  } catch (error) {
-                                    console.error('Date formatting error:', error);
-                                    return "Invalid date";
-                                  }
-                                })()}
-                              </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="space-y-4">
+                        {/* Updated Configuration */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-semibold text-gray-700">Updated Configuration</span>
+                          </div>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="text-sm text-gray-800 space-y-2">
+                              {/* Location Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'location')
+                                .map((activity, index) => (
+                                  <div key={`location-new-${index}`}>
+                                    <span className="font-medium">Location: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
+                              {/* Start Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'startDateTime')
+                                .map((activity, index) => (
+                                  <div key={`start-new-${index}`}>
+                                    <span className="font-medium">Start Date & Time: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
+                              {/* End Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'endDateTime')
+                                .map((activity, index) => (
+                                  <div key={`end-new-${index}`}>
+                                    <span className="font-medium">End Date & Time: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
                             </div>
                           </div>
-                        ))
-                      }
+                        </div>
+
+                        {/* Previous Configuration */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
+                          </div>
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="text-sm text-gray-800 space-y-2">
+                              {/* Location Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'location')
+                                .map((activity, index) => (
+                                  <div key={`location-old-${index}`}>
+                                    <span className="font-medium">Location: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
+                              {/* Start Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'startDateTime')
+                                .map((activity, index) => (
+                                  <div key={`start-old-${index}`}>
+                                    <span className="font-medium">Start Date & Time: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
+                              {/* End Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'endDateTime')
+                                .map((activity, index) => (
+                                  <div key={`end-old-${index}`}>
+                                    <span className="font-medium">End Date & Time: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-sm text-black pt-2 border-t border-gray-200">
+                          Changed by {selectedEventActivity.recentActivity[0]?.userName} • {(() => {
+                            try {
+                              const activity = selectedEventActivity.recentActivity[0];
+                              let date;
+                              if (activity.timestamp?.toDate) {
+                                date = activity.timestamp.toDate();
+                              } else if (activity.timestamp?.seconds) {
+                                date = new Date(activity.timestamp.seconds * 1000);
+                              } else if (activity.timestamp) {
+                                date = new Date(activity.timestamp);
+                              } else {
+                                return "Unknown time";
+                              }
+                              return format(date, 'MMM d, yyyy h:mm a');
+                            } catch (error) {
+                              console.error('Date formatting error:', error);
+                              return "Invalid date";
+                            }
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Start Date & Time Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'startDateTime') && (
+                {/* Multiple Locations Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'multipleLocations') && (
                   <div>
                     <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      Start Date & Time Changes
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      Multiple Locations Changes
                     </h3>
                     <div className="space-y-3">
                       {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'startDateTime')
+                        .filter(activity => activity.type === 'multipleLocations')
                         .map((activity, index) => (
                           <div key={index} className="border border-gray-200 rounded-lg p-4">
                             <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
+                              {/* Updated Configuration */}
+                              <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-sm font-semibold text-gray-700">Updated Configuration</span>
+                                </div>
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                  <div className="text-sm text-gray-800 whitespace-pre-line">
+                                    {activity.newValue}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
-                              </div>
-                              <div className="text-sm text-black pt-2 border-t border-gray-200">
-                                Changed by {activity.userName} • {(() => {
-                                  try {
-                                    let date;
-                                    if (activity.timestamp?.toDate) {
-                                      date = activity.timestamp.toDate();
-                                    } else if (activity.timestamp?.seconds) {
-                                      date = new Date(activity.timestamp.seconds * 1000);
-                                    } else if (activity.timestamp) {
-                                      date = new Date(activity.timestamp);
-                                    } else {
-                                      return "Unknown time";
-                                    }
-                                    return format(date, 'MMM d, yyyy h:mm a');
-                                  } catch (error) {
-                                    console.error('Date formatting error:', error);
-                                    return "Invalid date";
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                )}
 
-                {/* End Date & Time Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'endDateTime') && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                      End Date & Time Changes
-                    </h3>
-                    <div className="space-y-3">
-                      {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'endDateTime')
-                        .map((activity, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
-                              </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
+                              {/* Previous Configuration */}
+                              <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                  <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                  <div className="text-sm text-gray-800 whitespace-pre-line">
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                </div>
                               </div>
                               <div className="text-sm text-black pt-2 border-t border-gray-200">
                                 Changed by {activity.userName} • {(() => {

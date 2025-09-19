@@ -93,6 +93,11 @@ const MainLayout = ({ children, userData }) => {
       href: "/my-events",
     },
     {
+      title: "Calendar",
+      icon: <CalendarClock className="h-6 w-6" />,
+      href: "/calendar",
+    },
+    {
       title: "All Events",
       icon: <CalendarDays className="h-6 w-6" />,
       href: "/all-events",

@@ -41,7 +41,6 @@ export const getUserDashboardStats = async (uid) => {
         } else if (eventData.date?.seconds) {
           eventDate = new Date(eventData.date.seconds * 1000);
         } else {
-          console.warn('Invalid date format for event:', eventData);
           return null;
         }
         
@@ -70,7 +69,6 @@ export const getUserDashboardStats = async (uid) => {
         } else if (eventData.date?.seconds) {
           eventDate = new Date(eventData.date.seconds * 1000);
         } else {
-          console.warn('Invalid date format for event:', eventData);
           return null;
         }
         
@@ -133,7 +131,6 @@ export const getUserDashboardStats = async (uid) => {
       } else if (eventData.date instanceof Date) {
         eventDate = new Date(eventData.date);
       } else {
-        console.warn('Invalid date format for event:', eventData);
         return false;
       }
       
@@ -155,7 +152,6 @@ export const getUserDashboardStats = async (uid) => {
       } else if (eventData.date instanceof Date) {
         eventDate = new Date(eventData.date);
       } else {
-        console.warn('Invalid date format for event:', eventData);
         return total;
       }
       

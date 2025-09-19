@@ -118,6 +118,7 @@ const EventRequests = () => {
   const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [selectedEventActivity, setSelectedEventActivity] = useState(null);
+  const [selectedEventForAction, setSelectedEventForAction] = useState(null);
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -130,14 +131,11 @@ const EventRequests = () => {
       const result = await getAllEventRequests();
       
       if (result.success) {
-        console.log('Fetched events:', result.requests);
-        console.log('First event data:', result.requests[0]);
         setEvents(result.requests);
       } else {
         toast.error("Failed to fetch events");
       }
     } catch (error) {
-      console.error('Error fetching events:', error);
       toast.error("An error occurred while fetching events");
     } finally {
       setLoading(false);
@@ -649,22 +647,44 @@ const EventRequests = () => {
                       <TableCell className="py-3 px-4">
                         <div className="space-y-1">
                           {event.locations && event.locations.length > 0 ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(event);
-                                setIsViewDialogOpen(true);
-                              }}
-                              className={cn(
-                                "text-xs px-2 py-1 h-auto transition-all duration-200",
-                                isDarkMode 
-                                  ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
-                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                            <div className="space-y-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedRequest(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "text-xs px-2 py-1 h-auto transition-all duration-200",
+                                  isDarkMode 
+                                    ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
+                                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                                )}
+                              >
+                                View Schedule
+                              </Button>
+                              {event.recentActivity && event.recentActivity.length > 0 && (
+                                <motion.div 
+                                  className={cn(
+                                    "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                    isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                                  )}
+                                  whileHover={{ scale: 1.02 }}
+                                  transition={{ duration: 0.2 }}
+                                  onClick={() => {
+                                    setSelectedEventActivity(event);
+                                    setIsActivityDialogOpen(true);
+                                  }}
+                                >
+                                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                                  <span className={cn(
+                                    "text-xs font-medium",
+                                    isDarkMode ? "text-green-400" : "text-green-600"
+                                  )}>Updated</span>
+                                </motion.div>
                               )}
-                            >
-                              View Schedule
-                            </Button>
+                            </div>
                           ) : (
                             <div>
                               <p className={cn(
@@ -708,22 +728,44 @@ const EventRequests = () => {
                       <TableCell className="py-3 px-4">
                         <div className="space-y-1">
                           {event.locations && event.locations.length > 0 ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRequest(event);
-                                setIsViewDialogOpen(true);
-                              }}
-                              className={cn(
-                                "text-xs px-2 py-1 h-auto transition-all duration-200",
-                                isDarkMode 
-                                  ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
-                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                            <div className="space-y-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedRequest(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "text-xs px-2 py-1 h-auto transition-all duration-200",
+                                  isDarkMode 
+                                    ? "bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700" 
+                                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                                )}
+                              >
+                                View Schedule
+                              </Button>
+                              {event.recentActivity && event.recentActivity.length > 0 && (
+                                <motion.div 
+                                  className={cn(
+                                    "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                    isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                                  )}
+                                  whileHover={{ scale: 1.02 }}
+                                  transition={{ duration: 0.2 }}
+                                  onClick={() => {
+                                    setSelectedEventActivity(event);
+                                    setIsActivityDialogOpen(true);
+                                  }}
+                                >
+                                  <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                                  <span className={cn(
+                                    "text-xs font-medium",
+                                    isDarkMode ? "text-orange-400" : "text-orange-600"
+                                  )}>Updated</span>
+                                </motion.div>
                               )}
-                            >
-                              View Schedule
-                            </Button>
+                            </div>
                           ) : (
                             <div>
                               <p className={cn(
@@ -765,14 +807,36 @@ const EventRequests = () => {
                       <TableCell className="py-3 px-4">
                         <div className="space-y-1">
                           {event.locations && event.locations.length > 0 ? (
-                            <Badge variant="outline" className={cn(
-                              "text-xs px-2 py-1",
-                              isDarkMode 
-                                ? "bg-slate-800 border-slate-600 text-slate-200" 
-                                : "bg-white border-gray-300 text-gray-700"
-                            )}>
-                              {event.locations.length} locations
-                            </Badge>
+                            <div className="space-y-2">
+                              <Badge variant="outline" className={cn(
+                                "text-xs px-2 py-1",
+                                isDarkMode 
+                                  ? "bg-slate-800 border-slate-600 text-slate-200" 
+                                  : "bg-white border-gray-300 text-gray-700"
+                              )}>
+                                {event.locations.length} locations
+                              </Badge>
+                              {event.recentActivity && event.recentActivity.length > 0 && (
+                                <motion.div 
+                                  className={cn(
+                                    "flex items-center gap-1 cursor-pointer rounded px-1 py-0.5 transition-colors duration-200",
+                                    isDarkMode ? "hover:bg-slate-700" : "hover:bg-gray-100"
+                                  )}
+                                  whileHover={{ scale: 1.02 }}
+                                  transition={{ duration: 0.2 }}
+                                  onClick={() => {
+                                    setSelectedEventActivity(event);
+                                    setIsActivityDialogOpen(true);
+                                  }}
+                                >
+                                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                                  <span className={cn(
+                                    "text-xs font-medium",
+                                    isDarkMode ? "text-blue-400" : "text-blue-600"
+                                  )}>Updated</span>
+                                </motion.div>
+                              )}
+                            </div>
                           ) : (
                             <p className={cn(
                               "text-sm font-medium truncate",
@@ -916,6 +980,7 @@ const EventRequests = () => {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setSelectedEventForAction(event);
                                   setIsApproveDialogOpen(true);
                                 }}
                                 className={cn(
@@ -948,6 +1013,7 @@ const EventRequests = () => {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setSelectedEventForAction(event);
                                   setDisapprovalReason("");
                                   setIsReasonDialogOpen(true);
                                 }}
@@ -1013,21 +1079,30 @@ const EventRequests = () => {
                                 </Button>
                                 <Button
                                   className="bg-green-500 hover:bg-green-600 text-white"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
+                                  onClick={async () => {
                                     try {
                                       // TODO: Get actual admin ID from auth context
                                       const adminId = "admin"; // Temporary admin ID
-                                      const result = await updateEventRequestStatus(event.id, 'approved', adminId);
+                                      const result = await updateEventRequestStatus(selectedEventForAction.id, 'approved', adminId);
                                       if (result.success) {
                                         toast.success("Event request approved successfully");
-                                        await fetchEvents();
+                                        // Immediately update the local state
+                                        setEvents(prevEvents => 
+                                          prevEvents.map(e => 
+                                            e.id === selectedEventForAction.id 
+                                              ? { ...e, status: 'approved', adminId: 'admin', actionDate: new Date() }
+                                              : e
+                                          )
+                                        );
                                         setIsApproveDialogOpen(false);
+                                        // Also fetch fresh data to ensure consistency
+                                        setTimeout(async () => {
+                                          await fetchEvents();
+                                        }, 1000);
                                       } else {
                                         toast.error("Failed to approve event request");
                                       }
                                     } catch (error) {
-                                      console.error('Error approving event:', error);
                                       toast.error("Failed to approve event request");
                                     }
                                   }}
@@ -1093,17 +1168,27 @@ const EventRequests = () => {
                                       try {
                                         // TODO: Get actual admin ID from auth context
                                         const adminId = "admin"; // Temporary admin ID
-                                        const result = await updateEventRequestStatus(event.id, 'disapproved', adminId, disapprovalReason.trim());
+                                        const result = await updateEventRequestStatus(selectedEventForAction.id, 'disapproved', adminId, disapprovalReason.trim());
                                         if (result.success) {
                                           toast.success("Event request disapproved with reason provided");
-                                          await fetchEvents();
+                                          // Immediately update the local state
+                                          setEvents(prevEvents => 
+                                            prevEvents.map(e => 
+                                              e.id === selectedEventForAction.id 
+                                                ? { ...e, status: 'disapproved', adminId: 'admin', actionDate: new Date(), disapprovalReason: disapprovalReason.trim() }
+                                                : e
+                                            )
+                                          );
                                           setIsReasonDialogOpen(false);
                                           setDisapprovalReason(""); // Reset the reason after successful update
+                                          // Also fetch fresh data to ensure consistency
+                                          setTimeout(async () => {
+                                            await fetchEvents();
+                                          }, 1000);
                                         } else {
                                           toast.error("Failed to disapprove event request");
                                         }
                                       } catch (error) {
-                                        console.error('Error disapproving event:', error);
                                         toast.error("Failed to disapprove event request");
                                       }
                                     }}
@@ -1606,7 +1691,6 @@ const EventRequests = () => {
                                 try {
                                   await downloadFile(file.url, file.name);
                                 } catch (error) {
-                                  console.error('Download error:', error);
                                   toast.error('Failed to download file');
                                 }
                               }}
@@ -1824,7 +1908,6 @@ const EventRequests = () => {
                                     }
                                     return format(date, 'MMM d, yyyy h:mm a');
                                   } catch (error) {
-                                    console.error('Date formatting error:', error);
                                     return "Invalid date";
                                   }
                                 })()}
@@ -1873,7 +1956,6 @@ const EventRequests = () => {
                                     }
                                     return format(date, 'MMM d, yyyy h:mm a');
                                   } catch (error) {
-                                    console.error('Date formatting error:', error);
                                     return "Invalid date";
                                   }
                                 })()}
@@ -1922,7 +2004,6 @@ const EventRequests = () => {
                                     }
                                     return format(date, 'MMM d, yyyy h:mm a');
                                   } catch (error) {
-                                    console.error('Date formatting error:', error);
                                     return "Invalid date";
                                   }
                                 })()}
@@ -1931,6 +2012,70 @@ const EventRequests = () => {
                           </div>
                         ))
                       }
+                    </div>
+                  </div>
+                )}
+
+                {/* Multiple Locations Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'multipleLocations') && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      Multiple Locations Changes
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedEventActivity.recentActivity
+                        .filter(activity => activity.type === 'multipleLocations')
+                        .map((activity, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4">
+                            <div className="space-y-3">
+                              {/* Previous Configuration */}
+                              <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                  <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                  <div className="text-sm text-gray-800 whitespace-pre-line">
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Updated Configuration */}
+                              <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-sm font-semibold text-gray-700">Updated Configuration</span>
+                                </div>
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                  <div className="text-sm text-gray-800 whitespace-pre-line">
+                                    {activity.newValue}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-sm text-black pt-2 border-t border-gray-200">
+                                Changed by {activity.userName} • {(() => {
+                                  try {
+                                    let date;
+                                    if (activity.timestamp?.toDate) {
+                                      date = activity.timestamp.toDate();
+                                    } else if (activity.timestamp?.seconds) {
+                                      date = new Date(activity.timestamp.seconds * 1000);
+                                    } else if (activity.timestamp) {
+                                      date = new Date(activity.timestamp);
+                                    } else {
+                                      return "Unknown time";
+                                    }
+                                    return format(date, 'MMM d, yyyy h:mm a');
+                                  } catch (error) {
+                                    return "Invalid date";
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}

@@ -81,7 +81,6 @@ const getInitials = (fullName) => {
 };
 
 const AllEvents = ({ userData }) => {
-  console.log('AllEvents component userData:', userData); // Debug log
   const { isDarkMode } = useTheme();
   const { 
     allEvents,
@@ -242,16 +241,6 @@ const AllEvents = ({ userData }) => {
       
       // Check if event is clickable (only if user created it)
       const isClickable = props.event.userId === userData?.uid;
-      
-      // Debug log to check user and event data
-      console.log('Event click check:', {
-        eventUserId: props.event.userId,
-        eventUserEmail: props.event.userEmail,
-        currentUserId: userData?.uid,
-        currentUserEmail: userData?.email,
-        isClickable,
-        event: props.event
-      });
 
       // If user is Admin, they can see all events
       const isFromUserDepartment = role === "Admin" || (currentUser && userDepartment === props.event.department);
@@ -499,7 +488,7 @@ const AllEvents = ({ userData }) => {
             isDarkMode ? "text-white" : "text-gray-900"
           )}
         >
-          All Events
+          Calendar
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0, y: -10 }}
@@ -510,7 +499,7 @@ const AllEvents = ({ userData }) => {
             isDarkMode ? "text-gray-400" : "text-gray-500"
           )}
         >
-          View and manage all event schedules
+          View and manage all event schedules in calendar format
         </motion.p>
       </div>
 
@@ -999,16 +988,6 @@ const AllEvents = ({ userData }) => {
                               : "bg-gray-50/50 border border-gray-100/50 opacity-60 cursor-not-allowed")
                       )}
                       onClick={() => {
-                        // Debug log to check user and event data
-                        console.log('Event click check in +1 modal:', {
-                          eventUserId: event.userId,
-                          eventUserEmail: event.userEmail,
-                          currentUserId: currentUser?.uid,
-                          currentUserEmail: currentUser?.email,
-                          role: role,
-                          isOwner: role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email
-                        });
-                        
                         // Check if user is admin or owner of the event
                         if (role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email) {
                           setSelectedEvent(event);

@@ -3,27 +3,28 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import { 
-  Tag, 
   FileText, 
-  X, 
   Calendar, 
   Clock, 
   Users, 
-  ChevronLeft, 
+  MapPin, 
+  ArrowLeft, 
+  CalendarDays, 
+  Building2, 
+  Target, 
+  UserCheck, 
+  AlertCircle, 
+  
+  CheckCircle2, 
+  UserPlus, 
   ChevronRight,
-  ChevronDown,
-  ArrowLeft,
-  Building2,
-  CalendarDays,
-  MapPin,
-  UserPlus,
-  CheckCircle2,
-  AlertCircle
+  ArrowRight,
+  Search,
+  X
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
@@ -35,18 +36,17 @@ import useEventStore from "@/store/eventStore";
 import useMessageStore from "@/store/messageStore";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Separator } from "@/components/ui/separator";
 
 const TaggedDepartments = () => {
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-
-  // State for events data
   const [events, setEvents] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState(location.state?.selectedTab || "created");
 
   // Get message store actions
   const { usersWhoTaggedMe, setUsersWhoTaggedMe } = useMessageStore();
@@ -101,6 +101,8 @@ const TaggedDepartments = () => {
                 endDate: eventData.endDate,
                 date: eventData.date,
                 location: eventData.location,
+                locations: eventData.locations,
+                isMultipleLocations: eventData.isMultipleLocations,
                 participants: eventData.participants,
       tagType: 'received',
                 requirements: taggedDept.requirements || []
@@ -117,6 +119,8 @@ const TaggedDepartments = () => {
                 endDate: eventData.endDate,
                 date: eventData.date,
                 location: eventData.location,
+                locations: eventData.locations,
+                isMultipleLocations: eventData.isMultipleLocations,
                 participants: eventData.participants,
       tagType: 'sent',
                 requirements: departmentRequirements.map(dept => ({
@@ -134,7 +138,6 @@ const TaggedDepartments = () => {
         setError(null);
       } catch (err) {
         setError('Failed to fetch tagged events');
-        console.error('Error fetching tagged events:', err);
         toast.error('Failed to fetch tagged events');
       } finally {
         setLoading(false);
@@ -150,6 +153,68 @@ const TaggedDepartments = () => {
       toast.error(error);
     }
   }, [error]);
+
+  // Helper function to get location display text
+  const getLocationDisplay = (event) => {
+    if (event.isMultipleLocations && event.locations && event.locations.length > 0) {
+      const validLocations = event.locations.filter(loc => loc.location && loc.location.trim());
+      if (validLocations.length === 1) {
+        return validLocations[0].location;
+      } else if (validLocations.length > 1) {
+        return `${validLocations.length} locations`;
+      }
+    }
+    return event.location || 'TBD';
+  };
+
+  // Helper function to get date display for multiple locations
+  const getDateDisplay = (event) => {
+    if (event.isMultipleLocations && event.locations && event.locations.length > 0) {
+      const validLocations = event.locations.filter(loc => loc.startDate);
+      if (validLocations.length > 0) {
+        // Show the earliest start date
+        const earliestDate = validLocations.reduce((earliest, loc) => {
+          const locDate = loc.startDate?.toDate ? loc.startDate.toDate() : new Date(loc.startDate);
+          const earliestDate = earliest?.toDate ? earliest.toDate() : new Date(earliest);
+          return locDate < earliestDate ? loc.startDate : earliest;
+        }, validLocations[0].startDate);
+        
+        const dateObj = earliestDate?.toDate ? earliestDate.toDate() : new Date(earliestDate);
+        return format(dateObj, "MMM d");
+      }
+    }
+    
+    if (event.startDate?.toDate) {
+      return format(event.startDate.toDate(), "MMM d");
+    }
+    return 'TBD';
+  };
+
+  // Filter events based on search query
+  const filterEvents = (eventsList, query) => {
+    if (!query.trim()) return eventsList;
+    
+    const searchTerm = query.toLowerCase().trim();
+    return eventsList.filter(event => {
+      // Search in title
+      if (event.title?.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in department
+      if (event.department?.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in location (single location)
+      if (event.location?.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in multiple locations
+      if (event.isMultipleLocations && event.locations) {
+        return event.locations.some(loc => 
+          loc.location?.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      return false;
+    });
+  };
 
   const container = {
     hidden: { opacity: 0 },
@@ -168,58 +233,85 @@ const TaggedDepartments = () => {
 
 
 
-  // Debug logs
-  console.log('Rendering TaggedDepartments page');
-
   return (
     <AnimatePresence mode="wait">
-    <motion.div
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className="min-h-screen"
-    >
-      {/* Header */}
+        className={cn(
+          "min-h-screen",
+          isDarkMode ? "bg-slate-950" : "bg-white"
+        )}
+      >
+        {/* Simple Header */}
         <div className={cn(
-          "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
-          isDarkMode ? "border-slate-700/50" : "border-slate-200"
+          "sticky top-0 z-50 w-full border-b",
+          isDarkMode 
+            ? "bg-slate-950 border-slate-800" 
+            : "bg-white border-slate-200"
         )}>
           <div className="container flex h-16 items-center">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-              className="mr-4"
-        >
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className={cn(
+                "mr-4",
+                isDarkMode 
+                  ? "hover:bg-slate-800 text-slate-400 hover:text-white" 
+                  : "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
+              )}
+            >
               <ArrowLeft className="h-5 w-5" />
-        </Button>
-            <div className="flex items-center gap-2">
-              <Building2 className={cn(
-                "h-6 w-6",
-                isDarkMode ? "text-purple-400" : "text-purple-600"
-              )} />
-              <h1 className="font-semibold text-lg">Tagged Departments</h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="container py-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h2 className={cn(
-                  "text-2xl font-semibold tracking-tight",
+            </Button>
+            
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                isDarkMode 
+                  ? "bg-blue-500/20" 
+                  : "bg-blue-50"
+              )}>
+                <Building2 className={cn(
+                  "h-5 w-5",
+                  isDarkMode ? "text-blue-400" : "text-blue-600"
+                )} />
+              </div>
+              
+              <div>
+                <h1 className={cn(
+                  "text-lg font-semibold",
                   isDarkMode ? "text-white" : "text-slate-900"
-                )}>Department Events</h2>
+                )}>
+                  Tagged Departments
+                </h1>
                 <p className={cn(
                   "text-sm",
                   isDarkMode ? "text-slate-400" : "text-slate-500"
                 )}>
-                  View and manage events where your department has been tagged
+                  Department collaboration events
                 </p>
               </div>
             </div>
-            <Separator className={isDarkMode ? "bg-slate-700" : "bg-slate-200"} />
+          </div>
+        </div>
+
+        {/* Simple Title Section */}
+        <div className="container py-8">
+          <div className="text-center">
+            <h2 className={cn(
+              "text-2xl font-bold mb-2",
+              isDarkMode ? "text-white" : "text-slate-900"
+            )}>
+              Department Events
+            </h2>
+            <p className={cn(
+              "text-base",
+              isDarkMode ? "text-slate-400" : "text-slate-600"
+            )}>
+              View and manage collaborative events
+            </p>
           </div>
         </div>
 
@@ -230,245 +322,294 @@ const TaggedDepartments = () => {
           animate={{ opacity: 1 }}
           className="container mt-6"
         >
-          <Tabs defaultValue={location.state?.selectedTab || "created"} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="created">Created Events</TabsTrigger>
-              <TabsTrigger value="tagged" className="relative">
-                Tagged Events
-                {events.filter(event => event.tagType === 'received').length > 0 && (
-                  <span className={cn(
-                    "absolute -top-2 -right-2 min-w-[20px] h-5 rounded-full px-1 text-xs font-medium flex items-center justify-center",
-                    isDarkMode 
-                      ? "bg-purple-500 text-white" 
-                      : "bg-purple-600 text-white"
-                  )}>
-                    {events.filter(event => event.tagType === 'received').length}
-                  </span>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-6xl mx-auto">
+            <TabsList className={cn(
+              "grid w-full grid-cols-2 mb-6 p-1 rounded-lg h-auto",
+              isDarkMode 
+                ? "bg-slate-800" 
+                : "bg-slate-100"
+            )}>
+              <TabsTrigger 
+                value="created" 
+                className={cn(
+                  "py-3 px-4 font-medium transition-all duration-200 rounded-md h-full flex items-center justify-center",
+                  isDarkMode 
+                    ? "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-300 hover:text-slate-100 hover:bg-slate-700" 
+                    : "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-700 hover:text-slate-900 hover:bg-slate-200"
                 )}
+              >
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Created Events</span>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="tagged" 
+                className={cn(
+                  "py-3 px-4 font-medium transition-all duration-200 rounded-md h-full flex items-center justify-center",
+                  isDarkMode 
+                    ? "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-300 hover:text-slate-100 hover:bg-slate-700" 
+                    : "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-700 hover:text-slate-900 hover:bg-slate-200"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Tagged Events</span>
+                  {events.filter(event => event.tagType === 'received').length > 0 && (
+                    <span className={cn(
+                      "ml-1 min-w-[20px] h-5 rounded-full px-1.5 text-xs font-bold flex items-center justify-center flex-shrink-0",
+                      "bg-blue-600 text-white"
+                    )}>
+                      {events.filter(event => event.tagType === 'received').length}
+                    </span>
+                  )}
+                </div>
               </TabsTrigger>
             </TabsList>
 
+            {/* Search Input */}
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <Search className={cn(
+                  "absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4",
+                  isDarkMode ? "text-slate-400" : "text-slate-500"
+                )} />
+                <input
+                  type="text"
+                  placeholder={`Search ${activeTab === 'created' ? 'created' : 'tagged'} events...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={cn(
+                    "w-full pl-10 pr-10 py-2.5 rounded-lg border text-sm transition-colors",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                    isDarkMode 
+                      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400" 
+                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-500"
+                  )}
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSearchQuery("")}
+                    className={cn(
+                      "absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6",
+                      isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
+                    )}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className={cn(
+                  "h-8 w-8 animate-spin mb-4",
+                  isDarkMode ? "text-blue-400" : "text-blue-600"
+                )} />
                 <p className={cn(
-                  "mt-4 text-sm",
-                  isDarkMode ? "text-slate-400" : "text-slate-600"
-                )}>Loading events...</p>
+                  "text-base font-medium",
+                  isDarkMode ? "text-slate-300" : "text-slate-700"
+                )}>
+                  Loading events...
+                </p>
               </div>
             ) : (
               <>
                 <TabsContent value="created" className="space-y-6">
-                  {events.filter(event => event.tagType === 'sent').length > 0 ? (
-                    <div className="grid gap-6">
-                      {events
-                        .filter(event => event.tagType === 'sent')
-                        .map((event) => (
-                
-                      <motion.div
-                        key={event.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                        onClick={() => setSelectedEvent(event)}
-                  >
-                    <Card className={cn(
-                      "cursor-pointer transition-all duration-200 hover:shadow-lg border-slate-200",
-                          isDarkMode 
-                        ? "bg-slate-800/50 border-slate-700/50 hover:bg-slate-800" 
-                        : "bg-white hover:bg-slate-50"
-                    )}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <CardTitle className="flex items-center gap-2">
-                              <span className={cn(
-                                "text-lg",
-                                isDarkMode ? "text-white" : "text-slate-900"
-                              )}>{event.title}</span>
-                              <Badge variant={event.tagType === 'received' ? "default" : "secondary"}>
-                                {event.tagType === 'received' ? 'Tagged' : 'Created'}
-                              </Badge>
-                            </CardTitle>
-                            <CardDescription className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4" />
-                              <span>{event.department}</span>
-                            </CardDescription>
-                          </div>
-                          <Button variant="ghost" size="icon">
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
+                  {(() => {
+                    const createdEvents = events.filter(event => event.tagType === 'sent');
+                    const filteredEvents = filterEvents(createdEvents, searchQuery);
+                    
+                    if (createdEvents.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <AlertCircle className={cn(
+                            "h-12 w-12",
+                            isDarkMode ? "text-slate-600" : "text-slate-300"
+                          )} />
+                          <h3 className={cn(
+                            "mt-4 text-lg font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-700"
+                          )}>No Created Events</h3>
+                          <p className={cn(
+                            "mt-2 text-sm text-center",
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          )}>
+                            You haven't created any events that tag other departments.
+                          </p>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid gap-4">
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-1">
-                              <CalendarDays className={cn(
-                                "h-4 w-4",
-                                isDarkMode ? "text-slate-400" : "text-slate-500"
-                              )} />
-                              <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                {event.startDate?.toDate ? 
-                                  format(event.startDate.toDate(), "MMM d, yyyy") :
-                                  'Date not specified'
-                                }
-                                  </span>
-                                </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className={cn(
-                                "h-4 w-4",
-                                isDarkMode ? "text-slate-400" : "text-slate-500"
-                              )} />
-                              <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                {event.location || 'Location not specified'}
-                              </span>
-                              </div>
-                            <div className="flex items-center gap-1">
-                              <UserPlus className={cn(
-                                "h-4 w-4",
-                                isDarkMode ? "text-slate-400" : "text-slate-500"
-                              )} />
-                              <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                {event.participants || '0'} attendees
-                              </span>
-                            </div>
-                            </div>
-                                                            {event.requirements && event.requirements.length > 0 && (
-                                <div className="flex flex-wrap gap-2 pt-2">
-                                    {event.requirements.map((req, reqIndex) => (
-                                      <Badge
-                                        key={reqIndex}
-                                        variant="outline"
-                                        className={cn(
-                                        "flex items-center gap-1",
-                                          isDarkMode 
-                                          ? "border-purple-500/20 text-purple-400" 
-                                          : "border-purple-500/20 text-purple-600"
-                                        )}
-                                      >
-                                      <CheckCircle2 className="h-3 w-3" />
-                                        {typeof req === 'string' ? req : req.name}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                          </div>
-                      </CardContent>
-                    </Card>
-                      </motion.div>
-                    ))}
-                                      </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <AlertCircle className={cn(
-                        "h-12 w-12",
-                        isDarkMode ? "text-slate-600" : "text-slate-300"
-                      )} />
-                      <h3 className={cn(
-                        "mt-4 text-lg font-medium",
-                        isDarkMode ? "text-slate-300" : "text-slate-700"
-                      )}>No Created Events</h3>
-                      <p className={cn(
-                        "mt-2 text-sm text-center",
-                        isDarkMode ? "text-slate-400" : "text-slate-500"
-                      )}>
-                        You haven't created any events that tag other departments.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
+                      );
+                    }
 
-                <TabsContent value="tagged" className="space-y-6">
-                  {events.filter(event => event.tagType === 'received').length > 0 ? (
-                    <div className="grid gap-6">
-                      {events
-                        .filter(event => event.tagType === 'received')
-                        .map((event) => (
+                    if (filteredEvents.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Search className={cn(
+                            "h-12 w-12",
+                            isDarkMode ? "text-slate-600" : "text-slate-300"
+                          )} />
+                          <h3 className={cn(
+                            "mt-4 text-lg font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-700"
+                          )}>No Results Found</h3>
+                          <p className={cn(
+                            "mt-2 text-sm text-center",
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          )}>
+                            No created events match "{searchQuery}". Try a different search term.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {filteredEvents.map((event) => (
+                
                           <motion.div
                             key={event.id}
-                            layout
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ y: -4 }}
+                            transition={{ duration: 0.2 }}
                             onClick={() => setSelectedEvent(event)}
+                            className="cursor-pointer"
                           >
                             <Card className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-lg border-slate-200",
+                              "border transition-all duration-200 hover:shadow-lg",
                               isDarkMode 
-                                ? "bg-slate-800/50 border-slate-700/50 hover:bg-slate-800" 
-                                : "bg-white hover:bg-slate-50"
+                                ? "bg-slate-900 border-slate-700 hover:border-blue-500/50" 
+                                : "bg-white border-slate-200 hover:border-blue-300"
                             )}>
-                              <CardHeader className="pb-3">
+                              <CardHeader className="pb-4">
                                 <div className="flex items-start justify-between">
-                                  <div className="space-y-1">
-                                    <CardTitle className="flex items-center gap-2">
-                                      <span className={cn(
-                                        "text-lg",
-                                        isDarkMode ? "text-white" : "text-slate-900"
-                                      )}>{event.title}</span>
-                                      <Badge variant="default">Tagged</Badge>
-                                    </CardTitle>
-                                    <CardDescription className="flex items-center gap-2">
-                                      <Building2 className="h-4 w-4" />
-                                      <span>{event.department}</span>
-                                    </CardDescription>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <div className={cn(
+                                        "p-2 rounded-lg",
+                                        isDarkMode 
+                                          ? "bg-blue-500/20" 
+                                          : "bg-blue-50"
+                                      )}>
+                                        <Building2 className={cn(
+                                          "h-4 w-4",
+                                          isDarkMode ? "text-blue-400" : "text-blue-600"
+                                        )} />
+                                      </div>
+                                      <div>
+                                        <CardTitle className={cn(
+                                          "text-lg font-semibold",
+                                          isDarkMode ? "text-white" : "text-slate-900"
+                                        )}>
+                                          {event.title}
+                                        </CardTitle>
+                                        <CardDescription className={cn(
+                                          "text-sm mt-1",
+                                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                                        )}>
+                                          {event.department}
+                                        </CardDescription>
+                                      </div>
+                                    </div>
+                                    
+                                    <Badge 
+                                      className={cn(
+                                        "w-fit font-medium",
+                                        event.tagType === 'received' 
+                                          ? "bg-blue-600 text-white hover:bg-blue-700" 
+                                          : "bg-slate-600 text-white hover:bg-slate-700"
+                                      )}
+                                    >
+                                      {event.tagType === 'received' ? 'Tagged Event' : 'Created Event'}
+                                    </Badge>
                                   </div>
-                                  <Button variant="ghost" size="icon">
-                                    <ChevronRight className="h-4 w-4" />
-                                  </Button>
+                                  
+                                  <ArrowRight className={cn(
+                                    "h-5 w-5 opacity-50",
+                                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  )} />
                                 </div>
                               </CardHeader>
+                              
                               <CardContent>
-                                <div className="grid gap-4">
-                                  <div className="flex items-center gap-4 text-sm">
-                                    <div className="flex items-center gap-1">
+                                <div className="space-y-4">
+                                  {/* Event Info Grid */}
+                                  <div className="grid grid-cols-3 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
                                       <CalendarDays className={cn(
                                         "h-4 w-4",
-                                        isDarkMode ? "text-slate-400" : "text-slate-500"
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
                                       )} />
-                                      <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                        {event.startDate?.toDate ? 
-                                          format(event.startDate.toDate(), "MMM d, yyyy") :
-                                          'Date not specified'
-                                        }
+                                      <span className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {getDateDisplay(event)}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    
+                                    <div className="flex items-center gap-2">
                                       <MapPin className={cn(
                                         "h-4 w-4",
-                                        isDarkMode ? "text-slate-400" : "text-slate-500"
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
                                       )} />
-                                      <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                        {event.location || 'Location not specified'}
+                                      <span className={cn(
+                                        "font-medium truncate",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {getLocationDisplay(event)}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <UserPlus className={cn(
+                                    
+                                    <div className="flex items-center gap-2">
+                                      <Users className={cn(
                                         "h-4 w-4",
-                                        isDarkMode ? "text-slate-400" : "text-slate-500"
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
                                       )} />
-                                      <span className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                        {event.participants || '0'} attendees
+                                      <span className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {event.participants || '0'}
                                       </span>
                                     </div>
                                   </div>
+                                  
+                                  {/* Requirements */}
                                   {event.requirements && event.requirements.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 pt-2">
-                                      {event.requirements.map((req, reqIndex) => (
-                                        <Badge
-                                          key={reqIndex}
-                                          variant="outline"
-                                          className={cn(
-                                            "flex items-center gap-1",
-                                            isDarkMode 
-                                              ? "border-purple-500/20 text-purple-400" 
-                                              : "border-purple-500/20 text-purple-600"
-                                          )}
-                                        >
-                                          <CheckCircle2 className="h-3 w-3" />
-                                          {typeof req === 'string' ? req : req.name}
-                                        </Badge>
-                                      ))}
+                                    <div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {event.requirements.slice(0, 2).map((req, reqIndex) => (
+                                          <Badge
+                                            key={reqIndex}
+                                            variant="outline"
+                                            className={cn(
+                                              "text-xs",
+                                              isDarkMode 
+                                                ? "border-slate-600 text-slate-300" 
+                                                : "border-slate-300 text-slate-600"
+                                            )}
+                                          >
+                                            {typeof req === 'string' ? req : req.name}
+                                          </Badge>
+                                        ))}
+                                        {event.requirements.length > 2 && (
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              "text-xs",
+                                              isDarkMode 
+                                                ? "border-slate-600 text-slate-400" 
+                                                : "border-slate-300 text-slate-500"
+                                            )}
+                                          >
+                                            +{event.requirements.length - 2} more
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -476,25 +617,212 @@ const TaggedDepartments = () => {
                             </Card>
                           </motion.div>
                         ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <AlertCircle className={cn(
-                        "h-12 w-12",
-                        isDarkMode ? "text-slate-600" : "text-slate-300"
-                      )} />
-                      <h3 className={cn(
-                        "mt-4 text-lg font-medium",
-                        isDarkMode ? "text-slate-300" : "text-slate-700"
-                      )}>No Tagged Events</h3>
-                      <p className={cn(
-                        "mt-2 text-sm text-center",
-                        isDarkMode ? "text-slate-400" : "text-slate-500"
-                      )}>
-                        There are no events where your department has been tagged.
-                      </p>
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+
+                <TabsContent value="tagged" className="space-y-6">
+                  {(() => {
+                    const taggedEvents = events.filter(event => event.tagType === 'received');
+                    const filteredEvents = filterEvents(taggedEvents, searchQuery);
+                    
+                    if (taggedEvents.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <AlertCircle className={cn(
+                            "h-12 w-12",
+                            isDarkMode ? "text-slate-600" : "text-slate-300"
+                          )} />
+                          <h3 className={cn(
+                            "mt-4 text-lg font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-700"
+                          )}>No Tagged Events</h3>
+                          <p className={cn(
+                            "mt-2 text-sm text-center",
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          )}>
+                            There are no events where your department has been tagged.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    if (filteredEvents.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Search className={cn(
+                            "h-12 w-12",
+                            isDarkMode ? "text-slate-600" : "text-slate-300"
+                          )} />
+                          <h3 className={cn(
+                            "mt-4 text-lg font-medium",
+                            isDarkMode ? "text-slate-300" : "text-slate-700"
+                          )}>No Results Found</h3>
+                          <p className={cn(
+                            "mt-2 text-sm text-center",
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          )}>
+                            No tagged events match "{searchQuery}". Try a different search term.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {filteredEvents.map((event) => (
+                          <motion.div
+                            key={event.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ y: -4 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={() => setSelectedEvent(event)}
+                            className="cursor-pointer"
+                          >
+                            <Card className={cn(
+                              "border transition-all duration-200 hover:shadow-lg",
+                              isDarkMode 
+                                ? "bg-slate-900 border-slate-700 hover:border-blue-500/50" 
+                                : "bg-white border-slate-200 hover:border-blue-300"
+                            )}>
+                              <CardHeader className="pb-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <div className={cn(
+                                        "p-2 rounded-lg",
+                                        isDarkMode 
+                                          ? "bg-blue-500/20" 
+                                          : "bg-blue-50"
+                                      )}>
+                                        <Building2 className={cn(
+                                          "h-4 w-4",
+                                          isDarkMode ? "text-blue-400" : "text-blue-600"
+                                        )} />
+                                      </div>
+                                      <div>
+                                        <CardTitle className={cn(
+                                          "text-lg font-semibold",
+                                          isDarkMode ? "text-white" : "text-slate-900"
+                                        )}>
+                                          {event.title}
+                                        </CardTitle>
+                                        <CardDescription className={cn(
+                                          "text-sm mt-1",
+                                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                                        )}>
+                                          {event.department}
+                                        </CardDescription>
+                                      </div>
+                                    </div>
+                                    
+                                    <Badge 
+                                      className={cn(
+                                        "w-fit font-medium",
+                                        event.tagType === 'received' 
+                                          ? "bg-blue-600 text-white hover:bg-blue-700" 
+                                          : "bg-slate-600 text-white hover:bg-slate-700"
+                                      )}
+                                    >
+                                      {event.tagType === 'received' ? 'Tagged Event' : 'Created Event'}
+                                    </Badge>
+                                  </div>
+                                  
+                                  <ArrowRight className={cn(
+                                    "h-5 w-5 opacity-50",
+                                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  )} />
+                                </div>
+                              </CardHeader>
+                              
+                              <CardContent>
+                                <div className="space-y-4">
+                                  {/* Event Info Grid */}
+                                  <div className="grid grid-cols-3 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <CalendarDays className={cn(
+                                        "h-4 w-4",
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
+                                      )} />
+                                      <span className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {getDateDisplay(event)}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className={cn(
+                                        "h-4 w-4",
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
+                                      )} />
+                                      <span className={cn(
+                                        "font-medium truncate",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {getLocationDisplay(event)}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      <Users className={cn(
+                                        "h-4 w-4",
+                                        isDarkMode ? "text-blue-400" : "text-blue-600"
+                                      )} />
+                                      <span className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}>
+                                        {event.participants || '0'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Requirements */}
+                                  {event.requirements && event.requirements.length > 0 && (
+                                    <div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {event.requirements.slice(0, 2).map((req, reqIndex) => (
+                                          <Badge
+                                            key={reqIndex}
+                                            variant="outline"
+                                            className={cn(
+                                              "text-xs",
+                                              isDarkMode 
+                                                ? "border-slate-600 text-slate-300" 
+                                                : "border-slate-300 text-slate-600"
+                                            )}
+                                          >
+                                            {typeof req === 'string' ? req : req.name}
+                                          </Badge>
+                                        ))}
+                                        {event.requirements.length > 2 && (
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              "text-xs",
+                                              isDarkMode 
+                                                ? "border-slate-600 text-slate-400" 
+                                                : "border-slate-300 text-slate-500"
+                                            )}
+                                          >
+                                            +{event.requirements.length - 2} more
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </TabsContent>
               </>
             )}
@@ -561,103 +889,237 @@ const TaggedDepartments = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-6 md:grid-cols-3">
-                      {/* Start Time */}
-                      <div className={cn(
-                        "p-4 rounded-xl space-y-2 shadow-sm",
-                        isDarkMode 
-                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
-                          : "bg-slate-50 ring-1 ring-slate-200/50"
-                      )}>
-                        <div className="flex items-center gap-2">
+                    {selectedEvent.isMultipleLocations && selectedEvent.locations && selectedEvent.locations.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
                           <div className={cn(
                             "p-1.5 rounded-lg",
-                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
-                          )}>
-                            <Clock className={cn(
-                              "h-4 w-4",
-                              isDarkMode ? "text-purple-400" : "text-purple-500"
-                            )} />
-                          </div>
-                          <h4 className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-slate-300" : "text-slate-600"
-                          )}>Start Time</h4>
-                        </div>
-                        <p className={cn(
-                          "text-sm font-medium",
-                          isDarkMode ? "text-white" : "text-slate-900"
-                        )}>
-                          {selectedEvent.startDate?.toDate ? 
-                            format(selectedEvent.startDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                            'Not specified'
-                          }
-                        </p>
-                      </div>
-
-                      {/* End Time */}
-                      <div className={cn(
-                        "p-4 rounded-xl space-y-2 shadow-sm",
-                        isDarkMode 
-                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
-                          : "bg-slate-50 ring-1 ring-slate-200/50"
-                      )}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "p-1.5 rounded-lg",
-                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
-                          )}>
-                            <Clock className={cn(
-                              "h-4 w-4",
-                              isDarkMode ? "text-purple-400" : "text-purple-500"
-                            )} />
-                          </div>
-                          <h4 className={cn(
-                            "text-sm font-medium",
-                            isDarkMode ? "text-slate-300" : "text-slate-600"
-                          )}>End Time</h4>
-                        </div>
-                        <p className={cn(
-                          "text-sm font-medium",
-                          isDarkMode ? "text-white" : "text-slate-900"
-                        )}>
-                          {selectedEvent.endDate?.toDate ? 
-                            format(selectedEvent.endDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                            'Not specified'
-                          }
-                        </p>
-                      </div>
-
-                      {/* Location */}
-                      <div className={cn(
-                        "p-4 rounded-xl space-y-2 shadow-sm",
-                        isDarkMode 
-                          ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
-                          : "bg-slate-50 ring-1 ring-slate-200/50"
-                      )}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "p-1.5 rounded-lg",
-                            isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                            isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
                           )}>
                             <MapPin className={cn(
                               "h-4 w-4",
-                              isDarkMode ? "text-purple-400" : "text-purple-500"
+                              isDarkMode ? "text-blue-400" : "text-blue-600"
                             )} />
                           </div>
                           <h4 className={cn(
                             "text-sm font-medium",
                             isDarkMode ? "text-slate-300" : "text-slate-600"
-                          )}>Location</h4>
+                          )}>Multiple Locations ({selectedEvent.locations.length})</h4>
                         </div>
-                        <p className={cn(
-                          "text-sm font-medium",
-                          isDarkMode ? "text-white" : "text-slate-900"
-                        )}>
-                          {selectedEvent.location || 'Not specified'}
-                        </p>
+                        
+                        {selectedEvent.locations.map((location, index) => (
+                            <div key={index} className={cn(
+                              "p-4 rounded-xl border",
+                              isDarkMode 
+                                ? "bg-slate-800 border-slate-700" 
+                                : "bg-slate-50 border-slate-200"
+                            )}>
+                              <div className="grid gap-3 md:grid-cols-3">
+                                <div>
+                                  <h5 className={cn(
+                                    "text-xs font-medium mb-1",
+                                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  )}>Location</h5>
+                                  <p className={cn(
+                                    "text-sm font-medium",
+                                    isDarkMode ? "text-white" : "text-slate-900"
+                                  )}>
+                                    {location.location || 'Not specified'}
+                                  </p>
+                                </div>
+                                
+                                <div>
+                                  <h5 className={cn(
+                                    "text-xs font-medium mb-1",
+                                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  )}>Start</h5>
+                                  <div className="space-y-1">
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-white" : "text-slate-900"
+                                    )}>
+                                      {(() => {
+                                        const startDate = location.startDate || location.date;
+                                        if (startDate) {
+                                          try {
+                                            const dateObj = startDate?.toDate ? startDate.toDate() : new Date(startDate);
+                                            return format(dateObj, "MMM d, yyyy");
+                                          } catch (e) {
+                                            return startDate.toString();
+                                          }
+                                        }
+                                        return 'Date not specified';
+                                      })()}
+                                    </p>
+                                    <p className={cn(
+                                      "text-xs",
+                                      isDarkMode ? "text-slate-400" : "text-slate-500"
+                                    )}>
+                                      {(() => {
+                                        // Extract start time from startDate timestamp
+                                        if (location.startDate) {
+                                          try {
+                                            const startDateTime = location.startDate?.toDate ? location.startDate.toDate() : new Date(location.startDate);
+                                            return format(startDateTime, "h:mm a");
+                                          } catch (e) {
+                                            console.log('Start date parsing error:', e);
+                                            return 'Time parsing error';
+                                          }
+                                        }
+                                        
+                                        return 'Time not specified';
+                                      })()}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <h5 className={cn(
+                                    "text-xs font-medium mb-1",
+                                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  )}>End</h5>
+                                  <div className="space-y-1">
+                                    <p className={cn(
+                                      "text-sm font-medium",
+                                      isDarkMode ? "text-white" : "text-slate-900"
+                                    )}>
+                                      {(() => {
+                                        const endDate = location.endDate;
+                                        if (endDate) {
+                                          try {
+                                            const dateObj = endDate?.toDate ? endDate.toDate() : new Date(endDate);
+                                            return format(dateObj, "MMM d, yyyy");
+                                          } catch (e) {
+                                            return endDate.toString();
+                                          }
+                                        }
+                                        return 'Date not specified';
+                                      })()}
+                                    </p>
+                                    <p className={cn(
+                                      "text-xs",
+                                      isDarkMode ? "text-slate-400" : "text-slate-500"
+                                    )}>
+                                      {(() => {
+                                        // Extract end time from endDate timestamp
+                                        if (location.endDate) {
+                                          try {
+                                            const endDateTime = location.endDate?.toDate ? location.endDate.toDate() : new Date(location.endDate);
+                                            return format(endDateTime, "h:mm a");
+                                          } catch (e) {
+                                            console.log('End date parsing error:', e);
+                                            return 'Time parsing error';
+                                          }
+                                        }
+                                        
+                                        return 'Time not specified';
+                                      })()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                        ))}
                       </div>
-                    </div>
+                    ) : (
+                      <div className="grid gap-6 md:grid-cols-3">
+                        {/* Start Time */}
+                        <div className={cn(
+                          "p-4 rounded-xl space-y-2",
+                          isDarkMode 
+                            ? "bg-slate-800 border border-slate-700" 
+                            : "bg-slate-50 border border-slate-200"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "p-1.5 rounded-lg",
+                              isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
+                            )}>
+                              <Clock className={cn(
+                                "h-4 w-4",
+                                isDarkMode ? "text-blue-400" : "text-blue-600"
+                              )} />
+                            </div>
+                            <h4 className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-slate-300" : "text-slate-600"
+                            )}>Start Time</h4>
+                          </div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          )}>
+                            {selectedEvent.startDate?.toDate ? 
+                              format(selectedEvent.startDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
+                              'Not specified'
+                            }
+                          </p>
+                        </div>
+
+                        {/* End Time */}
+                        <div className={cn(
+                          "p-4 rounded-xl space-y-2",
+                          isDarkMode 
+                            ? "bg-slate-800 border border-slate-700" 
+                            : "bg-slate-50 border border-slate-200"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "p-1.5 rounded-lg",
+                              isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
+                            )}>
+                              <Clock className={cn(
+                                "h-4 w-4",
+                                isDarkMode ? "text-blue-400" : "text-blue-600"
+                              )} />
+                            </div>
+                            <h4 className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-slate-300" : "text-slate-600"
+                            )}>End Time</h4>
+                          </div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          )}>
+                            {selectedEvent.endDate?.toDate ? 
+                              format(selectedEvent.endDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
+                              'Not specified'
+                            }
+                          </p>
+                        </div>
+
+                        {/* Location */}
+                        <div className={cn(
+                          "p-4 rounded-xl space-y-2",
+                          isDarkMode 
+                            ? "bg-slate-800 border border-slate-700" 
+                            : "bg-slate-50 border border-slate-200"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "p-1.5 rounded-lg",
+                              isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
+                            )}>
+                              <MapPin className={cn(
+                                "h-4 w-4",
+                                isDarkMode ? "text-blue-400" : "text-blue-600"
+                              )} />
+                            </div>
+                            <h4 className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-slate-300" : "text-slate-600"
+                            )}>Location</h4>
+                          </div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          )}>
+                            {selectedEvent.location || 'Not specified'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

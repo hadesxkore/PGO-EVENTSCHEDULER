@@ -54,7 +54,6 @@ const useNotificationStore = create((set, get) => ({
             } else if (eventData.date?.seconds) {
               eventDate = new Date(eventData.date.seconds * 1000);
             } else {
-              console.warn('Invalid date format for event:', eventData);
               return null;
             }
             
@@ -72,7 +71,6 @@ const useNotificationStore = create((set, get) => ({
           set({ upcomingEvents });
         },
         (error) => {
-          console.error('Error listening to upcoming events:', error);
           set({ error: 'Failed to load upcoming events' });
         }
       );
@@ -100,7 +98,6 @@ const useNotificationStore = create((set, get) => ({
             } else if (eventData.date?.seconds) {
               eventDate = new Date(eventData.date.seconds * 1000);
             } else {
-              console.warn('Invalid date format for event:', eventData);
               return null;
             }
             
@@ -118,7 +115,6 @@ const useNotificationStore = create((set, get) => ({
           set({ statusUpdates });
         },
         (error) => {
-          console.error('Error listening to status updates:', error);
           set({ error: 'Failed to load status updates' });
         }
       );
@@ -146,7 +142,6 @@ const useNotificationStore = create((set, get) => ({
               } else if (eventData.date?.seconds) {
                 eventDate = new Date(eventData.date.seconds * 1000);
               } else {
-                console.warn('Invalid date format for event:', eventData);
                 return null;
               }
               
@@ -174,7 +169,6 @@ const useNotificationStore = create((set, get) => ({
           set({ taggedEvents });
         },
         (error) => {
-          console.error('Error listening to tagged events:', error);
           set({ error: 'Failed to load tagged events' });
         }
       );
@@ -190,7 +184,6 @@ const useNotificationStore = create((set, get) => ({
       });
       
     } catch (error) {
-      console.error('Error setting up real-time listeners:', error);
       set({ 
         error: 'Failed to setup real-time notifications',
         loading: false 
@@ -206,7 +199,7 @@ const useNotificationStore = create((set, get) => ({
         try {
           unsubscribe();
         } catch (error) {
-          console.warn('Error cleaning up listener:', error);
+          // Silently handle cleanup errors
         }
       }
     });

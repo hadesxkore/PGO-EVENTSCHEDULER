@@ -69,7 +69,6 @@ const useEventStore = create((set, get) => ({
       }
       return [];
     } catch (error) {
-      console.error('Error fetching booked dates:', error);
       return [];
     }
   },
@@ -142,7 +141,6 @@ const useEventStore = create((set, get) => ({
             } else if (typeof event.startDate === 'string') {
               startDate = new Date(event.startDate);
             } else {
-              console.warn('Invalid start date format for event:', event);
               return null;
             }
 
@@ -160,11 +158,9 @@ const useEventStore = create((set, get) => ({
 
             // Validate dates
             if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-              console.warn('Invalid date conversion for event:', event);
               return null;
             }
           } catch (error) {
-            console.error('Error processing event dates:', error, event);
             return null;
           }
 
@@ -210,7 +206,6 @@ const useEventStore = create((set, get) => ({
         return { success: false, error };
       }
     } catch (error) {
-      console.error('Error fetching all events:', error);
       const errorMsg = 'An error occurred while fetching all events';
       set({ error: errorMsg });
       return { success: false, error: errorMsg };
@@ -260,7 +255,6 @@ const useEventStore = create((set, get) => ({
         return { success: false, error };
       }
     } catch (error) {
-      console.error('Error fetching dashboard:', error);
       const errorMsg = 'An error occurred while fetching dashboard data';
       set({ error: errorMsg });
       return { success: false, error: errorMsg };
@@ -317,7 +311,6 @@ const useEventStore = create((set, get) => ({
         set({ error: 'Failed to fetch events' });
       }
     } catch (error) {
-      console.error('Error fetching events:', error);
       set({ error: 'An error occurred while fetching events' });
     } finally {
       set({ loading: false });
@@ -362,7 +355,6 @@ const useEventStore = create((set, get) => ({
         return { success: false, error: 'Failed to delete event' };
       }
     } catch (error) {
-      console.error('Error deleting event:', error);
       set({ error: 'An error occurred while deleting the event' });
       return { success: false, error: 'An error occurred while deleting the event' };
     }
@@ -391,7 +383,6 @@ const useEventStore = create((set, get) => ({
       
       return { success: true };
     } catch (error) {
-      console.error('Error updating event in store:', error);
       set({ error: 'Failed to update event' });
       return { success: false, error: 'Failed to update event' };
     } finally {
@@ -438,7 +429,6 @@ const useEventStore = create((set, get) => ({
         return { success: false, error: 'Failed to submit event request' };
       }
     } catch (error) {
-      console.error('Error submitting event:', error);
       set({ error: 'An error occurred while submitting the event request' });
       return { success: false, error: 'An error occurred while submitting the event request' };
     } finally {

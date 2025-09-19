@@ -145,6 +145,7 @@ const RequestEvent = () => {
   const [currentDepartment, setCurrentDepartment] = useState(null);
   const [newRequirement, setNewRequirement] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [departmentSearchQuery, setDepartmentSearchQuery] = useState("");
 
   // Location suggestions
   const [locationSuggestions, setLocationSuggestions] = useState([]);
@@ -300,16 +301,6 @@ const RequestEvent = () => {
     });
   }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments, hasMultipleLocations, multipleLocations]);
 
-  // Debug logging for validation state changes
-  useEffect(() => {
-    console.log('🔄 VALIDATION STATE UPDATE:');
-    console.log('- eventDetails:', completedSteps.eventDetails);
-    console.log('- attachments:', completedSteps.attachments);
-    console.log('- tagDepartments:', completedSteps.tagDepartments);
-    console.log('- requirements:', completedSteps.requirements);
-    console.log('- schedule:', completedSteps.schedule);
-    console.log('- readyToSubmit:', completedSteps.readyToSubmit);
-  }, [completedSteps]);
 
 
 
@@ -361,13 +352,22 @@ const RequestEvent = () => {
           toast.error("Failed to fetch departments");
         }
       } catch (error) {
-        console.error('Error fetching departments:', error);
         toast.error("An error occurred while fetching departments");
       }
     };
 
     fetchDepartments();
   }, []);
+
+  // Filter departments based on search query
+  const filteredDepartments = useMemo(() => {
+    if (!departmentSearchQuery.trim()) return departments;
+    
+    const searchTerm = departmentSearchQuery.toLowerCase().trim();
+    return departments.filter(dept => 
+      dept.name.toLowerCase().includes(searchTerm)
+    );
+  }, [departments, departmentSearchQuery]);
 
   const stripFormatting = (text) => {
     if (!text) return '';
@@ -412,7 +412,6 @@ const RequestEvent = () => {
         });
 
     } catch (error) {
-      console.error('Error sanitizing text:', error);
       // If all else fails, try basic normalization
       return text.toString()
         .normalize('NFKD')
@@ -539,16 +538,13 @@ const RequestEvent = () => {
         } else if (file.type === 'application/pdf') {
           // For PDF files, we'll use Cloudinary's auto-optimization instead
           // Since client-side PDF compression is complex and requires large libraries
-          console.log('PDF file will be optimized by Cloudinary during upload');
           return file;
         } else if (file.type.includes('document') || file.type.includes('word')) {
           // For DOCX files, client-side compression is very complex
           // We'll rely on Cloudinary's optimization
-          console.log('Document file will be optimized by Cloudinary during upload');
           return file;
         }
       } catch (error) {
-        console.warn('File compression failed, using original:', error);
         return file;
       }
     }
@@ -609,7 +605,7 @@ const RequestEvent = () => {
       
       yPosition += logoSize + 10;
     } catch (error) {
-      console.warn('Could not load logo, proceeding without it');
+      // Could not load logo, proceeding without it
       // Fallback header without logo
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
@@ -781,7 +777,6 @@ const RequestEvent = () => {
           }
           
         } catch (error) {
-          console.error(`Error processing photo ${i + 1}:`, error);
           // Add error message instead of photo
           const xPos = startX + currentCol * (photoWidth + photoSpacing);
           const yPos = yPosition + currentRow * (photoHeight + photoSpacing + 15);
@@ -808,7 +803,6 @@ const RequestEvent = () => {
       const pdf = await generatePDFPreview();
       pdf.save(`ECR_${ecrFormData.eventTitle || 'Event'}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
-      console.error('Error generating PDF:', error);
       alert('Error generating PDF. Please try again.');
     }
   };
@@ -820,7 +814,6 @@ const RequestEvent = () => {
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
     } catch (error) {
-      console.error('Error previewing PDF:', error);
       alert('Error previewing PDF. Please try again.');
     }
   };
@@ -898,8 +891,6 @@ const RequestEvent = () => {
       return dates;
     }).flat();
     
-    // Debug logging
-    console.log('Booked dates for calendar:', bookedDates.map(d => d.toDateString()));
     return bookedDates;
   };
 
@@ -2156,13 +2147,52 @@ const RequestEvent = () => {
               )}>Tag Departments</h2>
             </div>
             <p className={cn(
-              "text-sm mb-6",
+              "text-sm mb-4",
               isDarkMode ? "text-gray-400" : "text-gray-500"
             )}>Select departments to notify about this event's requirements and coordinate resources needed.</p>
             
+            {/* Search Input */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className={cn(
+                  "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4",
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                )} />
+                <Input
+                  placeholder="Search departments..."
+                  value={departmentSearchQuery}
+                  onChange={(e) => setDepartmentSearchQuery(e.target.value)}
+                  className={cn(
+                    "pl-10 h-10",
+                    isDarkMode 
+                      ? "bg-slate-900 border-slate-700 placeholder:text-gray-400" 
+                      : "bg-white border-gray-200 placeholder:text-gray-500"
+                  )}
+                />
+                {departmentSearchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDepartmentSearchQuery("")}
+                    className={cn(
+                      "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6",
+                      isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
+                    )}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            {/* Departments List - Scrollable */}
             <div className="space-y-4">
-              <div className="space-y-3">
-                {departments.map((dept) => (
+              <div className={cn(
+                "max-h-80 overflow-y-auto space-y-3 pr-2",
+                "scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+              )}>
+                {filteredDepartments.length > 0 ? (
+                  filteredDepartments.map((dept) => (
                   <div key={dept.id} className="flex items-center justify-between group">
                     <div className="flex items-center space-x-2">
                       <Checkbox 
@@ -2227,7 +2257,22 @@ const RequestEvent = () => {
                       {dept.userCount || 0} users
                     </Badge>
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <div className={cn(
+                    "flex flex-col items-center justify-center py-8 text-center",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    <Building2 className="h-8 w-8 mb-2 opacity-50" />
+                    <p className="text-sm font-medium">No departments found</p>
+                    <p className="text-xs mt-1">
+                      {departmentSearchQuery 
+                        ? `No departments match "${departmentSearchQuery}"`
+                        : "No departments available"
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

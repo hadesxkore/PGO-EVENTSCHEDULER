@@ -719,135 +719,153 @@ const Messages = () => {
               ) : (sortedAndFilteredUsers.length > 0 || sortedEventGroups.length > 0) ? (
                 <div className="space-y-4">
                    {/* Render Event Groups First */}
-                   {sortedEventGroups.map((group) => (
-                     <motion.div
-                       key={group.eventId}
-                       initial={{ opacity: 0, y: 10 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       transition={{ duration: 0.2 }}
-                       className={cn(
-                         "rounded-xl overflow-hidden border",
-                         isDarkMode 
-                           ? "bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50" 
-                           : "bg-white border-gray-100 hover:border-gray-200"
-                       )}
-                     >
-                       {/* Event Group Header */}
-                       <div 
-                         onClick={() => toggleGroupExpansion(group.eventId)}
-                         className={cn(
-                           "flex items-center gap-4 px-4 py-3 cursor-pointer transition-all",
-                           isDarkMode 
-                             ? "hover:bg-slate-800/80" 
-                             : "hover:bg-gray-50"
-                         )}
-                       >
-                         {/* Event Icon with Department Count */}
-                         <div className="relative shrink-0">
-                           <div className={cn(
-                             "w-10 h-10 rounded-lg flex items-center justify-center",
-                             isDarkMode 
-                               ? "bg-blue-500/10 text-blue-300" 
-                               : "bg-blue-50 text-blue-600"
-                           )}>
-                             <svg 
-                               className="w-5 h-5"
-                               fill="none" 
-                               stroke="currentColor" 
-                               viewBox="0 0 24 24"
-                             >
-                               <path 
-                                 strokeLinecap="round" 
-                                 strokeLinejoin="round" 
-                                 strokeWidth={1.5} 
-                                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" 
-                               />
-                             </svg>
-                           </div>
-                           <div className={cn(
-                             "absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[10px] font-medium border-2",
-                             isDarkMode 
-                               ? "bg-blue-500 text-white border-slate-900" 
-                               : "bg-blue-500 text-white border-white"
-                           )}>
-                             {group.departments.length}
-                           </div>
-                         </div>
-
-                         {/* Event Details */}
-                         <div className="flex-1 min-w-0">
-                           {/* Event Status & Type */}
-                           <div className="flex items-center gap-2 mb-1">
-                             <Badge variant="outline" className={cn(
-                               "px-1.5 py-0.5 text-[10px] font-medium",
-                               isDarkMode 
-                                 ? "bg-emerald-500/10 text-emerald-200 border-emerald-500/20" 
-                                 : "bg-emerald-50 text-emerald-700 border-emerald-100"
-                             )}>
-                               Active Event
-                             </Badge>
-                             <Badge variant="outline" className={cn(
-                               "px-1.5 py-0.5 text-[10px] font-medium",
-                               isDarkMode 
-                                 ? "bg-blue-500/10 text-blue-200 border-blue-500/20" 
-                                 : "bg-blue-50 text-blue-700 border-blue-100"
-                             )}>
-                               {group.departments.length} {group.departments.length === 1 ? 'Department' : 'Departments'}
-                             </Badge>
-                           </div>
-
-                           {/* Event Title */}
-                           <h3 className={cn(
-                             "text-sm font-semibold leading-tight mb-1",
-                             isDarkMode ? "text-slate-200" : "text-gray-900"
-                           )}>
-                             {group.eventTitle}
-                           </h3>
-
-                           {/* Tagger Info */}
-                           <div className="flex items-center gap-2 text-xs">
-                             <span className={cn(
-                               isDarkMode ? "text-slate-400" : "text-gray-500"
-                             )}>
-                               Tagged by
-                             </span>
-                             <Badge variant="outline" className={cn(
-                               "px-1.5 py-0 text-[10px] font-medium",
-                               isDarkMode 
-                                 ? "bg-slate-700/50 text-slate-300 border-slate-600" 
-                                 : "bg-gray-100 text-gray-600 border-gray-200"
-                             )}>
-                               {group.taggerDepartment}
-                             </Badge>
-                           </div>
-                         </div>
-
-                         {/* Expand/Collapse Button */}
-                         <div className={cn(
-                           "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0",
-                           isDarkMode 
-                             ? "text-slate-400 bg-slate-800/80 hover:bg-slate-700/80" 
-                             : "text-gray-500 bg-gray-50 hover:bg-gray-100",
-                           expandedGroups.has(group.eventId) && "rotate-180"
-                         )}>
-                           <svg 
-                             className="w-4 h-4" 
-                             fill="none" 
-                             stroke="currentColor" 
-                             viewBox="0 0 24 24"
-                           >
-                             <path 
-                               strokeLinecap="round" 
-                               strokeLinejoin="round" 
-                               strokeWidth={2} 
-                               d="M19 9l-7 7-7-7" 
-                             />
-                           </svg>
-                         </div>
-                       </div>
+                   <div className="space-y-3">
+                     {sortedEventGroups.map((group) => {
+                       const isExpanded = expandedGroups.has(group.eventId);
                        
-                       {/* Expanded Departments List */}
-                       {expandedGroups.has(group.eventId) && (
+                       return (
+                         <motion.div
+                           key={group.eventId}
+                           initial={{ opacity: 0, y: 10 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           transition={{ duration: 0.3 }}
+                           className={cn(
+                             "group rounded-2xl overflow-hidden border transition-all duration-200",
+                             isDarkMode 
+                               ? "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 hover:border-slate-600/50 hover:shadow-lg hover:shadow-slate-900/20" 
+                               : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5"
+                           )}
+                           whileHover={{ y: -2 }}
+                         >
+                           {/* Event Group Header */}
+                           <div 
+                             onClick={() => toggleGroupExpansion(group.eventId)}
+                             className={cn(
+                               "flex items-center gap-3 p-3 cursor-pointer transition-all duration-200",
+                               isExpanded && (isDarkMode ? "bg-slate-800/60" : "bg-slate-50")
+                             )}
+                           >
+                             {/* Event Icon with Department Count */}
+                             <div className="relative flex-shrink-0">
+                               <div className={cn(
+                                 "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200",
+                                 isDarkMode 
+                                   ? "bg-blue-500/20 text-blue-300" 
+                                   : "bg-blue-50 text-blue-600"
+                               )}>
+                                 <svg 
+                                   className="w-4 h-4"
+                                   fill="none" 
+                                   stroke="currentColor" 
+                                   viewBox="0 0 24 24"
+                                 >
+                                   <path 
+                                     strokeLinecap="round" 
+                                     strokeLinejoin="round" 
+                                     strokeWidth={1.5} 
+                                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" 
+                                   />
+                                 </svg>
+                               </div>
+                               
+                               {/* Department Count Badge */}
+                               <div className={cn(
+                                 "absolute -bottom-1 -right-1 min-w-[18px] h-4 px-1 rounded-full flex items-center justify-center text-[10px] font-bold border-2",
+                                 isDarkMode 
+                                   ? "bg-blue-500 text-white border-slate-800" 
+                                   : "bg-blue-500 text-white border-white"
+                               )}>
+                                 {group.departments.length}
+                               </div>
+                             </div>
+
+                             {/* Event Details */}
+                             <div className="flex-1 min-w-0">
+                               {/* Header Row with Badges */}
+                               <div className="flex items-center justify-between gap-2 mb-1">
+                                 <div className="flex items-center gap-1.5">
+                                   <Badge className={cn(
+                                     "px-1.5 py-0.5 text-[10px] font-medium rounded-md",
+                                     isDarkMode 
+                                       ? "bg-emerald-500/20 text-emerald-300" 
+                                       : "bg-emerald-50 text-emerald-700"
+                                   )}>
+                                     Active
+                                   </Badge>
+                                   <Badge variant="outline" className={cn(
+                                     "px-1.5 py-0.5 text-[10px] font-medium rounded-md border-0",
+                                     isDarkMode 
+                                       ? "bg-blue-500/20 text-blue-300" 
+                                       : "bg-blue-50 text-blue-700"
+                                   )}>
+                                     {group.departments.length} Dept{group.departments.length > 1 ? 's' : ''}
+                                   </Badge>
+                                 </div>
+                                 
+                                 {/* Expand/Collapse Button */}
+                                 <div className={cn(
+                                   "w-6 h-6 rounded-md flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                                   isDarkMode 
+                                     ? "text-slate-400 hover:text-slate-300" 
+                                     : "text-slate-500 hover:text-slate-700",
+                                   isExpanded && "rotate-180"
+                                 )}>
+                                   <svg 
+                                     className="w-3 h-3" 
+                                     fill="none" 
+                                     stroke="currentColor" 
+                                     viewBox="0 0 24 24"
+                                   >
+                                     <path 
+                                       strokeLinecap="round" 
+                                       strokeLinejoin="round" 
+                                       strokeWidth={2} 
+                                       d="M19 9l-7 7-7-7" 
+                                     />
+                                   </svg>
+                                 </div>
+                               </div>
+
+                               {/* Event Title */}
+                               <h3 className={cn(
+                                 "text-sm font-semibold leading-tight mb-1 truncate",
+                                 isDarkMode ? "text-white" : "text-slate-900"
+                               )}>
+                                 {group.eventTitle}
+                               </h3>
+                               
+                               {/* Tagger Info */}
+                               <div className="flex items-center gap-1.5">
+                                 <span className={cn(
+                                   "text-xs",
+                                   isDarkMode ? "text-slate-400" : "text-slate-500"
+                                 )}>
+                                   by
+                                 </span>
+                                 <Badge variant="outline" className={cn(
+                                   "px-1.5 py-0 text-[10px] font-medium rounded-md border-0",
+                                   isDarkMode 
+                                     ? "bg-slate-700/50 text-slate-300" 
+                                     : "bg-slate-100 text-slate-600"
+                                 )}>
+                                   {group.taggerDepartment}
+                                 </Badge>
+                                 
+                                 {/* Timestamp if available */}
+                                 {group.timestamp && (
+                                   <span className={cn(
+                                     "text-[10px] ml-auto",
+                                     isDarkMode ? "text-slate-500" : "text-slate-400"
+                                   )}>
+                                     {format(group.timestamp?.toDate?.() || group.timestamp, "MMM d")}
+                                   </span>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+                           
+                           {/* Expanded Departments List */}
+                           {isExpanded && (
                          <motion.div
                            initial={{ opacity: 0, height: 0 }}
                            animate={{ opacity: 1, height: "auto" }}
@@ -981,112 +999,184 @@ const Messages = () => {
                             );
                           })}
                          </motion.div>
-                       )}
-                     </motion.div>
-                   ))}
+                           )}
+                         </motion.div>
+                       );
+                     })}
+                   </div>
                    
                    {/* Render Individual Users */}
-                   {sortedAndFilteredUsers.map((user) => {
+                   <div className="space-y-2">
+                     {sortedAndFilteredUsers.map((user) => {
+                       const lastMessage = lastMessages[user.email];
+                       const hasUnread = unreadMessages[user.email];
+                       const isSelected = selectedUser?.id === user.id;
 
-                     return (
-                     <motion.div
-                       key={user.id}
-                       ref={el => userRefs.current[user.id] = el}
-                       onClick={() => handleUserSelect(user)}
-                       className={cn(
-                         "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group",
-                         selectedUser?.id === user.id
-                           ? (isDarkMode ? "bg-slate-800" : "bg-blue-50")
-                           : (isDarkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-50")
-                       )}
-                       initial={{ opacity: 0, y: 10 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       transition={{ duration: 0.2 }}
-                     >
-                       <div className="relative">
-                         <Avatar>
-                           <AvatarFallback className={cn(
-                             "font-medium",
-                             selectedUser?.id === user.id
-                               ? (isDarkMode ? "bg-blue-500/20 text-blue-200" : "bg-blue-100 text-blue-700")
-                               : (isDarkMode ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700")
-                           )}>
-                             {getInitials(user.department)}
-                           </AvatarFallback>
-                         </Avatar>
-                         <span className={cn(
-                           "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 transition-colors",
-                           isDarkMode ? "border-slate-900" : "border-white",
-                           selectedUser?.id === user.id
-                             ? "bg-blue-500"
-                             : "bg-emerald-500"
-                         )} />
-                       </div>
-                       <div className="flex-1 min-w-0">
-                         <div className="flex items-center gap-2">
-                           {user.department && (
-                             <Badge variant="outline" className={cn(
-                               "px-1.5 py-0 text-[10px] font-medium",
-                               isDarkMode 
-                                 ? "bg-slate-700/50 text-slate-300 border-slate-600" 
-                                 : "bg-gray-100 text-gray-600 border-gray-200"
-                             )}>
-                               {user.department}
-                             </Badge>
+                       return (
+                         <motion.div
+                           key={user.id}
+                           ref={el => userRefs.current[user.id] = el}
+                           onClick={() => handleUserSelect(user)}
+                           className={cn(
+                             "group relative flex items-start gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-200 border",
+                             isSelected
+                               ? (isDarkMode 
+                                   ? "bg-blue-500/10 border-blue-500/30 shadow-lg shadow-blue-500/10" 
+                                   : "bg-blue-50 border-blue-200 shadow-lg shadow-blue-500/5")
+                               : (isDarkMode 
+                                   ? "bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50 hover:border-slate-600/50" 
+                                   : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md")
                            )}
-                           {unreadMessages[user.email] && (
-                             <Badge className={cn(
-                               "px-1.5 py-0.5 text-[10px] font-medium",
-                               isDarkMode 
-                                 ? "bg-blue-500/20 text-blue-200 border border-blue-500/20" 
-                                 : "bg-blue-50 text-blue-700 border border-blue-100"
+                           initial={{ opacity: 0, y: 10 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           transition={{ duration: 0.2 }}
+                           whileHover={{ y: -2 }}
+                         >
+                           {/* Avatar Section */}
+                           <div className="relative flex-shrink-0">
+                             <div className={cn(
+                               "w-12 h-12 rounded-xl flex items-center justify-center font-semibold text-sm transition-all duration-200",
+                               isSelected
+                                 ? (isDarkMode ? "bg-blue-500/20 text-blue-300 ring-2 ring-blue-500/30" : "bg-blue-100 text-blue-700 ring-2 ring-blue-200")
+                                 : (isDarkMode ? "bg-slate-700/50 text-slate-300 group-hover:bg-slate-600/50" : "bg-slate-100 text-slate-700 group-hover:bg-slate-200")
                              )}>
-                               New
-                             </Badge>
-                           )}
-                         </div>
-                         <div className="flex flex-col gap-1 mt-1">
-                           <p className={cn(
-                             "text-sm font-medium truncate",
-                             isDarkMode ? "text-slate-200" : "text-gray-700"
-                           )}>{user.email}</p>
+                               {getInitials(user.department || user.name)}
+                             </div>
+                             
+                             {/* Online Status Indicator */}
+                             <div className={cn(
+                               "absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 transition-all duration-200",
+                               isDarkMode ? "border-slate-800" : "border-white",
+                               isSelected ? "bg-blue-500 scale-110" : "bg-emerald-500"
+                             )} />
+                             
+                             {/* Unread Messages Badge */}
+                             {hasUnread && (
+                               <div className={cn(
+                                 "absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold border-2 animate-pulse",
+                                 isDarkMode 
+                                   ? "bg-blue-500 text-white border-slate-800" 
+                                   : "bg-blue-500 text-white border-white"
+                               )}>
+                                 {hasUnread > 99 ? '99+' : hasUnread}
+                               </div>
+                             )}
+                           </div>
 
-                           {/* Show event title */}
-                           {((user.taggedEvents && user.taggedEvents.length > 0) || user.taggingEvents && user.taggingEvents.length > 0) && (
-                             <div className="flex items-center gap-1.5">
-                               <Badge variant="outline" className={cn(
-                                 "px-1.5 py-0 text-[10px] font-medium",
-                                 isDarkMode 
-                                   ? "bg-slate-700/50 text-slate-300 border-slate-600" 
-                                   : "bg-gray-100 text-gray-600 border-gray-200"
-                               )}>
-                                 {(user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).length > 30 
-                                   ? (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle).substring(0, 30) + '...' 
-                                   : (user.taggedEvents?.[0]?.eventTitle || user.taggingEvents?.[0]?.eventTitle)
-                                 }
-                               </Badge>
+                           {/* Content Section */}
+                           <div className="flex-1 min-w-0 space-y-2">
+                             {/* Header Row */}
+                             <div className="flex items-center justify-between gap-2">
+                               <div className="flex items-center gap-2 min-w-0">
+                                 {/* Department Badge */}
+                                 {user.department && (
+                                   <Badge variant="outline" className={cn(
+                                     "px-2 py-1 text-xs font-medium rounded-lg border-0",
+                                     isSelected
+                                       ? (isDarkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700")
+                                       : (isDarkMode ? "bg-slate-700/50 text-slate-300" : "bg-slate-100 text-slate-600")
+                                   )}>
+                                     {user.department}
+                                   </Badge>
+                                 )}
+                                 
+                                 {/* New Messages Indicator */}
+                                 {hasUnread && (
+                                   <Badge className={cn(
+                                     "px-2 py-1 text-xs font-medium rounded-lg animate-pulse",
+                                     isDarkMode 
+                                       ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" 
+                                       : "bg-blue-50 text-blue-700 border border-blue-200"
+                                   )}>
+                                     New
+                                   </Badge>
+                                 )}
+                               </div>
+                               
+                               {/* Timestamp */}
+                               {lastMessage && (
+                                 <span className={cn(
+                                   "text-xs font-medium flex-shrink-0",
+                                   isSelected
+                                     ? (isDarkMode ? "text-blue-300" : "text-blue-600")
+                                     : (isDarkMode ? "text-slate-400" : "text-slate-500")
+                                 )}>
+                                   {format(lastMessage.timestamp?.toDate?.() || lastMessage.timestamp, "MMM d")}
+                                 </span>
+                               )}
                              </div>
-                           )}
-                           {/* Fallback to eventTitle or title if no events available */}
-                           {(!user.taggedEvents || user.taggedEvents.length === 0) && (!user.taggingEvents || user.taggingEvents.length === 0) && (user.eventTitle || user.title) && (
-                             <div className="flex items-center gap-1.5">
-                               <Badge variant="outline" className={cn(
-                                 "px-1.5 py-0 text-[10px] font-medium",
-                                 isDarkMode 
-                                   ? "bg-slate-700/50 text-slate-300 border-slate-600" 
-                                   : "bg-gray-100 text-gray-600 border-gray-200"
+
+                             {/* User Info */}
+                             <div className="space-y-1">
+                               <h3 className={cn(
+                                 "text-sm font-semibold truncate leading-tight",
+                                 isSelected
+                                   ? (isDarkMode ? "text-white" : "text-slate-900")
+                                   : (isDarkMode ? "text-slate-200" : "text-slate-800")
                                )}>
-                                 {(user.eventTitle || user.title).length > 30 
-                                   ? (user.eventTitle || user.title).substring(0, 30) + '...' 
-                                   : (user.eventTitle || user.title)
-                                 }
-                               </Badge>
+                                 {user.name || user.email.split('@')[0]}
+                               </h3>
+                               
+                               <p className={cn(
+                                 "text-xs truncate",
+                                 isSelected
+                                   ? (isDarkMode ? "text-blue-200" : "text-blue-600")
+                                   : (isDarkMode ? "text-slate-400" : "text-slate-500")
+                               )}>
+                                 {user.email}
+                               </p>
                              </div>
+
+                             {/* Last Message Preview */}
+                             {lastMessage && (
+                               <div className="space-y-1">
+                                 <p className={cn(
+                                   "text-xs leading-relaxed line-clamp-2",
+                                   hasUnread
+                                     ? (isDarkMode ? "text-slate-200 font-medium" : "text-slate-700 font-medium")
+                                     : (isDarkMode ? "text-slate-400" : "text-slate-500")
+                                 )}>
+                                   {lastMessage.content}
+                                 </p>
+                               </div>
+                             )}
+
+                             {/* Event Information */}
+                             {((user.taggedEvents && user.taggedEvents.length > 0) || (user.taggingEvents && user.taggingEvents.length > 0) || user.eventTitle || user.title) && (
+                               <div className="flex items-center gap-2">
+                                 <div className={cn(
+                                   "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                                   isDarkMode ? "bg-slate-500" : "bg-slate-400"
+                                 )} />
+                                 <Badge variant="outline" className={cn(
+                                   "px-2 py-0.5 text-xs font-medium rounded-md truncate max-w-[200px] border-0",
+                                   isSelected
+                                     ? (isDarkMode ? "bg-slate-700/50 text-slate-300" : "bg-slate-100 text-slate-600")
+                                     : (isDarkMode ? "bg-slate-800/50 text-slate-400" : "bg-slate-50 text-slate-500")
+                                 )}>
+                                   {(() => {
+                                     const eventTitle = user.taggedEvents?.[0]?.eventTitle || 
+                                                       user.taggingEvents?.[0]?.eventTitle || 
+                                                       user.eventTitle || 
+                                                       user.title;
+                                     return eventTitle?.length > 25 ? `${eventTitle.substring(0, 25)}...` : eventTitle;
+                                   })()}
+                                 </Badge>
+                               </div>
+                             )}
+                           </div>
+
+                           {/* Selection Indicator */}
+                           {isSelected && (
+                             <div className={cn(
+                               "absolute right-3 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full",
+                               isDarkMode ? "bg-blue-400" : "bg-blue-500"
+                             )} />
                            )}
-                         </div>
-                       </div>
-                     </motion.div>
-                   )})}
+                         </motion.div>
+                       );
+                     })}
+                   </div>
                  </div>
               ) : (
                                  <div className="flex flex-col items-center justify-center py-8 px-4">

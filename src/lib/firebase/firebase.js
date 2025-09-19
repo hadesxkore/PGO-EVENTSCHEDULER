@@ -29,10 +29,10 @@ export const analytics = getAnalytics(app);
 // Configure auth persistence
 setPersistence(auth, browserLocalPersistence)
   .then(() => {
-    console.log("Firebase persistence set to LOCAL");
+    // Firebase persistence configured successfully
   })
   .catch((error) => {
-    console.error("Error setting persistence:", error);
+    // Handle persistence configuration error silently
   });
 
 // Auth functions
@@ -42,7 +42,6 @@ export const sendVerificationEmail = async (user) => {
     await sendEmailVerification(user);
     return { success: true };
   } catch (error) {
-    console.error("Error sending verification email:", error);
     throw error;
   }
 };
@@ -67,7 +66,6 @@ export const registerUser = async (email, password, userData) => {
 
     return { success: true, user };
   } catch (error) {
-    console.error("Error in registerUser:", error);
     throw error;
   }
 };
@@ -105,7 +103,6 @@ export const loginUser = async (username, password) => {
       userData: { ...userData, emailVerified: true, status: 'active' }
     };
   } catch (error) {
-    console.error("Error in loginUser:", error);
     if (error.message === "Username not found") {
       throw new Error("Invalid username or password");
     }

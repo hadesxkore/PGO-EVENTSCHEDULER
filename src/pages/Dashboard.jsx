@@ -458,8 +458,12 @@ const Dashboard = () => {
                           {upcomingEvents.map((event, index) => (
                             <div
                               key={`upcoming-${index}`}
+                              onClick={() => {
+                                navigate('/my-events');
+                                setIsPopoverOpen(false);
+                              }}
                               className={cn(
-                                "rounded-lg p-3 transition-colors",
+                                "rounded-lg p-3 transition-colors cursor-pointer",
                                 isDarkMode 
                                   ? "bg-gray-800/50 hover:bg-gray-700" 
                                   : "bg-gray-50 hover:bg-gray-100"
@@ -557,8 +561,12 @@ const Dashboard = () => {
                         upcomingEvents.map((event, index) => (
                           <div
                             key={index}
+                            onClick={() => {
+                              navigate('/my-events');
+                              setIsPopoverOpen(false);
+                            }}
                             className={cn(
-                              "rounded-lg p-3 transition-colors",
+                              "rounded-lg p-3 transition-colors cursor-pointer",
                               isDarkMode 
                                 ? "bg-gray-800/50 hover:bg-gray-700" 
                                 : "bg-gray-50 hover:bg-gray-100"
@@ -833,8 +841,9 @@ const Dashboard = () => {
                 <motion.div
                   key={event.id}
                   variants={item}
+                  onClick={() => navigate('/my-events')}
                   className={cn(
-                    "relative overflow-hidden p-4 rounded-xl border transition-colors",
+                    "relative overflow-hidden p-4 rounded-xl border transition-colors cursor-pointer",
                     isDarkMode 
                       ? "bg-gray-800/30 hover:bg-gray-800/50 border-gray-700" 
                       : "bg-gray-50/50 hover:bg-white border-gray-100"

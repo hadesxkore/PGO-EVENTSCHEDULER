@@ -73,11 +73,7 @@ const statusColors = {
 // Helper function to get initials from full name
 const getInitials = (fullName) => {
   if (!fullName) return "U";
-  const names = fullName.split(" ");
-  if (names.length >= 2) {
-    return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-  }
-  return fullName[0].toUpperCase();
+  return fullName.charAt(0).toUpperCase();
 };
 
 const AllEvents = ({ userData }) => {

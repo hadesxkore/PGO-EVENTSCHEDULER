@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Send, Users, Paperclip, Image } from "lucide-react";
+import { Search, Send, Users } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,9 +16,9 @@ import { db } from "@/lib/firebase/firebase";
 import useMessageStore from "@/store/messageStore";
 import { useLocation } from "react-router-dom";
 
-const getInitials = (department) => {
-  if (!department) return "U"; // Default to "U" for User if no department
-  return department.split(" ").map(word => word[0]).join("").toUpperCase();
+const getInitials = (name) => {
+  if (!name) return "U"; // Default to "U" for User if no name
+  return name.charAt(0).toUpperCase();
 };
 
 const Messages = () => {
@@ -1226,7 +1226,7 @@ const Messages = () => {
                       <AvatarFallback className={cn(
                         "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300 text-[10px] font-medium"
                       )}>
-                        {selectedUser.department || "User"}
+                        {getInitials(selectedUser.name || selectedUser.department || selectedUser.email)}
                       </AvatarFallback>
                     </Avatar>
                     <span className={cn(
@@ -1297,7 +1297,7 @@ const Messages = () => {
                           {msg.from !== currentUser?.email && (
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="text-[10px] font-medium">
-                                {selectedUser.department || "User"}
+                                {getInitials(selectedUser.name || selectedUser.department || selectedUser.email)}
                               </AvatarFallback>
                             </Avatar>
                           )}
@@ -1332,7 +1332,7 @@ const Messages = () => {
                           {msg.from === currentUser?.email && (
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="text-[10px] font-medium">
-                                {currentUser?.department || "User"}
+                                {getInitials(currentUser?.name || currentUser?.department || currentUser?.email)}
                               </AvatarFallback>
                             </Avatar>
                           )}
@@ -1351,12 +1351,6 @@ const Messages = () => {
               )}>
                 <div className="flex items-end gap-2">
                   <div className="flex-1 flex items-end gap-2 bg-transparent">
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                      <Image className="h-5 w-5" />
-                    </Button>
                     <Textarea
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}

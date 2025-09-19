@@ -503,8 +503,8 @@ const MyEvents = () => {
                                 ? "bg-blue-500/15 text-blue-300 border border-blue-500/20" 
                                 : "bg-blue-50 text-blue-700 border border-blue-100"
                             )} title={event.title}>
-                              {event.title.length > 32 
-                                ? `${event.title.substring(0, 32)}...` 
+                              {event.title.length > 20 
+                                ? `${event.title.substring(0, 20)}...` 
                                 : event.title}
                             </span>
                           </div>

@@ -445,7 +445,8 @@ const AllEventsNew = () => {
                   role="combobox"
                   aria-expanded={statusPopoverOpen}
                   className={cn(
-                    "h-10 justify-between font-normal bg-white dark:bg-slate-900 border-0 shadow-sm hover:shadow-md transition-shadow",
+                    "h-10 justify-between font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
+                    isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50",
                     statusFilter.length > 0 && "ring-2 ring-primary ring-offset-1"
                   )}
                 >
@@ -461,9 +462,18 @@ const AllEventsNew = () => {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-0 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-lg" align="end">
-                <Command className="bg-white dark:bg-slate-900 border-0">
-                  <CommandInput placeholder="Search status..." className="h-9 bg-white dark:bg-slate-900 border-0" />
+              <PopoverContent className={cn(
+                "w-64 p-0 shadow-lg",
+                isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"
+              )} align="end">
+                <Command className={cn(
+                  "border-0",
+                  isDarkMode ? "bg-slate-800" : "bg-white"
+                )}>
+                  <CommandInput placeholder="Search status..." className={cn(
+                    "h-9 border-0",
+                    isDarkMode ? "bg-slate-800" : "bg-white"
+                  )} />
                   <CommandList className="border-0">
                     <CommandEmpty>No status found.</CommandEmpty>
                     <CommandGroup className="border-0">
@@ -513,7 +523,8 @@ const AllEventsNew = () => {
                   role="combobox"
                   aria-expanded={departmentPopoverOpen}
                   className={cn(
-                    "h-10 justify-between font-normal bg-white dark:bg-slate-900 border-0 shadow-sm hover:shadow-md transition-shadow",
+                    "h-10 justify-between font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
+                    isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50",
                     departmentFilter.length > 0 && "ring-2 ring-primary ring-offset-1"
                   )}
                 >
@@ -529,9 +540,18 @@ const AllEventsNew = () => {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-0 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-lg" align="end">
-                <Command className="bg-white dark:bg-slate-900 border-0">
-                  <CommandInput placeholder="Search department..." className="h-9 bg-white dark:bg-slate-900 border-0" />
+              <PopoverContent className={cn(
+                "w-64 p-0 shadow-lg",
+                isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"
+              )} align="end">
+                <Command className={cn(
+                  "border-0",
+                  isDarkMode ? "bg-slate-800" : "bg-white"
+                )}>
+                  <CommandInput placeholder="Search department..." className={cn(
+                    "h-9 border-0",
+                    isDarkMode ? "bg-slate-800" : "bg-white"
+                  )} />
                   <CommandList className="border-0">
                     <CommandEmpty>No department found.</CommandEmpty>
                     <CommandGroup className="border-0">
@@ -571,7 +591,10 @@ const AllEventsNew = () => {
               setSortBy(field);
               setSortOrder(order);
             }}>
-              <SelectTrigger className="h-10 w-[160px] font-normal bg-white dark:bg-slate-900 border-0 shadow-sm hover:shadow-md transition-shadow">
+              <SelectTrigger className={cn(
+                "h-10 w-[160px] font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
+                isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50"
+              )}>
                 <div className="flex items-center gap-2">
                   <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   <SelectValue placeholder="Sort by" />

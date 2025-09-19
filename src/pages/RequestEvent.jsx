@@ -158,10 +158,11 @@ const RequestEvent = () => {
   
   // Multiple locations state
   const [hasMultipleLocations, setHasMultipleLocations] = useState(false);
-  const [showMultipleLocationsModal, setShowMultipleLocationsModal] = useState(false);
-  const [multipleLocations, setMultipleLocations] = useState([
-    { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
-  ]);
+  
+  // Multiple locations draft management
+  const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
+  const [locationDrafts, setLocationDrafts] = useState([]);
+  const [isInMultipleLocationMode, setIsInMultipleLocationMode] = useState(false);
   
   // Gov modal state
   const [showGovModal, setShowGovModal] = useState(false);
@@ -244,7 +245,7 @@ const RequestEvent = () => {
       formData.title && 
       formData.requestor && 
       (hasMultipleLocations ? 
-        multipleLocations.some(loc => loc.location.trim()) : 
+        (isInMultipleLocationMode ? locationDrafts.length > 0 : formData.location) : 
         formData.location
       ) && 
       formData.participants &&
@@ -265,16 +266,26 @@ const RequestEvent = () => {
 
     // Check Schedule completion
     const isScheduleComplete = hasMultipleLocations ? (
-      // For multiple locations: check if at least one location has complete date/time info
-      multipleLocations.some(loc => 
-        loc.location.trim() && 
-        loc.startDate && 
-        loc.endDate && 
-        loc.startTime && 
-        loc.endTime
-      ) && 
-      formData.contactNumber && 
-      formData.contactEmail
+      // For multiple locations: check if drafts have complete date/time info
+      isInMultipleLocationMode ? (
+        locationDrafts.some(draft => 
+          draft.location.trim() && 
+          draft.startDate && 
+          draft.endDate && 
+          draft.startTime && 
+          draft.endTime
+        ) && 
+        formData.contactNumber && 
+        formData.contactEmail
+      ) : (
+        // Fallback to single location check
+        startDate && 
+        endDate && 
+        startTime && 
+        endTime && 
+        formData.contactNumber && 
+        formData.contactEmail
+      )
     ) : (
       // For single location: check traditional fields
       startDate && 
@@ -299,7 +310,7 @@ const RequestEvent = () => {
       schedule: isScheduleComplete,
       readyToSubmit: isReadyToSubmit
     });
-  }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments, hasMultipleLocations, multipleLocations]);
+  }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments, hasMultipleLocations, isInMultipleLocationMode, locationDrafts]);
 
 
 
@@ -924,6 +935,100 @@ const RequestEvent = () => {
 
 
 
+  // Multiple locations helper functions
+  const validateCurrentLocationForm = () => {
+    const requiredFields = [
+      { field: 'title', label: 'Event Title' },
+      { field: 'requestor', label: 'Requestor' },
+      { field: 'location', label: 'Location' }
+    ];
+    
+    const missingFields = requiredFields.filter(({ field }) => {
+      const value = formData[field];
+      return !value || (typeof value === 'string' && !value.trim());
+    });
+    
+    // Log missing fields for debugging
+    if (missingFields.length > 0) {
+      console.log('Missing required fields:', missingFields.map(f => f.label));
+    }
+    
+    return missingFields.length === 0;
+  };
+
+  const saveCurrentLocationDraft = (showToast = false) => {
+    const currentDraft = {
+      ...formData,
+      startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+      endDate: endDate ? endDate.toISOString().split('T')[0] : null,
+      startTime: startTime,
+      endTime: endTime,
+      locationIndex: currentLocationIndex
+    };
+    
+    console.log('Saving location draft:', currentDraft);
+    console.log('Draft participants:', currentDraft.participants);
+    console.log('Draft vip:', currentDraft.vip);
+    console.log('Draft vvip:', currentDraft.vvip);
+    
+    setLocationDrafts(prev => {
+      const newDrafts = [...prev];
+      newDrafts[currentLocationIndex] = currentDraft;
+      console.log('Updated location drafts:', newDrafts);
+      return newDrafts;
+    });
+    
+    if (showToast) {
+      toast.success(`Location ${currentLocationIndex + 1} saved with dates and schedule`);
+    }
+  };
+
+  const handleNextLocation = () => {
+    const requiredFields = [
+      { field: 'title', label: 'Event Title' },
+      { field: 'requestor', label: 'Requestor' },
+      { field: 'location', label: 'Location' }
+    ];
+    
+    const missingFields = requiredFields.filter(({ field }) => {
+      const value = formData[field];
+      return !value || (typeof value === 'string' && !value.trim());
+    });
+
+    if (missingFields.length > 0) {
+      const missingFieldNames = missingFields.map(f => f.label).join(', ');
+      toast.error(`Please fill in the following required fields: ${missingFieldNames}`);
+      return;
+    }
+
+    // Save current form as draft
+    saveCurrentLocationDraft();
+
+    // Move to next location
+    const nextIndex = currentLocationIndex + 1;
+    setCurrentLocationIndex(nextIndex);
+
+    // Clear form for next location - only clear location-specific fields
+    setFormData(prev => ({
+      ...prev,
+      location: '',
+      classifications: '',
+      // Keep title, requestor, participants, vip, vvip, withGov as they might be the same across locations
+    }));
+
+    // Reset dates and times for new location
+    setStartDate(new Date());
+    setEndDate(new Date());
+    setStartTime("10:30");
+    setEndTime("11:30");
+
+    // Clear any custom location input state
+    setShowCustomLocationInput(false);
+    setCustomLocation("");
+
+    toast.success(`Saved location ${currentLocationIndex + 1}. Now configuring location ${nextIndex + 1}.`);
+  };
+
   const { submitEventRequest, setPreferredDates, togglePreferredDatesModal } = useEventStore();
   const preferredDates = useEventStore((state) => state.preferredDates);
 
@@ -950,9 +1055,19 @@ const RequestEvent = () => {
         setEndDate(preferredEnd);
         setStartTime("10:30"); // Default start time
         setEndTime("11:30"); // Default end time
+        
+        // Also populate the location field if it's provided and current location is empty
+        if (preferredDates?.location && !formData.location) {
+          setFormData(prev => ({
+            ...prev,
+            location: preferredDates.location
+          }));
+        }
+        
       }
     }
-  }, [preferredDates?.startDate, preferredDates?.endDate]);
+  }, [preferredDates?.startDate, preferredDates?.endDate, preferredDates?.location]);
+
 
   const handleSubmit = async () => {
     try {
@@ -967,25 +1082,17 @@ const RequestEvent = () => {
       const missingFields = requiredFields.filter(field => !formData[field]);
       
       // Additional validation for multiple locations
-      if (hasMultipleLocations) {
-        const hasValidMultipleLocations = multipleLocations.some(loc => 
-          loc.location && loc.location.trim() && 
-          loc.startDate && loc.endDate && 
-          loc.startTime && loc.endTime
-        );
-        
-        if (!hasValidMultipleLocations) {
-          console.log('❌ VALIDATION FAILED - No valid multiple locations configured');
-          toast.error("Please configure at least one complete location with dates and times");
+      if (hasMultipleLocations && isInMultipleLocationMode) {
+        if (locationDrafts.length === 0) {
+          toast.error("Please add at least one location using the Next button");
           return;
         }
       }
       
-      // Debug logging for validation
       console.log('=== FORM VALIDATION DEBUG ===');
       console.log('hasMultipleLocations:', hasMultipleLocations);
       console.log('formData:', formData);
-      console.log('multipleLocations:', multipleLocations);
+      console.log('locationDrafts:', locationDrafts);
       console.log('completedSteps:', completedSteps);
       console.log('requiredFields:', requiredFields);
       console.log('missingFields:', missingFields);
@@ -1087,18 +1194,82 @@ const RequestEvent = () => {
         }
       }
 
-      // Prepare location data based on single or multiple locations
-      let locationData;
-      if (hasMultipleLocations) {
-        locationData = {
-          isMultipleLocations: true,
-          locations: multipleLocations.filter(loc => loc.location.trim() !== '')
-        };
+      // Handle multiple locations vs single location submission
+      let eventsToSubmit = [];
+      
+      if (hasMultipleLocations && isInMultipleLocationMode) {
+        // Save current location as final draft if form is valid
+        if (validateCurrentLocationForm()) {
+          saveCurrentLocationDraft();
+        }
+        
+        // Wait a moment for the state to update, then get the latest drafts
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Create separate events for each location draft
+        const finalLocationDrafts = [...locationDrafts];
+        
+        // If current form has valid data and isn't already saved, add it
+        if (validateCurrentLocationForm() && !finalLocationDrafts.find(draft => draft.locationIndex === currentLocationIndex)) {
+          finalLocationDrafts.push({
+            ...formData,
+            startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+            endDate: endDate ? endDate.toISOString().split('T')[0] : null,
+            startTime: startTime,
+            endTime: endTime,
+            locationIndex: currentLocationIndex
+          });
+        }
+        
+        for (const draft of finalLocationDrafts) {
+          if (draft.location && draft.startDate && draft.endDate) {
+            // Create timestamps for this specific location
+            const [draftStartHours, draftStartMinutes] = draft.startTime.split(':');
+            const draftStartEventDate = new Date(draft.startDate);
+            draftStartEventDate.setHours(parseInt(draftStartHours), parseInt(draftStartMinutes));
+            const draftStartTimestamp = Timestamp.fromDate(draftStartEventDate);
+
+            const [draftEndHours, draftEndMinutes] = draft.endTime.split(':');
+            const draftEndEventDate = new Date(draft.endDate);
+            draftEndEventDate.setHours(parseInt(draftEndHours), parseInt(draftEndMinutes));
+            const draftEndTimestamp = Timestamp.fromDate(draftEndEventDate);
+            
+            eventsToSubmit.push({
+              // Use the draft's form data (which includes all the fields for that location)
+              title: draft.title,
+              requestor: draft.requestor,
+              location: draft.location,
+              participants: draft.participants,
+              vip: draft.vip,
+              vvip: draft.vvip,
+              contactNumber: formData.contactNumber, // Contact info is same for all
+              contactEmail: formData.contactEmail,
+              classifications: draft.classifications,
+              withGov: draft.withGov,
+              startDate: draftStartTimestamp,
+              endDate: draftEndTimestamp,
+              isMultipleLocations: false, // Each event is now a single location
+              locationIndex: draft.locationIndex + 1 // For identification
+            });
+          }
+        }
       } else {
-        locationData = {
-          isMultipleLocations: false,
-          location: formData.location
-        };
+        // Single location - use the existing logic
+        eventsToSubmit.push({
+          title: formData.title,
+          requestor: formData.requestor,
+          location: formData.location,
+          participants: formData.participants,
+          vip: formData.vip,
+          vvip: formData.vvip,
+          contactNumber: formData.contactNumber,
+          contactEmail: formData.contactEmail,
+          classifications: formData.classifications,
+          withGov: formData.withGov,
+          startDate: startTimestamp,
+          endDate: endTimestamp,
+          isMultipleLocations: false
+        });
       }
 
       // Upload Governor's Requirements files
@@ -1187,29 +1358,60 @@ const RequestEvent = () => {
         };
       });
 
-      const eventDataWithUser = {
-        ...formData,
-        ...locationData,
-        startDate: startTimestamp,
-        endDate: endTimestamp,
-        departmentRequirements: formattedDepartmentRequirements,
-        attachments: uploadedAttachments,
-        govAttachments: uploadedGovAttachments,
-        ecrFile: uploadedEcrFile,
-        userId: currentUser.uid,
-        userEmail: currentUser.email,
-        userName: userData.username || userData.name || currentUser.email,
-        department: userData.department || 'Not specified'
-      };
+      // Submit each event separately
+      let successCount = 0;
+      let failCount = 0;
+      
+      console.log('Events to submit:', eventsToSubmit);
+      
+      for (const eventData of eventsToSubmit) {
+        const eventDataWithUser = {
+          ...eventData,
+          departmentRequirements: formattedDepartmentRequirements,
+          attachments: uploadedAttachments,
+          govAttachments: uploadedGovAttachments,
+          ecrFile: uploadedEcrFile,
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+          userName: userData.username || userData.name || currentUser.email,
+          department: userData.department || 'Not specified',
+          // Add fields for easy identification in MyEvents page
+          eventTitle: eventData.title,
+          eventLocation: eventData.location,
+          eventRequestor: eventData.requestor,
+          eventParticipants: eventData.participants,
+          eventStartDate: eventData.startDate,
+          eventEndDate: eventData.endDate,
+          multiLocationIndex: eventData.locationIndex || null
+        };
 
-      // Submit using Zustand store
-      const result = await submitEventRequest(eventDataWithUser);
-    
-      if (result.success) {
-        toast.success("Event request submitted successfully");
+        try {
+          const result = await submitEventRequest(eventDataWithUser);
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error('Failed to submit event:', result.error);
+          }
+        } catch (error) {
+          failCount++;
+          console.error('Error submitting event:', error);
+        }
+      }
+      
+      // Show appropriate success/error messages
+      if (successCount > 0 && failCount === 0) {
+        if (eventsToSubmit.length > 1) {
+          toast.success(`All ${successCount} location events submitted successfully!`);
+        } else {
+          toast.success("Event request submitted successfully");
+        }
+        navigate('/my-events');
+      } else if (successCount > 0 && failCount > 0) {
+        toast.warning(`${successCount} events submitted successfully, ${failCount} failed`);
         navigate('/my-events');
       } else {
-        toast.error(result.error || "Failed to submit event request");
+        toast.error("Failed to submit event request(s)");
       }
     } catch (error) {
       console.error('Error submitting event request:', error);
@@ -1565,7 +1767,10 @@ const RequestEvent = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                      Location
+                      {hasMultipleLocations && isInMultipleLocationMode 
+                        ? `Location ${currentLocationIndex + 1}` 
+                        : "Location"
+                      }
                     </Label>
                     <div className="flex items-center gap-2">
                       <span className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
@@ -1576,15 +1781,17 @@ const RequestEvent = () => {
                         onClick={() => {
                           setHasMultipleLocations(!hasMultipleLocations);
                           if (!hasMultipleLocations) {
-                            // Reset single location when switching to multiple
+                            // Entering multiple location mode
+                            setIsInMultipleLocationMode(true);
+                            setCurrentLocationIndex(0);
+                            setLocationDrafts([]);
+                            // Clear single location field
                             setFormData(prev => ({ ...prev, location: '' }));
-                            setShowMultipleLocationsModal(true);
                           } else {
-                            // Reset multiple locations when switching to single
-                            setMultipleLocations([
-                              { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
-                            ]);
-                            setShowMultipleLocationsModal(false);
+                            // Exiting multiple location mode
+                            setIsInMultipleLocationMode(false);
+                            setCurrentLocationIndex(0);
+                            setLocationDrafts([]);
                           }
                         }}
                         className={cn(
@@ -1700,26 +1907,106 @@ const RequestEvent = () => {
                   </Popover>
 
                   ) : (
-                    <div className="space-y-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowMultipleLocationsModal(true)}
-                        className="w-full h-12 justify-between hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
-                      >
-                        <div className="flex flex-col items-start">
-                          <span>Configure multiple locations...</span>
-                          <span className="text-xs text-gray-500">
-                            {multipleLocations.filter(loc => loc.location.trim()).length} location{multipleLocations.filter(loc => loc.location.trim()).length !== 1 ? 's' : ''} configured
-                          </span>
-                        </div>
-                        <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </div>
+                    <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={isLocationOpen}
+                          className={cn(
+                            "w-full justify-between h-12 text-base pl-12",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
+                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                          {formData.location || "Select location..."}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                    <PopoverContent 
+                      side="bottom"
+                      align="start"
+                      sideOffset={4}
+                      avoidCollisions={false}
+                      className={cn(
+                        "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
+                        isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                      )}
+                    >
+                      <Command className={isDarkMode ? "bg-slate-900" : "bg-white"}>
+                        <CommandInput 
+                          placeholder="Search locations..." 
+                          className={isDarkMode ? "text-white" : "text-gray-900"}
+                        />
+                        <CommandEmpty className={cn(
+                          "py-6 text-center text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        )}>
+                          No location found.
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-[200px] overflow-y-auto">
+                          <CommandItem
+                            onSelect={() => {
+                              setShowCustomLocationInput(true);
+                              setIsLocationOpen(false);
+                            }}
+                            className={cn(
+                              "cursor-pointer border-b",
+                              isDarkMode 
+                                ? "text-blue-400 hover:bg-slate-800 border-slate-700" 
+                                : "text-blue-600 hover:bg-gray-100 border-gray-200"
+                            )}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add custom location
+                          </CommandItem>
+                          {defaultLocations.map((location) => (
+                            <CommandItem
+                              key={location}
+                              value={location}
+                              onSelect={async (currentValue) => {
+                                setFormData(prev => ({ ...prev, location: currentValue }));
+                                setShowCustomLocationInput(false);
+                                setCustomLocation("");
+                                setIsLocationOpen(false);
+                                
+                                // Get booked dates for this location
+                                await useEventStore.getState().getBookedDates(currentValue);
+                                
+                                // Show preferred dates modal
+                                useEventStore.getState().setPreferredDates({
+                                  location: currentValue,
+                                  startDate: null,
+                                  endDate: null
+                                });
+                                useEventStore.getState().togglePreferredDatesModal(true);
+                              }}
+                              className={cn(
+                                "cursor-pointer",
+                                isDarkMode 
+                                  ? "text-gray-200 hover:bg-slate-800" 
+                                  : "text-gray-900 hover:bg-gray-100"
+                              )}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.location === location ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {location}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   )}
 
                   {/* Custom Location Input */}
-                  {showCustomLocationInput && !hasMultipleLocations && (
+                  {showCustomLocationInput && (
                     <div className="space-y-2 mt-2">
                       <Label className={cn(
                         "text-sm font-medium",
@@ -2111,6 +2398,48 @@ const RequestEvent = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Next Button for Multiple Locations */}
+              {hasMultipleLocations && isInMultipleLocationMode && (
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {locationDrafts.length > 0 && (
+                        <span>
+                          {locationDrafts.length} location{locationDrafts.length > 1 ? 's' : ''} saved. 
+                        </span>
+                      )}
+                      <span className="ml-2">
+                        Currently configuring location {currentLocationIndex + 1}
+                      </span>
+                      {locationDrafts[currentLocationIndex] && locationDrafts[currentLocationIndex].startDate && (
+                        <span className="ml-2 text-green-600 dark:text-green-400 text-xs">
+                          ✓ Auto-saved
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleNextLocation}
+                      disabled={!validateCurrentLocationForm()}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all duration-200",
+                        validateCurrentLocationForm()
+                          ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      )}
+                    >
+                      <span>Next Location</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {!validateCurrentLocationForm() && (
+                    <p className="text-xs text-red-500 mt-2 text-right">
+                      Please fill in all required fields to continue
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -2317,68 +2646,60 @@ const RequestEvent = () => {
             </div>
 
             <div className="space-y-6">
-              {hasMultipleLocations ? (
+              {hasMultipleLocations && isInMultipleLocationMode ? (
                 /* Multiple Locations Schedule Display */
                 <div className="space-y-4">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Schedule configured for multiple locations
                   </div>
-                  {multipleLocations.map((locationItem, index) => {
-                    // Show all locations, even empty ones for editing
-                    const hasLocation = locationItem.location.trim();
-                    return (
-                      <div key={index} className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-0">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-medium text-gray-900 dark:text-white">
-                            {hasLocation ? locationItem.location : `Location ${index + 1}`}
-                          </h4>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowMultipleLocationsModal(true)}
-                            className="text-xs"
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500 dark:text-gray-400">Start:</span>
-                            <div className="font-medium">
-                              {locationItem.startDate && locationItem.startTime ? (
-                                `${new Date(locationItem.startDate).toLocaleDateString()} at ${(() => {
-                                  const [hours, minutes] = locationItem.startTime.split(':');
-                                  const hour = parseInt(hours);
-                                  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                                  const ampm = hour < 12 ? 'AM' : 'PM';
-                                  return `${displayHour}:${minutes} ${ampm}`;
-                                })()}`
-                              ) : (
-                                <span className="text-gray-400">Not set</span>
-                              )}
-                            </div>
+                  {locationDrafts.map((draft, index) => (
+                    <div key={index} className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border-0">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                          {draft.location || `Location ${index + 1}`}
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Start:</span>
+                          <div className="font-medium">
+                            {draft.startDate && draft.startTime ? (
+                              `${new Date(draft.startDate).toLocaleDateString()} at ${(() => {
+                                const [hours, minutes] = draft.startTime.split(':');
+                                const hour = parseInt(hours);
+                                const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                const ampm = hour < 12 ? 'AM' : 'PM';
+                                return `${displayHour}:${minutes} ${ampm}`;
+                              })()}`
+                            ) : (
+                              <span className="text-gray-400">Not set</span>
+                            )}
                           </div>
-                          <div>
-                            <span className="text-gray-500 dark:text-gray-400">End:</span>
-                            <div className="font-medium">
-                              {locationItem.endDate && locationItem.endTime ? (
-                                `${new Date(locationItem.endDate).toLocaleDateString()} at ${(() => {
-                                  const [hours, minutes] = locationItem.endTime.split(':');
-                                  const hour = parseInt(hours);
-                                  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                                  const ampm = hour < 12 ? 'AM' : 'PM';
-                                  return `${displayHour}:${minutes} ${ampm}`;
-                                })()}`
-                              ) : (
-                                <span className="text-gray-400">Not set</span>
-                              )}
-                            </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">End:</span>
+                          <div className="font-medium">
+                            {draft.endDate && draft.endTime ? (
+                              `${new Date(draft.endDate).toLocaleDateString()} at ${(() => {
+                                const [hours, minutes] = draft.endTime.split(':');
+                                const hour = parseInt(hours);
+                                const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                const ampm = hour < 12 ? 'AM' : 'PM';
+                                return `${displayHour}:${minutes} ${ampm}`;
+                              })()}`
+                            ) : (
+                              <span className="text-gray-400">Not set</span>
+                            )}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
+                  {locationDrafts.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      No locations configured yet. Use the Next button in Event Details to add locations.
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Single Location Schedule */
@@ -3378,6 +3699,14 @@ const RequestEvent = () => {
                       // Close the modal
                       togglePreferredDatesModal(false);
                       
+                      // For multiple locations, auto-save the current location draft
+                      if (hasMultipleLocations && isInMultipleLocationMode) {
+                        // Use setTimeout to ensure state updates are applied first
+                        setTimeout(() => {
+                          saveCurrentLocationDraft(true);
+                        }, 100);
+                      }
+                      
                       // Show success message
                       toast.success("Dates and times have been set in the schedule");
                     } else {
@@ -3780,382 +4109,6 @@ const RequestEvent = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Multiple Locations Modal */}
-      <Dialog open={showMultipleLocationsModal} onOpenChange={setShowMultipleLocationsModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
-              Configure Multiple Locations
-            </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
-              Add multiple locations with different dates and times for each venue
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 mt-6">
-            {multipleLocations.map((locationItem, index) => (
-              <Card key={index} className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <CardContent className="p-0 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Location {index + 1}
-                    </h3>
-                    {multipleLocations.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setMultipleLocations(prev => prev.filter((_, i) => i !== index));
-                        }}
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 border-red-200 hover:border-red-300"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Location Name
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className={cn(
-                              "w-full justify-between h-12 text-base mt-1",
-                              isDarkMode 
-                                ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
-                                : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
-                            )}
-                          >
-                            {locationItem.location || "Select location..."}
-                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent 
-                          side="bottom"
-                          align="start"
-                          sideOffset={4}
-                          avoidCollisions={false}
-                          className={cn(
-                            "w-[--radix-popover-trigger-width] max-h-[300px] p-0",
-                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
-                          )}
-                        >
-                          <Command className={isDarkMode ? "bg-slate-900" : "bg-white"}>
-                            <CommandInput 
-                              placeholder="Search locations..." 
-                              className={isDarkMode ? "text-white" : "text-gray-900"}
-                            />
-                            <CommandEmpty className={cn(
-                              "py-6 text-center text-sm",
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            )}>
-                              No location found.
-                            </CommandEmpty>
-                            <CommandGroup className="max-h-[200px] overflow-y-auto">
-                              <CommandItem
-                                onSelect={() => {
-                                  setMultipleLocations(prev => prev.map((item, i) => 
-                                    i === index ? { ...item, location: '', showCustomInput: true } : item
-                                  ));
-                                }}
-                                className={cn(
-                                  "cursor-pointer border-b",
-                                  isDarkMode 
-                                    ? "text-blue-400 hover:bg-slate-800 border-slate-700" 
-                                    : "text-blue-600 hover:bg-gray-100 border-gray-200"
-                                )}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add custom location
-                              </CommandItem>
-                              {[
-                               "Atrium",
-                                "Grand Lobby Entrance",
-                                "Main Entrance Lobby",
-                                "Main Entrance Leasable Area",
-                                "4th Flr. Conference Room 1",
-                                "4th Flr. Conference Room 2",
-                                "4th Flr. Conference Room 3",
-                                "5th Flr. Training Room 1 (BAC)",
-                                "5th Flr. Training Room 2",
-                                "6th Flr. Meeting Room 7",
-                                "6th Flr. DPOD",
-                                "Bataan Peoples Center",
-                                "Capitol Quadrangle",
-                                "1BOSSCO",
-                                "Emiliana Hall",
-                                "Pavilion"
-                              ].map((location) => (
-                                <CommandItem
-                                  key={location}
-                                  value={location}
-                                  onSelect={() => {
-                                    setMultipleLocations(prev => prev.map((item, i) => 
-                                      i === index ? { ...item, location, showCustomInput: false } : item
-                                    ));
-                                  }}
-                                  className={cn(
-                                    "cursor-pointer",
-                                    isDarkMode 
-                                      ? "text-gray-200 hover:bg-slate-800" 
-                                      : "text-gray-900 hover:bg-gray-100"
-                                  )}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      locationItem.location === location ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {location}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      
-                      {locationItem.showCustomInput && (
-                        <Input
-                          placeholder="Enter custom location"
-                          value={locationItem.location}
-                          onChange={(e) => {
-                            setMultipleLocations(prev => prev.map((item, i) => 
-                              i === index ? { ...item, location: e.target.value } : item
-                            ));
-                          }}
-                          className="mt-2 h-11 bg-white border-0 shadow-sm focus:shadow-md transition-shadow"
-                          autoFocus
-                        />
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Start Date
-                        </Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal h-11 mt-1 bg-white border-0 shadow-sm hover:shadow-md transition-shadow",
-                                !locationItem.startDate && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {locationItem.startDate ? (
-                                new Date(locationItem.startDate).toLocaleDateString()
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 border-0 shadow-lg" align="start">
-                            <ModernCalendar
-                              selectedDate={locationItem.startDate ? new Date(locationItem.startDate) : null}
-                              onDateSelect={(date) => {
-                                const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                                setMultipleLocations(prev => prev.map((item, i) => 
-                                  i === index ? { ...item, startDate: formattedDate } : item
-                                ));
-                              }}
-                              isDarkMode={isDarkMode}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          End Date
-                        </Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal h-11 mt-1 bg-white border-0 shadow-sm hover:shadow-md transition-shadow",
-                                !locationItem.endDate && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {locationItem.endDate ? (
-                                new Date(locationItem.endDate).toLocaleDateString()
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 border-0 shadow-lg" align="start">
-                            <ModernCalendar
-                              selectedDate={locationItem.endDate ? new Date(locationItem.endDate) : null}
-                              onDateSelect={(date) => {
-                                const formattedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                                setMultipleLocations(prev => prev.map((item, i) => 
-                                  i === index ? { ...item, endDate: formattedDate } : item
-                                ));
-                              }}
-                              isDarkMode={isDarkMode}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Start Time
-                        </Label>
-                        <Select
-                          value={locationItem.startTime || ""}
-                          onValueChange={(value) => {
-                            setMultipleLocations(prev => prev.map((item, i) => 
-                              i === index ? { ...item, startTime: value } : item
-                            ));
-                          }}
-                        >
-                          <SelectTrigger className={cn(
-                            "w-full h-11 mt-1",
-                            isDarkMode 
-                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
-                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
-                          )}>
-                            <SelectValue placeholder="Select start time" />
-                          </SelectTrigger>
-                          <SelectContent className={cn(
-                            "max-h-[200px]",
-                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
-                          )}>
-                            {[
-                              "03:00", "03:30", "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-                              "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-                              "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-                              "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
-                            ].map((time) => {
-                              const [hours, minutes] = time.split(':');
-                              const hour = parseInt(hours);
-                              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                              const ampm = hour < 12 ? 'AM' : 'PM';
-                              const displayTime = `${displayHour}:${minutes} ${ampm}`;
-                              
-                              return (
-                                <SelectItem 
-                                  key={time} 
-                                  value={time}
-                                  className={cn(
-                                    "cursor-pointer",
-                                    isDarkMode 
-                                      ? "text-gray-200 hover:bg-slate-800 focus:bg-slate-800" 
-                                      : "text-gray-900 hover:bg-gray-100 focus:bg-gray-100"
-                                  )}
-                                >
-                                  {displayTime}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          End Time
-                        </Label>
-                        <Select
-                          value={locationItem.endTime || ""}
-                          onValueChange={(value) => {
-                            setMultipleLocations(prev => prev.map((item, i) => 
-                              i === index ? { ...item, endTime: value } : item
-                            ));
-                          }}
-                        >
-                          <SelectTrigger className={cn(
-                            "w-full h-11 mt-1",
-                            isDarkMode 
-                              ? "bg-slate-800 border-slate-700 text-white hover:bg-slate-700" 
-                              : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"
-                          )}>
-                            <SelectValue placeholder="Select end time" />
-                          </SelectTrigger>
-                          <SelectContent className={cn(
-                            "max-h-[200px]",
-                            isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
-                          )}>
-                            {[
-                              "03:00", "03:30", "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-                              "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-                              "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-                              "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
-                            ].map((time) => {
-                              const [hours, minutes] = time.split(':');
-                              const hour = parseInt(hours);
-                              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                              const ampm = hour < 12 ? 'AM' : 'PM';
-                              const displayTime = `${displayHour}:${minutes} ${ampm}`;
-                              
-                              return (
-                                <SelectItem 
-                                  key={time} 
-                                  value={time}
-                                  className={cn(
-                                    "cursor-pointer",
-                                    isDarkMode 
-                                      ? "text-gray-200 hover:bg-slate-800 focus:bg-slate-800" 
-                                      : "text-gray-900 hover:bg-gray-100 focus:bg-gray-100"
-                                  )}
-                                >
-                                  {displayTime}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setMultipleLocations(prev => [...prev, 
-                  { location: '', startDate: '', endDate: '', startTime: '10:30', endTime: '11:30', showCustomInput: false }
-                ]);
-              }}
-              className="w-full h-12 border-dashed border-2 text-gray-600 hover:text-gray-900 hover:border-gray-400"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add Another Location
-            </Button>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setShowMultipleLocationsModal(false)}
-              className="px-6"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => setShowMultipleLocationsModal(false)}
-              className="bg-black text-white hover:bg-gray-800 px-6"
-            >
-              Save Locations
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ECR Template Modal */}
       <Dialog open={showECRModal} onOpenChange={setShowECRModal}>

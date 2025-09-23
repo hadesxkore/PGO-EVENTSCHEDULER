@@ -6,28 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Removed shadcn imports - using custom dropdowns
 import { 
   CalendarDays, 
   Search, 
@@ -45,15 +24,21 @@ import {
   Check,
   Plus
 } from "lucide-react";
-import { db } from "@/lib/firebase/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import useEventStore from "@/store/eventStore";
 
 const AllEventsNew = () => {
   const { isDarkMode } = useTheme();
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Use Zustand store instead of local state
+  const { 
+    allEvents, 
+    loading, 
+    error, 
+    fetchAllEvents 
+  } = useEventStore();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredEvents, setFilteredEvents] = useState([]);
   
@@ -66,90 +51,79 @@ const AllEventsNew = () => {
   // Popover states
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
   const [departmentPopoverOpen, setDepartmentPopoverOpen] = useState(false);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
   // Status color mapping - handle both lowercase and capitalized versions
   const statusColors = {
-    "Pending": isDarkMode ? "bg-amber-500/30 text-amber-200 border-amber-400/50" : "bg-amber-100 text-amber-800 border-amber-300",
-    "pending": isDarkMode ? "bg-amber-500/30 text-amber-200 border-amber-400/50" : "bg-amber-100 text-amber-800 border-amber-300",
-    "Approved": isDarkMode ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/50" : "bg-emerald-100 text-emerald-800 border-emerald-300",
-    "approved": isDarkMode ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/50" : "bg-emerald-100 text-emerald-800 border-emerald-300",
-    "Rejected": isDarkMode ? "bg-rose-500/30 text-rose-200 border-rose-400/50" : "bg-rose-100 text-rose-800 border-rose-300",
-    "rejected": isDarkMode ? "bg-rose-500/30 text-rose-200 border-rose-400/50" : "bg-rose-100 text-rose-800 border-rose-300",
-    "In Review": isDarkMode ? "bg-blue-500/30 text-blue-200 border-blue-400/50" : "bg-blue-100 text-blue-800 border-blue-300",
-    "in review": isDarkMode ? "bg-blue-500/30 text-blue-200 border-blue-400/50" : "bg-blue-100 text-blue-800 border-blue-300",
+    "Pending": isDarkMode ? "bg-amber-600 text-white border-amber-600" : "bg-amber-500 text-white border-amber-500",
+    "pending": isDarkMode ? "bg-amber-600 text-white border-amber-600" : "bg-amber-500 text-white border-amber-500",
+    "Approved": isDarkMode ? "bg-green-600 text-white border-green-600" : "bg-green-500 text-white border-green-500",
+    "approved": isDarkMode ? "bg-green-600 text-white border-green-600" : "bg-green-500 text-white border-green-500",
+    "Rejected": isDarkMode ? "bg-red-600 text-white border-red-600" : "bg-red-500 text-white border-red-500",
+    "rejected": isDarkMode ? "bg-red-600 text-white border-red-600" : "bg-red-500 text-white border-red-500",
+    "Disapproved": isDarkMode ? "bg-red-600 text-white border-red-600" : "bg-red-500 text-white border-red-500",
+    "disapproved": isDarkMode ? "bg-red-600 text-white border-red-600" : "bg-red-500 text-white border-red-500",
+    "In Review": isDarkMode ? "bg-blue-600 text-white border-blue-600" : "bg-blue-500 text-white border-blue-500",
+    "in review": isDarkMode ? "bg-blue-600 text-white border-blue-600" : "bg-blue-500 text-white border-blue-500",
   };
 
-  // Fetch all events from eventRequests collection
+  // Fetch all events using Zustand store (with caching)
   useEffect(() => {
-    const fetchEvents = async () => {
+    const loadEvents = async () => {
       try {
-        setLoading(true);
-        const eventsRef = collection(db, "eventRequests");
-        const q = query(eventsRef, orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        
-        const eventsData = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
+        const result = await fetchAllEvents();
+        if (result.success) {
+          // Transform events for the list view (handle multiple locations)
+          const transformedEvents = [];
           
-          // Handle multiple locations - check both 'locations' and 'multipleLocations' arrays
-          const locationsArray = data.locations || data.multipleLocations;
+          result.events.forEach((event) => {
+            // Check if this is a multiple location event with locations array
+            if (event.isMultipleLocations && event.locations && Array.isArray(event.locations) && event.locations.length > 0) {
+              // Create separate entries for each location
+              event.locations.forEach((locationData, index) => {
+                if (locationData.location && locationData.location.trim()) {
+                  transformedEvents.push({
+                    id: `${event.id}_location_${index}`,
+                    originalId: event.id,
+                    ...event,
+                    location: locationData.location,
+                    startDate: locationData.startDate?.toDate ? locationData.startDate.toDate() : 
+                              (locationData.startDate ? new Date(locationData.startDate) : event.start),
+                    endDate: locationData.endDate?.toDate ? locationData.endDate.toDate() : 
+                            (locationData.endDate ? new Date(locationData.endDate) : event.actualEndDate),
+                    isMultipleLocation: true,
+                    locationIndex: index + 1,
+                    totalLocations: event.locations.filter(loc => loc.location && loc.location.trim()).length
+                  });
+                }
+              });
+            } else {
+              // Single location event - use as is from Zustand store
+              transformedEvents.push({
+                ...event,
+                startDate: event.start,
+                endDate: event.actualEndDate || event.end,
+                isMultipleLocation: false
+              });
+            }
+          });
           
-          if (data.isMultipleLocations && locationsArray && Array.isArray(locationsArray) && locationsArray.length > 0) {
-            // Create separate entries for each location
-            locationsArray.forEach((locationData, index) => {
-              if (locationData.location && locationData.location.trim()) {
-                eventsData.push({
-                  id: `${doc.id}_location_${index}`,
-                  originalId: doc.id,
-                  ...data,
-                  location: locationData.location,
-                  // Handle Firestore timestamps for multiple locations
-                  startDate: locationData.startDate?.toDate ? locationData.startDate.toDate() : 
-                            (locationData.startDate ? new Date(locationData.startDate) : 
-                            (data.startDate?.toDate ? data.startDate.toDate() : 
-                            (data.startDate ? new Date(data.startDate) : null))),
-                  endDate: locationData.endDate?.toDate ? locationData.endDate.toDate() : 
-                          (locationData.endDate ? new Date(locationData.endDate) : 
-                          (data.endDate?.toDate ? data.endDate.toDate() : 
-                          (data.endDate ? new Date(data.endDate) : null))),
-                  isMultipleLocation: true,
-                  locationIndex: index + 1,
-                  totalLocations: locationsArray.filter(loc => loc.location && loc.location.trim()).length
-                });
-              }
-            });
-          } else {
-            // Single location event
-            eventsData.push({
-              id: doc.id,
-              ...data,
-              // Handle Firestore timestamps for single location
-              startDate: data.startDate?.toDate ? data.startDate.toDate() : 
-                        (data.startDate ? new Date(data.startDate) : null),
-              endDate: data.endDate?.toDate ? data.endDate.toDate() : 
-                      (data.endDate ? new Date(data.endDate) : null),
-              isMultipleLocation: false
-            });
-          }
-        });
-        
-        setEvents(eventsData);
-        setFilteredEvents(eventsData);
+          setFilteredEvents(transformedEvents);
+        } else {
+          toast.error("Failed to load events");
+        }
       } catch (error) {
-        console.error("Error fetching events:", error);
+        console.error("Error loading events:", error);
         toast.error("Failed to load events");
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchEvents();
-  }, []);
+    loadEvents();
+  }, [fetchAllEvents]);
 
   // Filter and sort events based on search query, filters, and sorting
   useEffect(() => {
-    let filtered = [...events];
+    let filtered = [...allEvents];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -215,16 +189,16 @@ const AllEventsNew = () => {
     });
 
     setFilteredEvents(filtered);
-  }, [searchQuery, events, statusFilter, departmentFilter, sortBy, sortOrder]);
+  }, [searchQuery, allEvents, statusFilter, departmentFilter, sortBy, sortOrder]);
 
   // Get unique values for filters
   const getUniqueStatuses = () => {
-    const statuses = events.map(event => event.status).filter(Boolean);
+    const statuses = allEvents.map(event => event.status).filter(Boolean);
     return [...new Set(statuses)];
   };
 
   const getUniqueDepartments = () => {
-    const departments = events.map(event => event.department).filter(Boolean);
+    const departments = allEvents.map(event => event.department).filter(Boolean);
     return [...new Set(departments)];
   };
 
@@ -438,237 +412,276 @@ const AllEventsNew = () => {
           {/* Filters and Sorting */}
           <div className="flex gap-3 items-center">
             {/* Status Filter */}
-            <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={statusPopoverOpen}
-                  className={cn(
-                    "h-10 justify-between font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
-                    isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50",
-                    statusFilter.length > 0 && "ring-2 ring-primary ring-offset-1"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {statusFilter.length > 0 
-                        ? `${statusFilter.length} status${statusFilter.length > 1 ? 'es' : ''}`
-                        : "Status"
-                      }
-                    </span>
-                  </div>
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className={cn(
-                "w-64 p-0 shadow-lg",
-                isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"
-              )} align="end">
-                <Command className={cn(
-                  "border-0",
-                  isDarkMode ? "bg-slate-800" : "bg-white"
-                )}>
-                  <CommandInput placeholder="Search status..." className={cn(
-                    "h-9 border-0",
-                    isDarkMode ? "bg-slate-800" : "bg-white"
-                  )} />
-                  <CommandList className="border-0">
-                    <CommandEmpty>No status found.</CommandEmpty>
-                    <CommandGroup className="border-0">
+            <div className="relative">
+              <button
+                onClick={() => setStatusPopoverOpen(!statusPopoverOpen)}
+                className={cn(
+                  "h-10 px-4 rounded-lg flex items-center justify-between gap-3 text-sm font-medium transition-all duration-200 min-w-[120px]",
+                  isDarkMode 
+                    ? "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600" 
+                    : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm",
+                  statusFilter.length > 0 && (isDarkMode ? "ring-2 ring-blue-500/50" : "ring-2 ring-blue-500/30")
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {statusFilter.length > 0 
+                      ? `${statusFilter.length} Status${statusFilter.length > 1 ? 'es' : ''}`
+                      : "Status"
+                    }
+                  </span>
+                </div>
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  statusPopoverOpen && "rotate-180"
+                )} />
+              </button>
+              
+              {statusPopoverOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setStatusPopoverOpen(false)}
+                  />
+                  <div className={cn(
+                    "absolute top-12 left-0 z-20 w-64 rounded-lg shadow-lg border overflow-hidden",
+                    isDarkMode ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
+                  )}>
+                    <div className={cn(
+                      "p-3 border-b",
+                      isDarkMode ? "border-gray-600" : "border-gray-100"
+                    )}>
+                      <input
+                        type="text"
+                        placeholder="Search status..."
+                        className={cn(
+                          "w-full px-3 py-2 rounded-md text-sm border-0 outline-none",
+                          isDarkMode 
+                            ? "bg-gray-700 text-gray-200 placeholder-gray-400" 
+                            : "bg-gray-50 text-gray-900 placeholder-gray-500"
+                        )}
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
                       {getUniqueStatuses().map((status) => (
-                        <CommandItem
+                        <div
                           key={status}
-                          value={status}
-                          onSelect={() => {
+                          onClick={() => {
                             if (statusFilter.includes(status)) {
                               setStatusFilter(statusFilter.filter(s => s !== status));
                             } else {
                               setStatusFilter([...statusFilter, status]);
                             }
                           }}
-                          className="flex items-center gap-2 px-2 py-1.5"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors",
+                            isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                          )}
                         >
                           <div className={cn(
-                            "flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                            "w-4 h-4 rounded border-2 flex items-center justify-center",
                             statusFilter.includes(status)
-                              ? "bg-primary text-primary-foreground"
-                              : "opacity-50 [&_svg]:invisible"
+                              ? "bg-blue-500 border-blue-500"
+                              : isDarkMode ? "border-gray-500" : "border-gray-300"
                           )}>
-                            <Check className="h-3 w-3" />
-                          </div>
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "text-xs",
-                              statusColors[status] || (isDarkMode ? "bg-muted text-muted-foreground" : "bg-muted text-muted-foreground")
+                            {statusFilter.includes(status) && (
+                              <Check className="h-3 w-3 text-white" />
                             )}
-                          >
+                          </div>
+                          <span className={cn(
+                            "px-2 py-1 rounded-md text-xs font-medium",
+                            statusColors[status] || (isDarkMode ? "bg-gray-600 text-gray-300" : "bg-gray-100 text-gray-700")
+                          )}>
                             {status}
-                          </Badge>
-                        </CommandItem>
+                          </span>
+                        </div>
                       ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Department Filter */}
-            <Popover open={departmentPopoverOpen} onOpenChange={setDepartmentPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={departmentPopoverOpen}
-                  className={cn(
-                    "h-10 justify-between font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
-                    isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50",
-                    departmentFilter.length > 0 && "ring-2 ring-primary ring-offset-1"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {departmentFilter.length > 0 
-                        ? `${departmentFilter.length} dept${departmentFilter.length > 1 ? 's' : ''}`
-                        : "Department"
-                      }
-                    </span>
-                  </div>
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className={cn(
-                "w-64 p-0 shadow-lg",
-                isDarkMode ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"
-              )} align="end">
-                <Command className={cn(
-                  "border-0",
-                  isDarkMode ? "bg-slate-800" : "bg-white"
-                )}>
-                  <CommandInput placeholder="Search department..." className={cn(
-                    "h-9 border-0",
-                    isDarkMode ? "bg-slate-800" : "bg-white"
-                  )} />
-                  <CommandList className="border-0">
-                    <CommandEmpty>No department found.</CommandEmpty>
-                    <CommandGroup className="border-0">
+            <div className="relative">
+              <button
+                onClick={() => setDepartmentPopoverOpen(!departmentPopoverOpen)}
+                className={cn(
+                  "h-10 px-4 rounded-lg flex items-center justify-between gap-3 text-sm font-medium transition-all duration-200 min-w-[140px]",
+                  isDarkMode 
+                    ? "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600" 
+                    : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm",
+                  departmentFilter.length > 0 && (isDarkMode ? "ring-2 ring-blue-500/50" : "ring-2 ring-blue-500/30")
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {departmentFilter.length > 0 
+                      ? `${departmentFilter.length} Dept${departmentFilter.length > 1 ? 's' : ''}`
+                      : "Department"
+                    }
+                  </span>
+                </div>
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  departmentPopoverOpen && "rotate-180"
+                )} />
+              </button>
+              
+              {departmentPopoverOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setDepartmentPopoverOpen(false)}
+                  />
+                  <div className={cn(
+                    "absolute top-12 left-0 z-20 w-64 rounded-lg shadow-lg border overflow-hidden",
+                    isDarkMode ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
+                  )}>
+                    <div className={cn(
+                      "p-3 border-b",
+                      isDarkMode ? "border-gray-600" : "border-gray-100"
+                    )}>
+                      <input
+                        type="text"
+                        placeholder="Search department..."
+                        className={cn(
+                          "w-full px-3 py-2 rounded-md text-sm border-0 outline-none",
+                          isDarkMode 
+                            ? "bg-gray-700 text-gray-200 placeholder-gray-400" 
+                            : "bg-gray-50 text-gray-900 placeholder-gray-500"
+                        )}
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
                       {getUniqueDepartments().map((department) => (
-                        <CommandItem
+                        <div
                           key={department}
-                          value={department}
-                          onSelect={() => {
+                          onClick={() => {
                             if (departmentFilter.includes(department)) {
                               setDepartmentFilter(departmentFilter.filter(d => d !== department));
                             } else {
                               setDepartmentFilter([...departmentFilter, department]);
                             }
                           }}
-                          className="flex items-center gap-2 px-2 py-1.5"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors",
+                            isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                          )}
                         >
                           <div className={cn(
-                            "flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                            "w-4 h-4 rounded border-2 flex items-center justify-center",
                             departmentFilter.includes(department)
-                              ? "bg-primary text-primary-foreground"
-                              : "opacity-50 [&_svg]:invisible"
+                              ? "bg-blue-500 border-blue-500"
+                              : isDarkMode ? "border-gray-500" : "border-gray-300"
                           )}>
-                            <Check className="h-3 w-3" />
+                            {departmentFilter.includes(department) && (
+                              <Check className="h-3 w-3 text-white" />
+                            )}
                           </div>
                           <span className="text-sm">{department}</span>
-                        </CommandItem>
+                        </div>
                       ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Sort Dropdown */}
-            <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-              const [field, order] = value.split('-');
-              setSortBy(field);
-              setSortOrder(order);
-            }}>
-              <SelectTrigger className={cn(
-                "h-10 w-[160px] font-normal border-0 shadow-sm hover:shadow-md transition-shadow",
-                isDarkMode ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-50"
-              )}>
+            <div className="relative">
+              <button
+                onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                className={cn(
+                  "h-10 px-4 rounded-lg flex items-center justify-between gap-3 text-sm font-medium transition-all duration-200 min-w-[160px]",
+                  isDarkMode 
+                    ? "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600" 
+                    : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+                )}
+              >
                 <div className="flex items-center gap-2">
-                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Sort by" />
+                  <ArrowUpDown className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {sortBy === 'createdAt' && sortOrder === 'desc' && 'Newest First'}
+                    {sortBy === 'createdAt' && sortOrder === 'asc' && 'Oldest First'}
+                    {sortBy === 'title' && sortOrder === 'asc' && 'Title A-Z'}
+                    {sortBy === 'title' && sortOrder === 'desc' && 'Title Z-A'}
+                    {sortBy === 'department' && sortOrder === 'asc' && 'Department A-Z'}
+                    {sortBy === 'department' && sortOrder === 'desc' && 'Department Z-A'}
+                  </span>
                 </div>
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="createdAt-desc">
-                  <div className="flex items-center gap-2">
-                    <SortDesc className="h-4 w-4" />
-                    <span>Newest First</span>
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  sortDropdownOpen && "rotate-180"
+                )} />
+              </button>
+              
+              {sortDropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setSortDropdownOpen(false)}
+                  />
+                  <div className={cn(
+                    "absolute top-12 right-0 z-20 w-48 rounded-lg shadow-lg border overflow-hidden",
+                    isDarkMode ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
+                  )}>
+                    {[
+                      { value: 'createdAt-desc', label: 'Newest First', icon: SortDesc },
+                      { value: 'createdAt-asc', label: 'Oldest First', icon: SortAsc },
+                      { value: 'title-asc', label: 'Title A-Z', icon: SortAsc },
+                      { value: 'title-desc', label: 'Title Z-A', icon: SortDesc },
+                      { value: 'department-asc', label: 'Department A-Z', icon: SortAsc },
+                      { value: 'department-desc', label: 'Department Z-A', icon: SortDesc }
+                    ].map((option) => {
+                      const IconComponent = option.icon;
+                      const isActive = `${sortBy}-${sortOrder}` === option.value;
+                      return (
+                        <div
+                          key={option.value}
+                          onClick={() => {
+                            const [field, order] = option.value.split('-');
+                            setSortBy(field);
+                            setSortOrder(order);
+                            setSortDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors",
+                            isActive && (isDarkMode ? "bg-blue-600/20" : "bg-blue-50"),
+                            !isActive && (isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50")
+                          )}
+                        >
+                          <IconComponent className="h-4 w-4 text-gray-500" />
+                          <span className={cn(
+                            "text-sm",
+                            isActive && "font-medium text-blue-600"
+                          )}>
+                            {option.label}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                </SelectItem>
-                <SelectItem value="createdAt-asc">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    <span>Oldest First</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="title-asc">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    <span>Title A-Z</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="title-desc">
-                  <div className="flex items-center gap-2">
-                    <SortDesc className="h-4 w-4" />
-                    <span>Title Z-A</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="department-asc">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    <span>Department A-Z</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="department-desc">
-                  <div className="flex items-center gap-2">
-                    <SortDesc className="h-4 w-4" />
-                    <span>Department Z-A</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="startDate-asc">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    <span>Start Date (Early)</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="startDate-desc">
-                  <div className="flex items-center gap-2">
-                    <SortDesc className="h-4 w-4" />
-                    <span>Start Date (Late)</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="status-asc">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    <span>Status A-Z</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                </>
+              )}
+            </div>
 
             {/* Clear Filters Button */}
             {(statusFilter.length > 0 || departmentFilter.length > 0 || searchQuery || sortBy !== "createdAt" || sortOrder !== "desc") && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={clearAllFilters}
-                className="h-10 px-3 text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "h-10 px-3 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-200",
+                  isDarkMode 
+                    ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700" 
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                )}
               >
-                <X className="h-4 w-4 mr-1" />
-                <span className="text-sm">Clear</span>
-              </Button>
+                <X className="h-4 w-4" />
+                <span>Clear</span>
+              </button>
             )}
           </div>
         </div>
@@ -909,16 +922,16 @@ const AllEventsNew = () => {
                       <div className="flex items-center gap-2">
                         <div className={cn(
                           "h-5 w-5 rounded-full flex items-center justify-center",
-                          (event.status === "Approved" || event.status === "approved") ? (isDarkMode ? "bg-emerald-500/20" : "bg-emerald-100") :
+                          (event.status === "Approved" || event.status === "approved") ? (isDarkMode ? "bg-green-500/20" : "bg-green-100") :
                           (event.status === "Pending" || event.status === "pending") ? (isDarkMode ? "bg-amber-500/20" : "bg-amber-100") :
-                          (event.status === "Rejected" || event.status === "rejected") ? (isDarkMode ? "bg-rose-500/20" : "bg-rose-100") :
+                          (event.status === "Rejected" || event.status === "rejected" || event.status === "Disapproved" || event.status === "disapproved") ? (isDarkMode ? "bg-red-500/20" : "bg-red-100") :
                           (isDarkMode ? "bg-blue-500/20" : "bg-blue-100")
                         )}>
                           <div className={cn(
                             "h-2.5 w-2.5 rounded-full",
-                            (event.status === "Approved" || event.status === "approved") ? "bg-emerald-500" :
+                            (event.status === "Approved" || event.status === "approved") ? "bg-green-500" :
                             (event.status === "Pending" || event.status === "pending") ? "bg-amber-500" :
-                            (event.status === "Rejected" || event.status === "rejected") ? "bg-rose-500" :
+                            (event.status === "Rejected" || event.status === "rejected" || event.status === "Disapproved" || event.status === "disapproved") ? "bg-red-500" :
                             "bg-blue-500"
                           )} />
                         </div>

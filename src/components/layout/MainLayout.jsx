@@ -254,6 +254,7 @@ const MainLayout = ({ children, userData }) => {
                         "bg-red-500 text-white border-2",
                         isDarkMode ? "border-slate-800" : "border-white"
                       )}
+                      title={`${Object.values(unreadMessages).filter(Boolean).length} unread message${Object.values(unreadMessages).filter(Boolean).length > 1 ? 's' : ''}`}
                     >
                       {Object.values(unreadMessages).filter(Boolean).length}
                     </Badge>

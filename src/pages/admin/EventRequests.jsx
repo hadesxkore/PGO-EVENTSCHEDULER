@@ -1852,166 +1852,140 @@ const EventRequests = () => {
 
       {/* Activity Dialog */}
       <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
+        <DialogContent className="sm:max-w-[700px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
           {selectedEventActivity && (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-4 top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full z-10"
-                onClick={() => setIsActivityDialogOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-black">Recent Activity</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Changes made to "{selectedEventActivity.title}"
-                </p>
+            <ScrollArea className="max-h-[80vh]">
+              <div className="relative bg-white p-6 border-b border-gray-200">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  onClick={() => setIsActivityDialogOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
+                  Recent Changes
+                </DialogTitle>
+                <p className="text-gray-600">All change history for {selectedEventActivity.title}</p>
               </div>
               
               <div className="p-6 space-y-6">
-                {/* Location Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'location') && (
+                {/* Combined Event Changes */}
+                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      Location Changes
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      Event Configuration Changes
                     </h3>
-                    <div className="space-y-3">
-                      {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'location')
-                        .map((activity, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
-                              </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
-                              </div>
-                              <div className="text-sm text-black pt-2 border-t border-gray-200">
-                                Changed by {activity.userName} • {(() => {
-                                  try {
-                                    let date;
-                                    if (activity.timestamp?.toDate) {
-                                      date = activity.timestamp.toDate();
-                                    } else if (activity.timestamp?.seconds) {
-                                      date = new Date(activity.timestamp.seconds * 1000);
-                                    } else if (activity.timestamp) {
-                                      date = new Date(activity.timestamp);
-                                    } else {
-                                      return "Unknown time";
-                                    }
-                                    return format(date, 'MMM d, yyyy h:mm a');
-                                  } catch (error) {
-                                    return "Invalid date";
-                                  }
-                                })()}
-                              </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="space-y-4">
+                        {/* Updated Configuration */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-semibold text-gray-700">Updated Configuration</span>
+                          </div>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="text-sm text-gray-800 space-y-2">
+                              {/* Location Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'location')
+                                .map((activity, index) => (
+                                  <div key={`location-new-${index}`}>
+                                    <span className="font-medium">Location: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
+                              {/* Start Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'startDateTime')
+                                .map((activity, index) => (
+                                  <div key={`start-new-${index}`}>
+                                    <span className="font-medium">Start Date & Time: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
+                              {/* End Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'endDateTime')
+                                .map((activity, index) => (
+                                  <div key={`end-new-${index}`}>
+                                    <span className="font-medium">End Date & Time: </span>
+                                    {activity.newValue}
+                                  </div>
+                                ))
+                              }
                             </div>
                           </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                )}
+                        </div>
 
-                {/* Start Date & Time Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'startDateTime') && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      Start Date & Time Changes
-                    </h3>
-                    <div className="space-y-3">
-                      {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'startDateTime')
-                        .map((activity, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
-                              </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
-                              </div>
-                              <div className="text-sm text-black pt-2 border-t border-gray-200">
-                                Changed by {activity.userName} • {(() => {
-                                  try {
-                                    let date;
-                                    if (activity.timestamp?.toDate) {
-                                      date = activity.timestamp.toDate();
-                                    } else if (activity.timestamp?.seconds) {
-                                      date = new Date(activity.timestamp.seconds * 1000);
-                                    } else if (activity.timestamp) {
-                                      date = new Date(activity.timestamp);
-                                    } else {
-                                      return "Unknown time";
-                                    }
-                                    return format(date, 'MMM d, yyyy h:mm a');
-                                  } catch (error) {
-                                    return "Invalid date";
-                                  }
-                                })()}
-                              </div>
+                        {/* Previous Configuration */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
+                          </div>
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="text-sm text-gray-800 space-y-2">
+                              {/* Location Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'location')
+                                .map((activity, index) => (
+                                  <div key={`location-old-${index}`}>
+                                    <span className="font-medium">Location: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
+                              {/* Start Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'startDateTime')
+                                .map((activity, index) => (
+                                  <div key={`start-old-${index}`}>
+                                    <span className="font-medium">Start Date & Time: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
+                              {/* End Date Changes */}
+                              {selectedEventActivity.recentActivity
+                                .filter(activity => activity.type === 'endDateTime')
+                                .map((activity, index) => (
+                                  <div key={`end-old-${index}`}>
+                                    <span className="font-medium">End Date & Time: </span>
+                                    {activity.oldValue || 'Not set'}
+                                  </div>
+                                ))
+                              }
                             </div>
                           </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                )}
+                        </div>
 
-                {/* End Date & Time Changes */}
-                {selectedEventActivity.recentActivity && selectedEventActivity.recentActivity.some(activity => activity.type === 'endDateTime') && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-black mb-3 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                      End Date & Time Changes
-                    </h3>
-                    <div className="space-y-3">
-                      {selectedEventActivity.recentActivity
-                        .filter(activity => activity.type === 'endDateTime')
-                        .map((activity, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">From:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.oldValue}</span>
-                              </div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-sm text-black font-medium">To:</span>
-                                <span className="text-sm font-semibold text-black text-right">{activity.newValue}</span>
-                              </div>
-                              <div className="text-sm text-black pt-2 border-t border-gray-200">
-                                Changed by {activity.userName} • {(() => {
-                                  try {
-                                    let date;
-                                    if (activity.timestamp?.toDate) {
-                                      date = activity.timestamp.toDate();
-                                    } else if (activity.timestamp?.seconds) {
-                                      date = new Date(activity.timestamp.seconds * 1000);
-                                    } else if (activity.timestamp) {
-                                      date = new Date(activity.timestamp);
-                                    } else {
-                                      return "Unknown time";
-                                    }
-                                    return format(date, 'MMM d, yyyy h:mm a');
-                                  } catch (error) {
-                                    return "Invalid date";
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      }
+                        <div className="text-sm text-black pt-2 border-t border-gray-200">
+                          Changed by {selectedEventActivity.recentActivity[0]?.userName} • {(() => {
+                            try {
+                              const activity = selectedEventActivity.recentActivity[0];
+                              let date;
+                              if (activity.timestamp?.toDate) {
+                                date = activity.timestamp.toDate();
+                              } else if (activity.timestamp?.seconds) {
+                                date = new Date(activity.timestamp.seconds * 1000);
+                              } else if (activity.timestamp) {
+                                date = new Date(activity.timestamp);
+                              } else {
+                                return "Unknown time";
+                              }
+                              return format(date, 'MMM d, yyyy h:mm a');
+                            } catch (error) {
+                              console.error('Date formatting error:', error);
+                              return "Invalid date";
+                            }
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2029,19 +2003,6 @@ const EventRequests = () => {
                         .map((activity, index) => (
                           <div key={index} className="border border-gray-200 rounded-lg p-4">
                             <div className="space-y-3">
-                              {/* Previous Configuration */}
-                              <div className="mb-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                  <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
-                                </div>
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                                  <div className="text-sm text-gray-800 whitespace-pre-line">
-                                    {activity.oldValue || 'Not set'}
-                                  </div>
-                                </div>
-                              </div>
-
                               {/* Updated Configuration */}
                               <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -2051,6 +2012,19 @@ const EventRequests = () => {
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                                   <div className="text-sm text-gray-800 whitespace-pre-line">
                                     {activity.newValue}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Previous Configuration */}
+                              <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                  <span className="text-sm font-semibold text-gray-700">Previous Configuration</span>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                  <div className="text-sm text-gray-800 whitespace-pre-line">
+                                    {activity.oldValue || 'Not set'}
                                   </div>
                                 </div>
                               </div>
@@ -2087,7 +2061,7 @@ const EventRequests = () => {
                   </div>
                 )}
               </div>
-            </>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>

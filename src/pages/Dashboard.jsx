@@ -396,8 +396,15 @@ const Dashboard = () => {
                         <>
                           {/* Status Updates */}
                           {statusUpdates.map((event, index) => (
-                            <div
+                            <motion.div
                               key={`status-${index}`}
+                              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                              animate={{ opacity: 1, x: 0, scale: 1 }}
+                              transition={{ 
+                                duration: 0.4, 
+                                delay: index * 0.1,
+                                ease: "easeOut"
+                              }}
                               className={cn(
                                 "rounded-lg p-3 transition-colors",
                                 isDarkMode 
@@ -451,13 +458,20 @@ const Dashboard = () => {
                                   </p>
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
                           
                           {/* Upcoming Events */}
                           {upcomingEvents.map((event, index) => (
-                            <div
+                            <motion.div
                               key={`upcoming-${index}`}
+                              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                              animate={{ opacity: 1, x: 0, scale: 1 }}
+                              transition={{ 
+                                duration: 0.4, 
+                                delay: (statusUpdates.length + index) * 0.1,
+                                ease: "easeOut"
+                              }}
                               onClick={() => {
                                 navigate('/my-events');
                                 setIsPopoverOpen(false);
@@ -465,7 +479,7 @@ const Dashboard = () => {
                               className={cn(
                                 "rounded-lg p-3 transition-colors cursor-pointer",
                                 isDarkMode 
-                                  ? "bg-gray-800/50 hover:bg-gray-700" 
+                                  ? "bg-gray-800/50 hover:bg-gray-800" 
                                   : "bg-gray-50 hover:bg-gray-100"
                               )}
                             >
@@ -489,13 +503,20 @@ const Dashboard = () => {
                                   </p>
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
                           
                           {/* Tagged Events */}
                           {taggedEvents.map((event, index) => (
-                            <div
+                            <motion.div
                               key={`tagged-${index}`}
+                              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                              animate={{ opacity: 1, x: 0, scale: 1 }}
+                              transition={{ 
+                                duration: 0.4, 
+                                delay: (statusUpdates.length + upcomingEvents.length + index) * 0.1,
+                                ease: "easeOut"
+                              }}
                               onClick={() => {
                                 // Navigate to Tagged Departments page with Tagged tab selected
                                 navigate('/tagged-departments', { state: { selectedTab: 'tagged' } });
@@ -538,7 +559,7 @@ const Dashboard = () => {
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
                         </>
                       )}
@@ -559,8 +580,15 @@ const Dashboard = () => {
                         </div>
                       ) : (
                         upcomingEvents.map((event, index) => (
-                          <div
+                          <motion.div
                             key={index}
+                            initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            transition={{ 
+                              duration: 0.4, 
+                              delay: index * 0.1,
+                              ease: "easeOut"
+                            }}
                             onClick={() => {
                               navigate('/my-events');
                               setIsPopoverOpen(false);
@@ -592,7 +620,7 @@ const Dashboard = () => {
                                 </p>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         ))
                       )}
                     </div>
@@ -612,8 +640,15 @@ const Dashboard = () => {
                         </div>
                       ) : (
                         taggedEvents.map((event, index) => (
-                          <div
+                          <motion.div
                             key={index}
+                            initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            transition={{ 
+                              duration: 0.4, 
+                              delay: index * 0.1,
+                              ease: "easeOut"
+                            }}
                             onClick={() => {
                               // Navigate to Tagged Departments page with Tagged tab selected
                               navigate('/tagged-departments', { state: { selectedTab: 'tagged' } });
@@ -656,7 +691,7 @@ const Dashboard = () => {
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         ))
                       )}
                     </div>
@@ -676,8 +711,15 @@ const Dashboard = () => {
                         </div>
                       ) : (
                         statusUpdates.map((event, index) => (
-                            <div
+                            <motion.div
                               key={index}
+                              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                              animate={{ opacity: 1, x: 0, scale: 1 }}
+                              transition={{ 
+                                duration: 0.4, 
+                                delay: index * 0.1,
+                                ease: "easeOut"
+                              }}
                               className={cn(
                                 "rounded-lg p-3 transition-colors",
                                 isDarkMode 
@@ -731,7 +773,7 @@ const Dashboard = () => {
                                   </p>
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))
                       )}
                     </div>

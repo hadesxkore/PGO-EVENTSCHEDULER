@@ -287,7 +287,7 @@ const MyEvents = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-7xl mx-auto px-6 pt-4 pb-6"
+      className="mx-auto px-4 pt-4 pb-6 w-full"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-6">
@@ -393,7 +393,7 @@ const MyEvents = () => {
           </div>
 
           {/* Table */}
-          <div className="px-6">
+          <div className="px-2">
             {loading ? (
               <div className="py-8 text-center">
                 <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
@@ -417,7 +417,7 @@ const MyEvents = () => {
                         : "border-gray-300 bg-gray-50/80 hover:bg-gray-50/80"
                     )}>
                       <TableHead className={cn(
-                        "w-[180px] py-5 px-6 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[280px] py-5 px-6 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -425,7 +425,7 @@ const MyEvents = () => {
                         Event Title
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[160px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -433,7 +433,7 @@ const MyEvents = () => {
                         Requestor
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[140px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -441,7 +441,7 @@ const MyEvents = () => {
                         Start Date
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[140px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -449,7 +449,7 @@ const MyEvents = () => {
                         End Date
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[180px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -457,7 +457,7 @@ const MyEvents = () => {
                         Location
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
+                        "w-[120px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider border-r",
                         isDarkMode 
                           ? "text-slate-200 border-slate-600" 
                           : "text-gray-700 border-gray-200"
@@ -465,7 +465,7 @@ const MyEvents = () => {
                         Status
                       </TableHead>
                       <TableHead className={cn(
-                        "text-center py-5 px-4 font-bold text-sm uppercase tracking-wider",
+                        "w-[160px] text-center py-5 px-4 font-bold text-sm uppercase tracking-wider",
                         isDarkMode 
                           ? "text-slate-200" 
                           : "text-gray-700"
@@ -1153,20 +1153,38 @@ const MyEvents = () => {
                             Start
                           </p>
                           <p className="text-sm font-medium text-gray-900">
-                            {selectedEvent.startDate ? 
-                              format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "MMM d, yyyy") :
-                              selectedEvent.date?.seconds ? 
-                                format(new Date(selectedEvent.date.seconds * 1000), "MMM d, yyyy") :
-                                "Not available"
-                            }
+                            {(() => {
+                              try {
+                                if (selectedEvent.startDate) {
+                                  const date = selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate);
+                                  return isNaN(date.getTime()) ? "Invalid date" : format(date, "MMM d, yyyy");
+                                } else if (selectedEvent.date?.seconds) {
+                                  const date = new Date(selectedEvent.date.seconds * 1000);
+                                  return isNaN(date.getTime()) ? "Invalid date" : format(date, "MMM d, yyyy");
+                                }
+                                return "Not available";
+                              } catch (error) {
+                                console.error("Date formatting error:", error);
+                                return "Invalid date";
+                              }
+                            })()}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {selectedEvent.startDate ? 
-                              format(selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate), "h:mm a") :
-                              selectedEvent.date?.seconds ? 
-                                format(new Date(selectedEvent.date.seconds * 1000), "h:mm a") :
-                                ""
-                            }
+                            {(() => {
+                              try {
+                                if (selectedEvent.startDate) {
+                                  const date = selectedEvent.startDate.toDate ? selectedEvent.startDate.toDate() : new Date(selectedEvent.startDate);
+                                  return isNaN(date.getTime()) ? "" : format(date, "h:mm a");
+                                } else if (selectedEvent.date?.seconds) {
+                                  const date = new Date(selectedEvent.date.seconds * 1000);
+                                  return isNaN(date.getTime()) ? "" : format(date, "h:mm a");
+                                }
+                                return "";
+                              } catch (error) {
+                                console.error("Time formatting error:", error);
+                                return "";
+                              }
+                            })()}
                           </p>
                         </div>
                         <div>
@@ -1174,16 +1192,32 @@ const MyEvents = () => {
                             End
                           </p>
                           <p className="text-sm font-medium text-gray-900">
-                            {selectedEvent.endDate ? 
-                              format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "MMM d, yyyy") :
-                              "Not available"
-                            }
+                            {(() => {
+                              try {
+                                if (selectedEvent.endDate) {
+                                  const date = selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate);
+                                  return isNaN(date.getTime()) ? "Invalid date" : format(date, "MMM d, yyyy");
+                                }
+                                return "Not available";
+                              } catch (error) {
+                                console.error("End date formatting error:", error);
+                                return "Invalid date";
+                              }
+                            })()}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {selectedEvent.endDate ? 
-                              format(selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate), "h:mm a") :
-                              ""
-                            }
+                            {(() => {
+                              try {
+                                if (selectedEvent.endDate) {
+                                  const date = selectedEvent.endDate.toDate ? selectedEvent.endDate.toDate() : new Date(selectedEvent.endDate);
+                                  return isNaN(date.getTime()) ? "" : format(date, "h:mm a");
+                                }
+                                return "";
+                              } catch (error) {
+                                console.error("End time formatting error:", error);
+                                return "";
+                              }
+                            })()}
                           </p>
                         </div>
                       </div>
@@ -2601,7 +2635,7 @@ const MyEvents = () => {
       <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
         <DialogContent className="sm:max-w-[700px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
           {selectedEventActivity && (
-            <ScrollArea className="h-[80vh]">
+            <ScrollArea className="max-h-[80vh]">
               <div className="relative bg-white p-6 border-b border-gray-200">
                 <Button
                   variant="ghost"

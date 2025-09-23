@@ -312,6 +312,21 @@ const RequestEvent = () => {
     });
   }, [formData, selectedDepartments, startDate, endDate, startTime, endTime, attachments, departmentRequirements, skipAttachments, hasMultipleLocations, isInMultipleLocationMode, locationDrafts]);
 
+  // Auto-save current location draft when form data changes (for multiple locations)
+  useEffect(() => {
+    if (hasMultipleLocations && isInMultipleLocationMode) {
+      // Only auto-save if we have the minimum required fields for a location
+      if (formData.location && formData.participants && formData.vip) {
+        // Use a timeout to debounce the auto-save (avoid saving on every keystroke)
+        const timeoutId = setTimeout(() => {
+          saveCurrentLocationDraft();
+        }, 1000); // Save 1 second after user stops typing
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [formData.location, formData.participants, formData.vip, formData.vvip, formData.classifications, startDate, endDate, startTime, endTime, hasMultipleLocations, isInMultipleLocationMode, currentLocationIndex]);
+
 
 
 
@@ -948,10 +963,6 @@ const RequestEvent = () => {
       return !value || (typeof value === 'string' && !value.trim());
     });
     
-    // Log missing fields for debugging
-    if (missingFields.length > 0) {
-      console.log('Missing required fields:', missingFields.map(f => f.label));
-    }
     
     return missingFields.length === 0;
   };
@@ -966,15 +977,10 @@ const RequestEvent = () => {
       locationIndex: currentLocationIndex
     };
     
-    console.log('Saving location draft:', currentDraft);
-    console.log('Draft participants:', currentDraft.participants);
-    console.log('Draft vip:', currentDraft.vip);
-    console.log('Draft vvip:', currentDraft.vvip);
     
     setLocationDrafts(prev => {
       const newDrafts = [...prev];
       newDrafts[currentLocationIndex] = currentDraft;
-      console.log('Updated location drafts:', newDrafts);
       return newDrafts;
     });
     
@@ -1008,12 +1014,17 @@ const RequestEvent = () => {
     const nextIndex = currentLocationIndex + 1;
     setCurrentLocationIndex(nextIndex);
 
-    // Clear form for next location - only clear location-specific fields
+    // Clear form for next location - clear location-specific fields
     setFormData(prev => ({
       ...prev,
+      title: '',        // Clear title for each location (different per location)
+      requestor: '',    // Clear requestor for each location (different per location)
       location: '',
       classifications: '',
-      // Keep title, requestor, participants, vip, vvip, withGov as they might be the same across locations
+      participants: '', // Clear participants for each location
+      vip: '',         // Clear VIP count for each location  
+      vvip: '',        // Clear VVIP count for each location
+      // Keep withGov as it applies to the overall event (same across all locations)
     }));
 
     // Reset dates and times for new location
@@ -1021,6 +1032,11 @@ const RequestEvent = () => {
     setEndDate(new Date());
     setStartTime("10:30");
     setEndTime("11:30");
+
+    // Reset VIP/VVIP dropdown selections
+    setVipCount("0");
+    setVvipCount("0");
+    setShowVVIP(false);
 
     // Clear any custom location input state
     setShowCustomLocationInput(false);
@@ -1089,43 +1105,17 @@ const RequestEvent = () => {
         }
       }
       
-      console.log('=== FORM VALIDATION DEBUG ===');
-      console.log('hasMultipleLocations:', hasMultipleLocations);
-      console.log('formData:', formData);
-      console.log('locationDrafts:', locationDrafts);
-      console.log('completedSteps:', completedSteps);
-      console.log('requiredFields:', requiredFields);
-      console.log('missingFields:', missingFields);
-      console.log('startDate:', startDate);
-      console.log('endDate:', endDate);
-      console.log('startTime:', startTime);
-      console.log('endTime:', endTime);
-      console.log('selectedDepartments:', selectedDepartments);
-      console.log('departmentRequirements:', departmentRequirements);
-      console.log('attachments:', attachments);
-      console.log('skipAttachments:', skipAttachments);
       
       if (missingFields.length > 0) {
-        console.log('❌ VALIDATION FAILED - Missing fields:', missingFields);
         toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
         return;
       }
       
       // Additional validation checks
       if (!completedSteps.readyToSubmit) {
-        console.log('❌ VALIDATION FAILED - Form not ready to submit');
-        console.log('Step completion status:');
-        console.log('- eventDetails:', completedSteps.eventDetails);
-        console.log('- attachments:', completedSteps.attachments);
-        console.log('- tagDepartments:', completedSteps.tagDepartments);
-        console.log('- requirements:', completedSteps.requirements);
-        console.log('- schedule:', completedSteps.schedule);
         toast.error("Please complete all required steps before submitting");
         return;
       }
-      
-      console.log('✅ VALIDATION PASSED - Proceeding with submission');
-      console.log('==============================');
 
 
       // Get current Firebase user
@@ -1178,7 +1168,6 @@ const RequestEvent = () => {
               publicId: uploadedFile.publicId
             });
           } catch (error) {
-            console.error('Error uploading file:', error);
             toast.error(`Failed to upload ${attachment.name}`);
             return;
           }
@@ -1285,7 +1274,6 @@ const RequestEvent = () => {
             publicId: uploadedFile.publicId
           };
         } catch (error) {
-          console.error('Error uploading briefer template:', error);
           toast.error('Failed to upload briefer template');
           return;
         }
@@ -1362,7 +1350,6 @@ const RequestEvent = () => {
       let successCount = 0;
       let failCount = 0;
       
-      console.log('Events to submit:', eventsToSubmit);
       
       for (const eventData of eventsToSubmit) {
         const eventDataWithUser = {
@@ -1456,7 +1443,7 @@ const RequestEvent = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-6xl mx-auto px-6 pt-2 pb-6"
+      className="max-w-7xl mx-auto px-4 pt-2 pb-6"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-8">
@@ -1470,7 +1457,7 @@ const RequestEvent = () => {
         )}>Create a new event request for approval.</p>
 
         {/* Process Flow */}
-        <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between max-w-4xl mx-auto px-4 gap-4 sm:gap-0">
+        <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between max-w-5xl mx-auto px-2 gap-4 sm:gap-0">
           {/* Event Details Step */}
           <div className="flex items-center sm:flex-col sm:items-center relative z-10">
             <div className={cn(
@@ -2412,7 +2399,9 @@ const RequestEvent = () => {
                       <span className="ml-2">
                         Currently configuring location {currentLocationIndex + 1}
                       </span>
-                      {locationDrafts[currentLocationIndex] && locationDrafts[currentLocationIndex].startDate && (
+                      {locationDrafts[currentLocationIndex] && 
+                       locationDrafts[currentLocationIndex].location && 
+                       locationDrafts[currentLocationIndex].participants && (
                         <span className="ml-2 text-green-600 dark:text-green-400 text-xs">
                           ✓ Auto-saved
                         </span>
@@ -3751,7 +3740,7 @@ const RequestEvent = () => {
           setShowGovModal(open);
         }}>
         <DialogContent className={cn(
-          "max-w-3xl max-h-[85vh] overflow-hidden",
+          "!max-w-6xl !w-[85vw] max-h-[85vh] overflow-hidden",
           "bg-gradient-to-br from-white to-gray-50 dark:from-slate-900 dark:to-slate-800",
           "border-0 shadow-2xl backdrop-blur-sm",
           "animate-in fade-in-0 zoom-in-95 duration-300"
@@ -3782,9 +3771,6 @@ const RequestEvent = () => {
             >
               <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             </button>
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <Shield className="h-8 w-8 text-white" />
-            </div>
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               Governor's Requirements
             </DialogTitle>
@@ -3793,16 +3779,16 @@ const RequestEvent = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto max-h-[60vh] px-8">
-            {/* Single Column Layout */}
-            <div className="py-8">
-              <div className="space-y-8">
+          <div className="overflow-y-auto max-h-[70vh] px-4">
+            {/* Two Column Layout */}
+            <div className="py-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-none w-full">
                 {/* Briefer Template Upload */}
                 <div className="group">
                   <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
                     📋 Briefer Template *
                   </Label>
-                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-600">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-gray-200 dark:border-slate-600">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Post briefer template for event documentation
                     </p>
@@ -3862,7 +3848,7 @@ const RequestEvent = () => {
                   <Label className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 block">
                     📊 ECR Template *
                   </Label>
-                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-slate-600">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-gray-200 dark:border-slate-600">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Event Completion Report template for post-event documentation
                     </p>
@@ -4043,33 +4029,11 @@ const RequestEvent = () => {
                   </div>
                 </div>
                 
-                {/* Continue button */}
-                <div className="mt-6">
-                  <Button
-                    className={cn(
-                      "w-full h-12 text-sm shadow-lg font-medium transition-all duration-200",
-                      (!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile)
-                        ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                        : "bg-black text-white hover:bg-gray-800"
-                    )}
-                    onClick={() => {
-                      if (!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile) {
-                        toast.error("Please complete all required files before continuing");
-                        return;
-                      }
-                      setShowGovModal(false);
-                    }}
-                    disabled={!govAttachments.brieferTemplate || !govAttachments.availableForDLBriefer || !govAttachments.programme || !ecrFile}
-                  >
-                    Continue
-                  </Button>
-                </div>
               </div>
             </div>
-          </div>
-          
-          {/* Footer */}
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-slate-700/50">
+            
+            {/* Footer */}
+            <div className="flex justify-end items-center gap-3 pt-6 border-t border-gray-200/50 dark:border-slate-700/50 mt-4">
             <Button
               variant="outline"
               className="px-6 py-2 hover:bg-gray-50 dark:hover:bg-slate-800"
@@ -4105,6 +4069,7 @@ const RequestEvent = () => {
             >
               Continue
             </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -4112,7 +4077,7 @@ const RequestEvent = () => {
 
       {/* ECR Template Modal */}
       <Dialog open={showECRModal} onOpenChange={setShowECRModal}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white border border-gray-200">
+        <DialogContent className="!max-w-6xl !w-[85vw] max-h-[90vh] overflow-y-auto bg-white border border-gray-200">
           <DialogHeader className="text-center relative">
             <button
               onClick={() => setShowECRModal(false)}
@@ -4336,18 +4301,18 @@ const RequestEvent = () => {
           <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
             <div className="flex gap-2">
               <Button
-                className="bg-blue-600 text-white hover:bg-blue-700 shadow-lg"
                 onClick={previewPDF}
-                disabled={!ecrFormData.eventTitle || !ecrFormData.dateAndVenue}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
               >
-                📄 Preview PDF
+                <Eye className="h-4 w-4" />
+                Preview PDF
               </Button>
               <Button
-                className="bg-green-600 text-white hover:bg-green-700 shadow-lg"
                 onClick={downloadPDF}
-                disabled={!ecrFormData.eventTitle || !ecrFormData.dateAndVenue}
+                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
               >
-                📥 Download PDF
+                <Download className="h-4 w-4" />
+                Download PDF
               </Button>
             </div>
             <div className="flex justify-end">

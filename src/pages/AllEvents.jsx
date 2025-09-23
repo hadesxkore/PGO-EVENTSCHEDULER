@@ -786,7 +786,7 @@ const AllEvents = ({ userData }) => {
                       <div className="p-2 bg-black rounded-lg">
                         <FileText className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="font-semibold text-gray-900">Attachments</h3>
+                      <h3 className="font-semibold text-gray-900">Requirements</h3>
                     </div>
                     <Button
                       size="sm"
@@ -829,7 +829,7 @@ const AllEvents = ({ userData }) => {
                                       {requirement.name}
                                     </span>
                                     <div className="mt-1 space-y-0.5">
-                                      <span className="text-xs block text-gray-500">
+                                      <span className="text-xs block text-gray-500 whitespace-pre-wrap">
                                         {requirement.note || "No notes provided for this requirement"}
                                       </span>
                                     </div>
@@ -855,7 +855,7 @@ const AllEvents = ({ userData }) => {
                                   {requirement.name}
                                 </span>
                                 {requirement.note && (
-                                  <span className="text-xs block mt-0.5 text-gray-500">
+                                  <span className="text-xs block mt-0.5 text-gray-500 whitespace-pre-wrap">
                                     {requirement.note}
                                   </span>
                                 )}
@@ -1100,7 +1100,7 @@ const AllEvents = ({ userData }) => {
                                   </h4>
                                 </div>
                                 <div className="pl-8">
-                                  <span className="text-xs text-gray-600">
+                                  <span className="text-xs text-gray-600 whitespace-pre-wrap">
                                     {requirement.note || "No notes provided for this requirement"}
                                   </span>
                                 </div>

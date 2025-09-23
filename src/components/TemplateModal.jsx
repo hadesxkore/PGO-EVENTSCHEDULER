@@ -206,7 +206,7 @@ const TemplateModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={cn(
-        "max-w-6xl max-h-[90vh] overflow-y-auto",
+        "!max-w-6xl !w-[85vw] max-h-[90vh] overflow-y-auto",
         "bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700"
       )}>
         {/* Header */}
@@ -217,9 +217,6 @@ const TemplateModal = ({
           >
             <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           </button>
-          <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-3">
-            <Icon className="h-6 w-6 text-green-600 dark:text-green-400" />
-          </div>
           <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
             {title}
           </DialogTitle>

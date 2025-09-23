@@ -240,7 +240,7 @@ const TaggedDepartments = () => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         className={cn(
-          "min-h-screen",
+          "min-h-screen rounded-lg",
           isDarkMode ? "bg-slate-950" : "bg-white"
         )}
       >
@@ -466,7 +466,7 @@ const TaggedDepartments = () => {
                     }
 
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 py-4">
                         {filteredEvents.map((event) => (
                 
                           <motion.div
@@ -670,7 +670,7 @@ const TaggedDepartments = () => {
                     }
 
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 py-4">
                         {filteredEvents.map((event) => (
                           <motion.div
                             key={event.id}
@@ -838,7 +838,7 @@ const TaggedDepartments = () => {
           exit={{ opacity: 0, y: -20 }}
           className="container py-6"
         >
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-6 px-6">
             <Button
               variant="ghost"
               size="icon"
@@ -869,7 +869,7 @@ const TaggedDepartments = () => {
             </div>
           </div>
 
-          <div className="grid gap-6">
+          <div className="grid gap-6 px-6">
                         {/* Event Overview */}
                 <Card className={cn(
                   "overflow-hidden border shadow-lg",

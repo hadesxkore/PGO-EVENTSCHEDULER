@@ -1443,7 +1443,7 @@ const RequestEvent = () => {
       initial="hidden"
       animate="show"
       variants={container}
-      className="max-w-7xl mx-auto px-4 pt-2 pb-6"
+      className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 pb-6"
     >
       {/* Header */}
       <motion.div variants={item} className="mb-8">
@@ -1457,24 +1457,24 @@ const RequestEvent = () => {
         )}>Create a new event request for approval.</p>
 
         {/* Process Flow */}
-        <div className="relative flex flex-col sm:flex-row items-center sm:items-center justify-between max-w-5xl mx-auto px-2 gap-4 sm:gap-0">
-          {/* Event Details Step */}
-          <div className="flex items-center sm:flex-col sm:items-center relative z-10">
+        <div className="relative grid grid-cols-3 grid-rows-2 gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between max-w-5xl mx-auto px-1 sm:px-2 sm:gap-0">
+          {/* Event Details Step - Position 1 (Row 1, Col 1) */}
+          <div className="flex items-center flex-col relative z-10 col-start-1 row-start-1 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.eventDetails
                 ? "bg-black"
                 : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <FileText className={cn(
-                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.eventDetails
                   ? "text-white"
                   : isDarkMode ? "text-gray-300" : "text-gray-600"
               )} />
             </div>
             <span className={cn(
-              "text-[10px] sm:text-xs font-medium ml-2 sm:ml-0",
+              "text-[9px] sm:text-xs font-medium text-center",
               isDarkMode ? "text-gray-300" : "text-gray-600"
             )}>Event Details</span>
           </div>
@@ -1491,29 +1491,29 @@ const RequestEvent = () => {
             )} />
           </div>
 
-          {/* Attachments Step */}
-          <div className="flex flex-col items-center relative z-10">
+          {/* Attachments Step - Position 2 (Row 1, Col 2) */}
+          <div className="flex flex-col items-center relative z-10 col-start-2 row-start-1 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.attachments
                 ? "bg-black"
                 : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <FileText className={cn(
-                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.attachments
                   ? "text-white"
                   : isDarkMode ? "text-gray-300" : "text-gray-600"
               )} />
             </div>
             <span className={cn(
-              "text-xs font-medium",
+              "text-[9px] sm:text-xs font-medium text-center",
               isDarkMode ? "text-gray-300" : "text-gray-600"
             )}>Attachments</span>
           </div>
 
           {/* Connecting Line 2 */}
-          <div className="flex-1 h-[1px] relative -mx-1">
+          <div className="hidden sm:block flex-1 h-[1px] relative -mx-1">
             <div className={cn(
               "absolute inset-0",
               isDarkMode ? "bg-zinc-700" : "bg-gray-200"
@@ -1524,10 +1524,10 @@ const RequestEvent = () => {
             )} />
           </div>
 
-          {/* Tag Departments Step */}
-          <div className="flex flex-col items-center relative z-10">
+          {/* Tag Departments Step - Position 3 (Row 1, Col 3) */}
+          <div className="flex flex-col items-center relative z-10 col-start-3 row-start-1 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.tagDepartments
                 ? "bg-black"
                 : (!completedSteps.eventDetails || !completedSteps.attachments)
@@ -1535,7 +1535,7 @@ const RequestEvent = () => {
                   : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <Building2 className={cn(
-                "w-4 h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.tagDepartments
                   ? "text-white"
                   : (!completedSteps.eventDetails || !completedSteps.attachments)
@@ -1544,7 +1544,7 @@ const RequestEvent = () => {
               )} />
             </div>
             <span className={cn(
-              "text-xs font-medium",
+              "text-[9px] sm:text-xs font-medium text-center",
               (!completedSteps.eventDetails || !completedSteps.attachments)
                 ? isDarkMode ? "text-gray-500" : "text-gray-400"
                 : isDarkMode ? "text-gray-300" : "text-gray-600"
@@ -1552,7 +1552,7 @@ const RequestEvent = () => {
           </div>
 
           {/* Connecting Line 3 */}
-          <div className="flex-1 h-[1px] relative -mx-1">
+          <div className="hidden sm:block flex-1 h-[1px] relative -mx-1">
             <div className={cn(
               "absolute inset-0",
               isDarkMode ? "bg-zinc-700" : "bg-gray-200"
@@ -1563,10 +1563,10 @@ const RequestEvent = () => {
             )} />
           </div>
 
-          {/* Requirements Step */}
-          <div className="flex flex-col items-center relative z-10">
+          {/* Requirements Step - Position 4 (Row 2, Col 1) */}
+          <div className="flex flex-col items-center relative z-10 col-start-1 row-start-2 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.requirements
                 ? "bg-black"
                 : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
@@ -1574,7 +1574,7 @@ const RequestEvent = () => {
                   : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <FileText className={cn(
-                "w-3.5 h-3.5 sm:w-4 sm:h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.requirements
                   ? "text-white"
                   : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
@@ -1583,7 +1583,7 @@ const RequestEvent = () => {
               )} />
             </div>
             <span className={cn(
-              "text-xs font-medium",
+              "text-[9px] sm:text-xs font-medium text-center",
               (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments)
                 ? isDarkMode ? "text-gray-500" : "text-gray-400"
                 : isDarkMode ? "text-gray-300" : "text-gray-600"
@@ -1591,7 +1591,7 @@ const RequestEvent = () => {
           </div>
 
           {/* Connecting Line 4 */}
-          <div className="flex-1 h-[1px] relative -mx-1">
+          <div className="hidden sm:block flex-1 h-[1px] relative -mx-1">
             <div className={cn(
               "absolute inset-0",
               isDarkMode ? "bg-zinc-700" : "bg-gray-200"
@@ -1602,10 +1602,10 @@ const RequestEvent = () => {
             )} />
           </div>
 
-          {/* Schedule Step */}
-          <div className="flex flex-col items-center relative z-10">
+          {/* Schedule Step - Position 5 (Row 2, Col 2) */}
+          <div className="flex flex-col items-center relative z-10 col-start-2 row-start-2 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.schedule
                 ? "bg-black"
                 : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
@@ -1613,7 +1613,7 @@ const RequestEvent = () => {
                   : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <CalendarIcon className={cn(
-                "w-4 h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.schedule
                   ? "text-white"
                   : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
@@ -1622,7 +1622,7 @@ const RequestEvent = () => {
               )} />
             </div>
             <span className={cn(
-              "text-xs font-medium",
+              "text-[9px] sm:text-xs font-medium text-center",
               (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements)
                 ? isDarkMode ? "text-gray-500" : "text-gray-400"
                 : isDarkMode ? "text-gray-300" : "text-gray-600"
@@ -1630,7 +1630,7 @@ const RequestEvent = () => {
           </div>
 
           {/* Connecting Line 5 */}
-          <div className="flex-1 h-[1px] relative -mx-1">
+          <div className="hidden sm:block flex-1 h-[1px] relative -mx-1">
             <div className={cn(
               "absolute inset-0",
               isDarkMode ? "bg-zinc-700" : "bg-gray-200"
@@ -1641,10 +1641,10 @@ const RequestEvent = () => {
             )} />
           </div>
 
-          {/* Ready to Submit Step */}
-          <div className="flex flex-col items-center relative z-10">
+          {/* Ready to Submit Step - Position 6 (Row 2, Col 3) */}
+          <div className="flex flex-col items-center relative z-10 col-start-3 row-start-2 sm:col-auto sm:row-auto">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-colors duration-200",
+              "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 transition-colors duration-200",
               completedSteps.readyToSubmit
                 ? "bg-black"
                 : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
@@ -1652,7 +1652,7 @@ const RequestEvent = () => {
                   : isDarkMode ? "bg-zinc-800" : "bg-gray-100"
             )}>
               <Send className={cn(
-                "w-4 h-4",
+                "w-3 h-3 sm:w-4 sm:h-4",
                 completedSteps.readyToSubmit
                   ? "text-white"
                   : (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
@@ -1661,7 +1661,7 @@ const RequestEvent = () => {
               )} />
             </div>
             <span className={cn(
-              "text-xs font-medium",
+              "text-[9px] sm:text-xs font-medium text-center",
               (!completedSteps.eventDetails || !completedSteps.attachments || !completedSteps.tagDepartments || !completedSteps.requirements || !completedSteps.schedule)
                 ? isDarkMode ? "text-gray-500" : "text-gray-400"
                 : isDarkMode ? "text-gray-300" : "text-gray-600"
@@ -1671,38 +1671,38 @@ const RequestEvent = () => {
       </motion.div>
 
       {/* Main Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
         {/* Left Column - Main Details */}
         <motion.div 
           variants={item}
-          className="lg:col-span-2 space-y-5"
+          className="lg:col-span-2 space-y-3 sm:space-y-5"
         >
           {/* Event Details Card */}
           <div className={cn(
-            "rounded-xl p-6 shadow-sm",
+            "rounded-xl p-3 sm:p-6 shadow-sm",
             isDarkMode ? "bg-slate-800" : "bg-white"
           )}>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
               <Badge variant="outline" className={cn(
-                "px-3 py-1 rounded-full text-sm font-semibold",
+                "px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm font-semibold",
                 isDarkMode ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-600"
               )}>
                 Step 1
               </Badge>
               <h2 className={cn(
-                "text-2xl font-bold",
+                "text-xl sm:text-2xl font-bold",
                 isDarkMode ? "text-gray-100" : "text-gray-900"
               )}>Event Details</h2>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Title and Requestor */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Event Title
                   </Label>
-                                      <Input
+                  <Input
                       name="title"
                       type="text"
                       required
@@ -1715,7 +1715,7 @@ const RequestEvent = () => {
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Enter event title"
                     className={cn(
-                      "rounded-lg h-12 text-base px-4",
+                      "rounded-lg h-10 sm:h-12 text-sm sm:text-base px-3 sm:px-4",
                       isDarkMode 
                         ? "bg-slate-900 border-slate-700" 
                         : "bg-white border-gray-200"
@@ -1728,7 +1728,7 @@ const RequestEvent = () => {
                     Requestor
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <User className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                     <Input
                       name="requestor"
                       type="text"
@@ -1738,7 +1738,7 @@ const RequestEvent = () => {
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Your name"
                       className={cn(
-                        "pl-12 rounded-lg h-12 text-base",
+                        "pl-10 sm:pl-12 rounded-lg h-10 sm:h-12 text-sm sm:text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -1749,7 +1749,7 @@ const RequestEvent = () => {
               </div>
 
               {/* Location and Number of Participants */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Location */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1759,8 +1759,8 @@ const RequestEvent = () => {
                         : "Location"
                       }
                     </Label>
-                    <div className="flex items-center gap-2">
-                      <span className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className={cn("text-[10px] sm:text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
                         Multiple locations
                       </span>
                       <button
@@ -1782,14 +1782,14 @@ const RequestEvent = () => {
                           }
                         }}
                         className={cn(
-                          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2",
+                          "relative inline-flex h-4 w-7 sm:h-5 sm:w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2",
                           hasMultipleLocations ? "bg-black" : "bg-gray-200"
                         )}
                       >
                         <span
                           className={cn(
-                            "inline-block h-3 w-3 transform rounded-full bg-white transition-transform",
-                            hasMultipleLocations ? "translate-x-5" : "translate-x-1"
+                            "inline-block h-2.5 w-2.5 sm:h-3 sm:w-3 transform rounded-full bg-white transition-transform",
+                            hasMultipleLocations ? "translate-x-3.5 sm:translate-x-5" : "translate-x-0.5 sm:translate-x-1"
                           )}
                         />
                       </button>
@@ -2064,7 +2064,7 @@ const RequestEvent = () => {
                     No. of Participants
                   </Label>
                   <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Users className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                     <Input
                       name="participants"
                       value={formData.participants}
@@ -2075,7 +2075,7 @@ const RequestEvent = () => {
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="Expected attendees"
                       className={cn(
-                        "pl-12 rounded-lg h-12 text-base",
+                        "pl-10 sm:pl-12 rounded-lg h-10 sm:h-12 text-sm sm:text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -2087,7 +2087,7 @@ const RequestEvent = () => {
               </div>
 
               {/* VIP, VVIP, and Governor Row */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 {/* VIP */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
@@ -2104,7 +2104,7 @@ const RequestEvent = () => {
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="VIPs"
                       className={cn(
-                        "pl-10 rounded-lg h-12 text-base",
+                        "pl-10 rounded-lg h-10 sm:h-12 text-sm sm:text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -2129,7 +2129,7 @@ const RequestEvent = () => {
                       autoComplete={isStepActive('eventDetails') ? "on" : "off"}
                       placeholder="VVIPs"
                       className={cn(
-                        "pl-10 rounded-lg h-12 text-base",
+                        "pl-10 rounded-lg h-10 sm:h-12 text-sm sm:text-base",
                         isDarkMode 
                           ? "bg-slate-900 border-slate-700" 
                           : "bg-white border-gray-200"
@@ -2153,8 +2153,8 @@ const RequestEvent = () => {
                       }
                     }}
                     className={cn(
-                      "w-full h-12 rounded-lg border-2 transition-all duration-200 ease-in-out",
-                      "flex items-center justify-center gap-2 font-medium text-sm",
+                      "w-full h-10 sm:h-12 rounded-lg border-2 transition-all duration-200 ease-in-out",
+                      "flex items-center justify-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm",
                       "hover:scale-[1.02] active:scale-[0.98]",
                       formData.withGov 
                         ? "bg-gradient-to-r from-blue-500 to-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/25" 
@@ -2194,7 +2194,7 @@ const RequestEvent = () => {
                   onChange={handleInputChange}
                   placeholder="Enter event description..."
                   className={cn(
-                    "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border-2",
+                    "w-full min-h-[80px] sm:min-h-[100px] rounded-lg p-2 sm:p-3 text-sm sm:text-base resize-none border-2",
                     isDarkMode 
                       ? "bg-slate-900 border-gray-600 text-white placeholder:text-zinc-500" 
                       : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
@@ -2277,24 +2277,24 @@ const RequestEvent = () => {
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
 
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                   {/* Upload Button */}
                   <div className="shrink-0">
                     <Button
                       variant="outline"
                       className={cn(
-                        "h-9 px-4 flex items-center gap-2",
+                        "h-8 sm:h-9 px-3 sm:px-4 flex items-center gap-2 text-sm",
                         isDarkMode 
                           ? "border-gray-600 hover:bg-slate-800" 
                           : "border-gray-300 hover:bg-gray-100"
                       )}
                       onClick={() => document.getElementById('file-upload').click()}
                     >
-                      <FileText className="h-4 w-4" />
+                      <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
                       <span>Upload Files</span>
                     </Button>
                     <p className={cn(
-                      "text-[11px] mt-1",
+                      "text-[10px] sm:text-[11px] mt-1",
                       isDarkMode ? "text-gray-500" : "text-gray-400"
                     )}>
                       PDF, DOC, JPG, PNG (max 10MB)
@@ -2388,21 +2388,21 @@ const RequestEvent = () => {
 
               {/* Next Button for Multiple Locations */}
               {hasMultipleLocations && isInMultipleLocationMode && (
-                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-600">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                    <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                       {locationDrafts.length > 0 && (
                         <span>
                           {locationDrafts.length} location{locationDrafts.length > 1 ? 's' : ''} saved. 
                         </span>
                       )}
-                      <span className="ml-2">
+                      <span className="ml-1 sm:ml-2">
                         Currently configuring location {currentLocationIndex + 1}
                       </span>
                       {locationDrafts[currentLocationIndex] && 
                        locationDrafts[currentLocationIndex].location && 
                        locationDrafts[currentLocationIndex].participants && (
-                        <span className="ml-2 text-green-600 dark:text-green-400 text-xs">
+                        <span className="ml-1 sm:ml-2 text-green-600 dark:text-green-400 text-xs">
                           ✓ Auto-saved
                         </span>
                       )}
@@ -2412,18 +2412,18 @@ const RequestEvent = () => {
                       onClick={handleNextLocation}
                       disabled={!validateCurrentLocationForm()}
                       className={cn(
-                        "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all duration-200",
+                        "flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2 rounded-lg font-medium transition-all duration-200 text-sm",
                         validateCurrentLocationForm()
                           ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       )}
                     >
                       <span>Next Location</span>
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                   {!validateCurrentLocationForm() && (
-                    <p className="text-xs text-red-500 mt-2 text-right">
+                    <p className="text-xs text-red-500 mt-2 text-center sm:text-right">
                       Please fill in all required fields to continue
                     </p>
                   )}
@@ -2434,7 +2434,7 @@ const RequestEvent = () => {
 
           {/* Tag Departments Card */}
           <div className={cn(
-            "rounded-xl p-6 shadow-sm mt-5 relative",
+            "rounded-xl p-3 sm:p-6 shadow-sm mt-3 sm:mt-5 relative",
             isDarkMode ? "bg-slate-800" : "bg-white",
             (!completedSteps.eventDetails || !completedSteps.attachments) && "pointer-events-none"
           )}>

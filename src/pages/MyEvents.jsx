@@ -140,7 +140,7 @@ const MyEvents = () => {
   const [editMultipleLocationDropdowns, setEditMultipleLocationDropdowns] = useState({});
   const [editMultipleCustomLocations, setEditMultipleCustomLocations] = useState({});
   const [editMultipleShowCustomInputs, setEditMultipleShowCustomInputs] = useState({});
-  const itemsPerPage = 10;
+  const itemsPerPage = 7;
 
   // Default locations from RequestEvent page
   const defaultLocations = [
@@ -408,7 +408,7 @@ const MyEvents = () => {
               </div>
             ) : (
               <div>
-                <Table className="border-separate border-spacing-0">
+                <Table>
                   <TableHeader>
                     <TableRow className={cn(
                       "border-b-2",
@@ -479,7 +479,7 @@ const MyEvents = () => {
                       <TableRow 
                         key={event.id} 
                         className={cn(
-                          "border-b-2 border-gray-300 dark:border-slate-600 transition-all duration-200 hover:shadow-sm",
+                          "border-b border-gray-300 dark:border-slate-600 transition-all duration-200 hover:shadow-sm",
                           isDarkMode 
                             ? "hover:bg-slate-800/30" 
                             : "hover:bg-gray-50/50",
@@ -488,8 +488,8 @@ const MyEvents = () => {
                               ? "bg-slate-900/20" 
                               : "bg-white" 
                             : isDarkMode 
-                              ? "bg-slate-900/40" 
-                              : "bg-gray-50/30"
+                              ? "bg-slate-800/30" 
+                              : "bg-gray-100/60"
                         )}
                       >
                         <TableCell className={cn(
@@ -699,45 +699,53 @@ const MyEvents = () => {
                           </div>
                         </TableCell>
                         <TableCell className={cn(
-                          "py-4 px-4 border-r align-top",
+                          "py-4 px-4 border-r align-top relative",
                           isDarkMode ? "border-slate-600" : "border-gray-200"
                         )}>
                           {event.status === 'disapproved' ? (
                             <div className="flex items-center justify-center gap-2">
-                              <Badge
-                                variant="destructive"
-                                className={cn(
-                                  "font-semibold px-3 py-2 text-xs shadow-sm",
-                                  isDarkMode
-                                    ? "bg-red-500/15 text-red-300 border border-red-500/30"
-                                    : "bg-red-50 text-red-700 border border-red-200"
-                                )}
-                              >
-                                Disapproved
-                              </Badge>
-                              <HoverCard>
-                                <HoverCardTrigger>
-                                  <div className="p-1 rounded-full bg-red-500/10 cursor-pointer hover:bg-red-500/20">
-                                    <AlertCircle className="h-4 w-4 text-red-500" />
-                                  </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80 p-4 bg-white border border-gray-200 shadow-lg rounded-lg">
-                                  <div className="space-y-2">
-                                    <h4 className={cn(
-                                      "font-medium",
-                                      isDarkMode ? "text-gray-200" : "text-gray-900"
-                                    )}>
-                                      Reason for Disapproval
-                                    </h4>
-                                    <p className={cn(
-                                      "text-sm",
-                                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                                    )}>
-                                      {event.disapprovalReason || "No reason provided"}
-                                    </p>
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
+                              <div className="relative">
+                                <Badge
+                                  variant="destructive"
+                                  className={cn(
+                                    "font-semibold px-3 py-2 text-xs shadow-sm",
+                                    isDarkMode
+                                      ? "bg-red-500/15 text-red-300 border border-red-500/30"
+                                      : "bg-red-50 text-red-700 border border-red-200"
+                                  )}
+                                >
+                                  Disapproved
+                                </Badge>
+                                {/* Floating Alert Badge with Hover */}
+                                <HoverCard>
+                                  <HoverCardTrigger>
+                                    <div className="absolute -top-1 -right-1 z-10 cursor-pointer">
+                                      <div className="relative">
+                                        <div className="w-4 h-4 bg-red-600 rounded-full flex items-center justify-center shadow-lg animate-pulse hover:bg-red-700 transition-colors">
+                                          <AlertCircle className="h-2.5 w-2.5 text-white" />
+                                        </div>
+                                        <div className="absolute inset-0 w-4 h-4 bg-red-600 rounded-full animate-ping opacity-75"></div>
+                                      </div>
+                                    </div>
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-80 p-4 bg-white border border-gray-200 shadow-lg rounded-lg">
+                                    <div className="space-y-2">
+                                      <h4 className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                                      )}>
+                                        Reason for Disapproval
+                                      </h4>
+                                      <p className={cn(
+                                        "text-sm",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        {event.disapprovalReason || "No reason provided"}
+                                      </p>
+                                    </div>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              </div>
                             </div>
                           ) : (
                             <div className="flex justify-center">
@@ -926,7 +934,7 @@ const MyEvents = () => {
                 </div>
                 
                 {/* Pagination */}
-                {filteredEvents.length > itemsPerPage && (
+                {filteredEvents.length >= 7 && (
                   <div className={cn(
                     "flex items-center justify-between px-6 py-4 border-t",
                     isDarkMode ? "border-slate-700" : "border-gray-100"
@@ -937,26 +945,55 @@ const MyEvents = () => {
                     )}>
                       Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredEvents.length)} of {filteredEvents.length} entries
                     </p>
-                    <Pagination>
-                      <PaginationContent>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Pagination>
+                      <PaginationContent className="gap-1">
                         <PaginationItem>
-                          <PaginationPrevious 
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            className={cn(
-                              "cursor-pointer",
-                              currentPage === 1 && "pointer-events-none opacity-50"
-                            )}
-                          />
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <PaginationPrevious 
+                              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                              className={cn(
+                                "cursor-pointer transition-all duration-200 hover:shadow-md",
+                                isDarkMode
+                                  ? "hover:bg-slate-700 border-slate-600"
+                                  : "hover:bg-gray-100 border-gray-200",
+                                currentPage === 1 && "pointer-events-none opacity-50"
+                              )}
+                            />
+                          </motion.div>
                         </PaginationItem>
                         {Array.from({ length: Math.min(5, Math.ceil(filteredEvents.length / itemsPerPage)) }).map((_, i) => (
                           <PaginationItem key={i}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(i + 1)}
-                              isActive={currentPage === i + 1}
-                              className="cursor-pointer"
+                            <motion.div
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              transition={{ duration: 0.2 }}
                             >
-                              {i + 1}
-                            </PaginationLink>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(i + 1)}
+                                isActive={currentPage === i + 1}
+                                className={cn(
+                                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                                  currentPage === i + 1
+                                    ? isDarkMode
+                                      ? "bg-blue-600 text-white border-blue-500 shadow-lg"
+                                      : "bg-blue-600 text-white border-blue-500 shadow-lg"
+                                    : isDarkMode
+                                      ? "hover:bg-slate-700 border-slate-600"
+                                      : "hover:bg-gray-100 border-gray-200"
+                                )}
+                              >
+                                {i + 1}
+                              </PaginationLink>
+                            </motion.div>
                           </PaginationItem>
                         ))}
                         <PaginationItem>
@@ -970,6 +1007,7 @@ const MyEvents = () => {
                         </PaginationItem>
                       </PaginationContent>
                     </Pagination>
+                    </motion.div>
                   </div>
                 )}
               </div>

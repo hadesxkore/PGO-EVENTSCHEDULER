@@ -31,7 +31,7 @@ import { format } from "date-fns";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "@/lib/firebase/firebase";
 import { db } from "@/lib/firebase/firebase";
-import { collection, query, where, getDocs, orderBy, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import useEventStore from "@/store/eventStore";
 import useMessageStore from "@/store/messageStore";
 import { Loader2 } from "lucide-react";
@@ -56,7 +56,7 @@ const TaggedDepartments = () => {
     setUsersWhoTaggedMe([]);
   }, [setUsersWhoTaggedMe]);
 
-  // Fetch tagged departments events
+  // Fetch tagged departments events using Zustand
   useEffect(() => {
     const fetchTaggedEvents = async () => {
       setLoading(true);
@@ -75,58 +75,78 @@ const TaggedDepartments = () => {
         const userData = userDocSnap.data();
         const userDepartment = userData.department;
 
-        // Get all events
-        const eventsRef = collection(db, "eventRequests");
-        const allEventsQuery = query(eventsRef);
-        const allEventsSnapshot = await getDocs(allEventsQuery);
+        // Use Zustand store to get all events (with caching)
+        const result = await useEventStore.getState().fetchAllEvents();
         
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch events');
+        }
+
         // Filter events where user's department is tagged OR where user has tagged others
-        const taggedEvents = allEventsSnapshot.docs
-          .map(doc => {
-            const eventData = doc.data();
-            const id = doc.id;
-            const departmentRequirements = eventData.departmentRequirements || [];
+        const taggedEvents = result.events
+          .map(event => {
+            const departmentRequirements = event.departmentRequirements || [];
 
             // Case 1: User's department is tagged in this event
             const taggedDept = departmentRequirements.find(
               dept => dept.departmentName === userDepartment
             );
 
-            if (taggedDept && eventData.userId !== user.uid) {
+            if (taggedDept && event.userId !== user.uid) {
               return {
-                id,
-                title: eventData.title,
-                department: eventData.department,
-                startDate: eventData.startDate,
-                endDate: eventData.endDate,
-                date: eventData.date,
-                location: eventData.location,
-                locations: eventData.locations,
-                isMultipleLocations: eventData.isMultipleLocations,
-                participants: eventData.participants,
-      tagType: 'received',
+                id: event.id,
+                title: event.title,
+                department: event.department,
+                startDate: event.startDate,
+                endDate: event.endDate,
+                date: event.date,
+                start: event.start, // EventStore transformed field
+                actualEndDate: event.actualEndDate, // EventStore transformed field
+                recentActivity: event.recentActivity || [], // Include recent activity
+                location: event.location,
+                locations: event.locations,
+                isMultipleLocations: event.isMultipleLocations,
+                participants: event.participants,
+                tagType: 'received',
                 requirements: taggedDept.requirements || []
               };
             }
 
             // Case 2: User created this event and tagged other departments
-            if (eventData.userId === user.uid && departmentRequirements.length > 0) {
+            if (event.userId === user.uid && departmentRequirements.length > 0) {
+              // Flatten all requirements from all departments for display
+              const allRequirements = departmentRequirements.reduce((acc, dept) => {
+                if (dept.requirements && dept.requirements.length > 0) {
+                  // Add department name prefix to each requirement for clarity
+                  const deptRequirements = dept.requirements.map(req => {
+                    return {
+                      name: `${dept.departmentName}: ${req.name || req}`,
+                      note: req.note || null,
+                      departmentName: dept.departmentName,
+                      originalReq: req
+                    };
+                  });
+                  return [...acc, ...deptRequirements];
+                }
+                return acc;
+              }, []);
+              
               return {
-                id,
-                title: eventData.title,
-                department: eventData.department,
-                startDate: eventData.startDate,
-                endDate: eventData.endDate,
-                date: eventData.date,
-                location: eventData.location,
-                locations: eventData.locations,
-                isMultipleLocations: eventData.isMultipleLocations,
-                participants: eventData.participants,
-      tagType: 'sent',
-                requirements: departmentRequirements.map(dept => ({
-                  name: dept.departmentName,
-                  requirements: dept.requirements || []
-                }))
+                id: event.id,
+                title: event.title,
+                department: event.department,
+                startDate: event.startDate,
+                endDate: event.endDate,
+                date: event.date,
+                start: event.start, // EventStore transformed field
+                actualEndDate: event.actualEndDate, // EventStore transformed field
+                recentActivity: event.recentActivity || [], // Include recent activity
+                location: event.location,
+                locations: event.locations,
+                isMultipleLocations: event.isMultipleLocations,
+                participants: event.participants,
+                tagType: 'sent',
+                requirements: allRequirements
               };
             }
 
@@ -184,9 +204,45 @@ const TaggedDepartments = () => {
       }
     }
     
+    // Try to get from recentActivity first
+    if (event.recentActivity && event.recentActivity.length > 0) {
+      const startDateActivity = event.recentActivity
+        .filter(activity => activity.type === 'startDateTime')
+        .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0))[0];
+      
+      if (startDateActivity && startDateActivity.newValue) {
+        try {
+          const date = new Date(startDateActivity.newValue);
+          if (!isNaN(date.getTime())) {
+            return format(date, "MMM d");
+          }
+        } catch (e) {
+          // Continue to fallback options
+        }
+      }
+    }
+    
+    // Fallback to eventStore transformed fields
+    if (event.start) {
+      return format(event.start, "MMM d");
+    }
+    
+    // Fallback to direct startDate field
     if (event.startDate?.toDate) {
       return format(event.startDate.toDate(), "MMM d");
     }
+    
+    if (event.startDate) {
+      try {
+        const date = new Date(event.startDate);
+        if (!isNaN(date.getTime())) {
+          return format(date, "MMM d");
+        }
+      } catch (e) {
+        // Continue to TBD
+      }
+    }
+    
     return 'TBD';
   };
 
@@ -962,7 +1018,6 @@ const TaggedDepartments = () => {
                                             const startDateTime = location.startDate?.toDate ? location.startDate.toDate() : new Date(location.startDate);
                                             return format(startDateTime, "h:mm a");
                                           } catch (e) {
-                                            console.log('Start date parsing error:', e);
                                             return 'Time parsing error';
                                           }
                                         }
@@ -1007,7 +1062,6 @@ const TaggedDepartments = () => {
                                             const endDateTime = location.endDate?.toDate ? location.endDate.toDate() : new Date(location.endDate);
                                             return format(endDateTime, "h:mm a");
                                           } catch (e) {
-                                            console.log('End date parsing error:', e);
                                             return 'Time parsing error';
                                           }
                                         }
@@ -1049,10 +1103,41 @@ const TaggedDepartments = () => {
                             "text-sm font-medium",
                             isDarkMode ? "text-white" : "text-slate-900"
                           )}>
-                            {selectedEvent.startDate?.toDate ? 
-                              format(selectedEvent.startDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                              'Not specified'
-                            }
+                            {(() => {
+                              // First try to get from recentActivity
+                              if (selectedEvent.recentActivity && selectedEvent.recentActivity.length > 0) {
+                                const startDateActivity = selectedEvent.recentActivity
+                                  .filter(activity => activity.type === 'startDateTime')
+                                  .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0))[0];
+                                
+                                if (startDateActivity && startDateActivity.newValue) {
+                                  try {
+                                    const date = new Date(startDateActivity.newValue);
+                                    if (!isNaN(date.getTime())) {
+                                      return format(date, "MMMM d, yyyy 'at' h:mm a");
+                                    }
+                                  } catch (e) {
+                                    // If parsing fails, return the raw value
+                                    return startDateActivity.newValue;
+                                  }
+                                }
+                              }
+                              
+                              // Fallback to eventStore transformed fields
+                              if (selectedEvent.start) {
+                                return format(selectedEvent.start, "MMMM d, yyyy 'at' h:mm a");
+                              }
+                              
+                              // Fallback to direct startDate field
+                              if (selectedEvent.startDate) {
+                                const date = selectedEvent.startDate?.toDate ? 
+                                  selectedEvent.startDate.toDate() : 
+                                  new Date(selectedEvent.startDate);
+                                return format(date, "MMMM d, yyyy 'at' h:mm a");
+                              }
+                              
+                              return 'Not specified';
+                            })()}
                           </p>
                         </div>
 
@@ -1082,10 +1167,41 @@ const TaggedDepartments = () => {
                             "text-sm font-medium",
                             isDarkMode ? "text-white" : "text-slate-900"
                           )}>
-                            {selectedEvent.endDate?.toDate ? 
-                              format(selectedEvent.endDate.toDate(), "MMMM d, yyyy 'at' h:mm a") :
-                              'Not specified'
-                            }
+                            {(() => {
+                              // First try to get from recentActivity
+                              if (selectedEvent.recentActivity && selectedEvent.recentActivity.length > 0) {
+                                const endDateActivity = selectedEvent.recentActivity
+                                  .filter(activity => activity.type === 'endDateTime')
+                                  .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0))[0];
+                                
+                                if (endDateActivity && endDateActivity.newValue) {
+                                  try {
+                                    const date = new Date(endDateActivity.newValue);
+                                    if (!isNaN(date.getTime())) {
+                                      return format(date, "MMMM d, yyyy 'at' h:mm a");
+                                    }
+                                  } catch (e) {
+                                    // If parsing fails, return the raw value
+                                    return endDateActivity.newValue;
+                                  }
+                                }
+                              }
+                              
+                              // Fallback to eventStore transformed fields
+                              if (selectedEvent.actualEndDate) {
+                                return format(selectedEvent.actualEndDate, "MMMM d, yyyy 'at' h:mm a");
+                              }
+                              
+                              // Fallback to direct endDate field
+                              if (selectedEvent.endDate) {
+                                const date = selectedEvent.endDate?.toDate ? 
+                                  selectedEvent.endDate.toDate() : 
+                                  new Date(selectedEvent.endDate);
+                                return format(date, "MMMM d, yyyy 'at' h:mm a");
+                              }
+                              
+                              return 'Not specified';
+                            })()}
                           </p>
                         </div>
 

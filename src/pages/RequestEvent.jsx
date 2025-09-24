@@ -2738,15 +2738,9 @@ const RequestEvent = () => {
                             <ModernCalendar
                               selectedDate={startDate}
                               onDateSelect={(newDate) => {
-                                if (!isDateBooked(newDate)) {
-                                  setStartDate(newDate);
-                                  setIsStartCalendarOpen(false);
-                                } else {
-                                  const info = getBookingInfo(newDate);
-                                  toast.error(info || "This date is already booked");
-                                }
+                                setStartDate(newDate);
+                                setIsStartCalendarOpen(false);
                               }}
-                              disabledDates={getBookedDates()}
                               isDarkMode={isDarkMode}
                             />
                           </PopoverContent>
@@ -2825,15 +2819,9 @@ const RequestEvent = () => {
                             <ModernCalendar
                               selectedDate={endDate}
                               onDateSelect={(newDate) => {
-                                if (!isDateBooked(newDate)) {
-                                  setEndDate(newDate);
-                                  setIsEndCalendarOpen(false);
-                                } else {
-                                  const info = getBookingInfo(newDate);
-                                  toast.error(info || "This date is already booked");
-                                }
+                                setEndDate(newDate);
+                                setIsEndCalendarOpen(false);
                               }}
-                              disabledDates={getBookedDates()}
                               isDarkMode={isDarkMode}
                             />
                           </PopoverContent>
@@ -3537,15 +3525,9 @@ const RequestEvent = () => {
                         <ModernCalendar
                           selectedDate={preferredDates.startDate}
                           onDateSelect={(date) => {
-                            if (!isDateBooked(date)) {
-                              setPreferredDates({ startDate: date });
-                              setIsPreferredStartCalendarOpen(false);
-                            } else {
-                              const info = getBookingInfo(date);
-                              toast.error(info || "This date is already booked");
-                            }
+                            setPreferredDates({ startDate: date });
+                            setIsPreferredStartCalendarOpen(false);
                           }}
-                          disabledDates={preferredDates.bookedDates?.map(booking => new Date(booking.start.seconds * 1000)) || []}
                           isDarkMode={isDarkMode}
                         />
                       </PopoverContent>
@@ -3618,15 +3600,9 @@ const RequestEvent = () => {
                         <ModernCalendar
                           selectedDate={preferredDates.endDate}
                           onDateSelect={(date) => {
-                            if (!isDateBooked(date)) {
-                              setPreferredDates({ endDate: date });
-                              setIsPreferredEndCalendarOpen(false);
-                            } else {
-                              const info = getBookingInfo(date);
-                              toast.error(info || "This date is already booked");
-                            }
+                            setPreferredDates({ endDate: date });
+                            setIsPreferredEndCalendarOpen(false);
                           }}
-                          disabledDates={preferredDates.bookedDates?.map(booking => new Date(booking.start.seconds * 1000)) || []}
                           isDarkMode={isDarkMode}
                         />
                       </PopoverContent>

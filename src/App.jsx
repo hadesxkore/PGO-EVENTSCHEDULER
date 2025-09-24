@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./components/auth/AuthPage";
 import MainLayout from "./components/layout/MainLayout";
@@ -21,6 +21,32 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for existing authentication on app initialization
+  useEffect(() => {
+    const checkExistingAuth = () => {
+      try {
+        const storedUserData = localStorage.getItem('userData');
+        if (storedUserData) {
+          const parsedUserData = JSON.parse(storedUserData);
+          setIsAuthenticated(true);
+          setUserData({
+            ...parsedUserData,
+            role: parsedUserData.role || 'user' // Ensure role is set
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing stored user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('userData');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkExistingAuth();
+  }, []);
 
   const handleLoginSuccess = (userData) => {
     setIsAuthenticated(true);
@@ -30,12 +56,27 @@ function App() {
     });
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUserData(null);
+    localStorage.removeItem('userData');
+  };
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <ThemeProvider>
       <Router>
         {isAuthenticated ? (
           userData?.role?.toLowerCase() === 'admin' ? (
-            <AdminLayout userData={userData}>
+            <AdminLayout userData={userData} onLogout={handleLogout}>
               <Routes>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/event-requests" element={<EventRequests />} />
@@ -49,7 +90,7 @@ function App() {
               </Routes>
             </AdminLayout>
           ) : (
-            <MainLayout userData={userData}>
+            <MainLayout userData={userData} onLogout={handleLogout}>
               <Routes>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/request-event" element={<RequestEvent />} />

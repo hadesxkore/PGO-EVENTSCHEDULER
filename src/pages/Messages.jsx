@@ -11,9 +11,8 @@ import { Search, Send, Users } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from "@/lib/firebase/firebase";
 import useMessageStore from "@/store/messageStore";
+import useEventStore from "@/store/eventStore";
 import { useLocation } from "react-router-dom";
 
 const getInitials = (name) => {
@@ -159,25 +158,26 @@ const Messages = () => {
      }
    }, [setCurrentUser]);
    
-   // Fetch current user's events to get taggingEvents data
+   // Get event store for fetching user events
+   const { fetchUserEvents, events } = useEventStore();
+
+   // Fetch current user's events to get taggingEvents data using Zustand
    useEffect(() => {
      const fetchCurrentUserEvents = async () => {
        if (!currentUser?.email || currentUser.taggingEvents) return; // Skip if we already have tagging events
        
        try {
-         // Get events where current user is the creator
-         const eventsRef = collection(db, "eventRequests");
-         const userEventsQuery = query(eventsRef, where("userEmail", "==", currentUser.email));
-         const userEventsSnapshot = await getDocs(userEventsQuery);
+         // Use Zustand eventStore instead of direct Firestore calls
+         await fetchUserEvents(currentUser.uid || currentUser.email);
          
+         // Process events to extract tagging information
          const taggingEvents = [];
-         userEventsSnapshot.docs.forEach(doc => {
-           const event = doc.data();
+         events.forEach(event => {
            if (event.departmentRequirements && event.departmentRequirements.length > 0) {
              event.departmentRequirements.forEach(dept => {
                if (dept.departmentName) {
                  taggingEvents.push({
-                   eventId: doc.id,
+                   eventId: event.id,
                    eventTitle: event.title || event.eventTitle,
                    taggedDepartment: dept.departmentName,
                    timestamp: event.timestamp || event.createdAt
@@ -201,9 +201,9 @@ const Messages = () => {
      };
      
      fetchCurrentUserEvents();
-   }, [currentUser?.email]); // Only depend on email to prevent loops
+   }, [currentUser?.email, events.length]); // Depend on events.length to trigger when events are loaded
 
-     // Fetch tagged departments and users in one effect to prevent loops
+   // Fetch tagged departments and users in one effect to prevent loops
    useEffect(() => {
      const fetchData = async () => {
        if (!currentUser?.email) return;
@@ -723,6 +723,39 @@ const Messages = () => {
                      {sortedEventGroups.map((group) => {
                        const isExpanded = expandedGroups.has(group.eventId);
                        
+                       // Calculate total unread messages for this event across all departments
+                       const totalUnreadForEvent = group.departments.reduce((total, departmentName) => {
+                         // Find the relevant user to get chat ID
+                         const isTagger = group.taggerEmail === currentUser?.email;
+                         const isTaggedDepartment = currentUser?.department === departmentName;
+                         
+                         let displayUser;
+                         if (isTagger) {
+                           displayUser = users.find(u => u.department === departmentName);
+                         } else if (isTaggedDepartment) {
+                           displayUser = users.find(u => u.email === group.taggerEmail);
+                         }
+                         
+                         if (displayUser) {
+                           // Check if there's a last message from this user AND it's unread
+                           const lastMessage = lastMessages[displayUser.email];
+                           const hasUnreadFromUser = unreadMessages[displayUser.email];
+                           
+                           // Only count as unread if:
+                           // 1. There's a last message from this user
+                           // 2. The message is TO the current user (not FROM the current user)
+                           // 3. The user has unread messages from this specific user
+                           // 4. The last message is for THIS specific event (eventId matches)
+                           if (lastMessage && 
+                               hasUnreadFromUser && 
+                               lastMessage.to === currentUser?.email &&
+                               lastMessage.eventId === group.eventId) {
+                             return total + 1;
+                           }
+                         }
+                         return total;
+                       }, 0);
+                       
                        return (
                          <motion.div
                            key={group.eventId}
@@ -792,6 +825,16 @@ const Messages = () => {
                                    )}>
                                      Active
                                    </Badge>
+                                   {totalUnreadForEvent > 0 && (
+                                     <Badge className={cn(
+                                       "px-1.5 py-0.5 text-[10px] font-medium rounded-md animate-pulse",
+                                       isDarkMode 
+                                         ? "bg-red-500/20 text-red-300 border border-red-500/20" 
+                                         : "bg-red-50 text-red-700 border border-red-100"
+                                     )}>
+                                       {totalUnreadForEvent} New Message{totalUnreadForEvent > 1 ? 's' : ''}
+                                     </Badge>
+                                   )}
                                    <Badge variant="outline" className={cn(
                                      "px-1.5 py-0.5 text-[10px] font-medium rounded-md border-0",
                                      isDarkMode 
@@ -963,16 +1006,28 @@ const Messages = () => {
                                     )}>
                                       {displayName}
                                     </Badge>
-                                    {unreadMessages[chatId] && (
-                                      <Badge className={cn(
-                                        "px-1.5 py-0.5 text-[10px] font-medium",
-                                        isDarkMode 
-                                          ? "bg-blue-500/20 text-blue-200 border border-blue-500/20" 
-                                          : "bg-blue-50 text-blue-700 border border-blue-100"
-                                      )}>
-                                        New Messages
-                                      </Badge>
-                                    )}
+                                    {(() => {
+                                      // Check if this specific user has unread messages for THIS event
+                                      const lastMessage = lastMessages[displayEmail];
+                                      const hasUnreadFromUser = unreadMessages[displayEmail];
+                                      
+                                      // Only show badge if the last message is for THIS specific event
+                                      const hasEventSpecificUnread = lastMessage && 
+                                                                    hasUnreadFromUser && 
+                                                                    lastMessage.to === currentUser?.email &&
+                                                                    lastMessage.eventId === group.eventId;
+                                      
+                                      return hasEventSpecificUnread && (
+                                        <Badge className={cn(
+                                          "px-1.5 py-0.5 text-[10px] font-medium",
+                                          isDarkMode 
+                                            ? "bg-red-500/20 text-red-300 border border-red-500/20" 
+                                            : "bg-red-50 text-red-700 border border-red-100"
+                                        )}>
+                                          1 New Message
+                                        </Badge>
+                                      );
+                                    })()}
                                   </div>
                                   <p className={cn(
                                     "text-sm font-medium mb-0.5",

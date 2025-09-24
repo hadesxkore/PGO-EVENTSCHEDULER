@@ -85,15 +85,17 @@ const AllEvents = ({ userData }) => {
     fetchAllEvents 
   } = useEventStore();
 
-  const [currentUser, setCurrentUser] = useState(null);
   const [userDepartment, setUserDepartment] = useState(null);
   const [role, setRole] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isDayEventsDialogOpen, setDayEventsDialogOpen] = useState(false);
-  const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [dayEventsDialogOpen, setDayEventsDialogOpen] = useState(false);
+  const [isDayEventsDialogOpen, setIsDayEventsDialogOpen] = useState(false);
+  const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [view, setView] = useState("month");
   const [date, setDate] = useState(new Date());
 
@@ -192,6 +194,16 @@ const AllEvents = ({ userData }) => {
     loadEvents();
   }, [fetchAllEvents]);
 
+  // Handle window resize for responsive calendar
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Filter events based on search term
   const filteredEvents = allEvents.filter(event => {
     if (!searchTerm.trim()) return true;
@@ -284,7 +296,7 @@ const AllEvents = ({ userData }) => {
                   e.stopPropagation();
                   const date = props.event.start;
                   setSelectedDate(date);
-                  setDayEventsDialogOpen(true);
+                  setIsDayEventsDialogOpen(true);
                 }}
               >
                 +{remainingEvents} more
@@ -472,15 +484,15 @@ const AllEvents = ({ userData }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-[1400px] mx-auto px-8 py-8"
+      className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"
     >
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn(
-            "text-4xl font-bold tracking-tight",
+            "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
             isDarkMode ? "text-white" : "text-gray-900"
           )}
         >
@@ -491,7 +503,7 @@ const AllEvents = ({ userData }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className={cn(
-            "text-lg mt-2",
+            "text-sm sm:text-base lg:text-lg mt-1 sm:mt-2",
             isDarkMode ? "text-gray-400" : "text-gray-500"
           )}
         >
@@ -504,16 +516,16 @@ const AllEvents = ({ userData }) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="mb-8"
+        className="mb-6 sm:mb-8"
       >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search events by title, requestor, or location..."
+            placeholder="Search events..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "pl-9 h-11 transition-all duration-200 w-full max-w-xl",
+              "pl-9 h-10 sm:h-11 transition-all duration-200 w-full",
               isDarkMode
                 ? "bg-slate-900/50 border-slate-800 focus:border-slate-700 focus:ring-slate-700"
                 : "bg-white/50 border-gray-200 focus:border-gray-300 focus:ring-gray-200"
@@ -528,7 +540,7 @@ const AllEvents = ({ userData }) => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3 }}
         className={cn(
-          "rounded-2xl border p-6 backdrop-blur-sm shadow-xl relative overflow-hidden",
+          "rounded-xl sm:rounded-2xl border p-3 sm:p-4 lg:p-6 backdrop-blur-sm shadow-xl relative overflow-hidden",
           isDarkMode 
             ? "bg-slate-900/50 border-slate-800/50" 
             : "bg-white/50 border-gray-200/50"
@@ -553,7 +565,9 @@ const AllEvents = ({ userData }) => {
             }))}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: 800 }}
+            style={{ 
+              height: windowWidth < 640 ? 400 : windowWidth < 1024 ? 500 : 700 
+            }}
             view={view}
             date={date}
             onView={setView}
@@ -563,7 +577,7 @@ const AllEvents = ({ userData }) => {
             className={cn(
               "react-big-calendar",
               isDarkMode && "dark-mode",
-              "custom-calendar"
+              "custom-calendar mobile-responsive-calendar"
             )}
             formats={{
               timeGutterFormat: 'h:mm a',
@@ -918,7 +932,7 @@ const AllEvents = ({ userData }) => {
       </Dialog>
 
       {/* Day Events Dialog */}
-      <Dialog open={isDayEventsDialogOpen} onOpenChange={setDayEventsDialogOpen}>
+      <Dialog open={isDayEventsDialogOpen} onOpenChange={setIsDayEventsDialogOpen}>
         <DialogContent 
           className={cn(
             "[&>button]:text-white [&>button:hover]:bg-white/10",
@@ -987,7 +1001,7 @@ const AllEvents = ({ userData }) => {
                         // Check if user is admin or owner of the event
                         if (role === "Admin" || event.userId === currentUser?.uid || event.userEmail === currentUser?.email) {
                           setSelectedEvent(event);
-                          setDayEventsDialogOpen(false);
+                          setIsDayEventsDialogOpen(false);
                           setIsViewDialogOpen(true);
                         } else {
                           toast.error("Access Denied", {
@@ -1124,6 +1138,59 @@ const AllEvents = ({ userData }) => {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Mobile-responsive CSS */}
+      <style jsx global>{`
+        .mobile-responsive-calendar .rbc-calendar {
+          font-size: ${windowWidth < 640 ? '12px' : '14px'};
+        }
+        
+        .mobile-responsive-calendar .rbc-header {
+          padding: ${windowWidth < 640 ? '4px 2px' : '8px 4px'};
+          font-size: ${windowWidth < 640 ? '11px' : '13px'};
+          font-weight: 600;
+        }
+        
+        .mobile-responsive-calendar .rbc-date-cell {
+          padding: ${windowWidth < 640 ? '2px' : '4px'};
+          font-size: ${windowWidth < 640 ? '11px' : '12px'};
+        }
+        
+        .mobile-responsive-calendar .rbc-event {
+          font-size: ${windowWidth < 640 ? '10px' : '12px'};
+          padding: ${windowWidth < 640 ? '1px 3px' : '2px 4px'};
+          border-radius: 4px;
+        }
+        
+        .mobile-responsive-calendar .rbc-toolbar {
+          flex-direction: ${windowWidth < 640 ? 'column' : 'row'};
+          gap: ${windowWidth < 640 ? '8px' : '16px'};
+          margin-bottom: ${windowWidth < 640 ? '12px' : '16px'};
+        }
+        
+        .mobile-responsive-calendar .rbc-toolbar-label {
+          font-size: ${windowWidth < 640 ? '16px' : '18px'};
+          font-weight: 600;
+        }
+        
+        @media (max-width: 640px) {
+          .mobile-responsive-calendar .rbc-month-view {
+            font-size: 11px;
+          }
+          
+          .mobile-responsive-calendar .rbc-date-cell > a {
+            font-size: 11px;
+          }
+          
+          .mobile-responsive-calendar .rbc-off-range-bg {
+            background: transparent;
+          }
+          
+          .mobile-responsive-calendar .rbc-today {
+            background-color: rgba(59, 130, 246, 0.1);
+          }
+        }
+      `}</style>
     </motion.div>
   );
 };

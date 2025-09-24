@@ -657,28 +657,29 @@ const Messages = () => {
 
          return (
      <TooltipProvider>
-               <div className="p-2">
+               <div className="p-1 sm:p-2">
         <div className={cn(
-          "flex h-[calc(100vh-1rem)] w-full max-w-none overflow-hidden rounded-lg shadow-lg border",
+          "flex h-[calc(100vh-0.5rem)] sm:h-[calc(100vh-1rem)] w-full max-w-none overflow-hidden rounded-lg shadow-lg border",
           isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200"
         )}>
         {/* Left Panel - Users List */}
         <div className={cn(
-          "w-[350px] flex flex-col h-full shadow-lg",
+          "w-full sm:w-[350px] md:w-[380px] lg:w-[400px] flex flex-col h-full shadow-lg",
+          selectedUser ? "hidden sm:flex" : "flex", // Hide on mobile when chat is open
           isDarkMode ? "bg-slate-900/95" : "bg-white"
         )}>
           {/* Header with integrated search */}
           <div className={cn(
-            "p-4 flex flex-col gap-4 backdrop-blur-sm sticky top-0 z-10",
+            "p-3 sm:p-4 flex flex-col gap-3 sm:gap-4 backdrop-blur-sm sticky top-0 z-10",
             isDarkMode ? "bg-slate-900/90 border-b border-slate-800" : "bg-white/90 border-b border-gray-100"
           )}>
             <div className="flex items-center justify-between">
               <h2 className={cn(
-                "text-xl font-semibold tracking-tight",
+                "text-lg sm:text-xl font-semibold tracking-tight",
                 isDarkMode ? "text-white" : "text-gray-900"
               )}>Messages</h2>
               <Badge variant="outline" className={cn(
-                "px-2 py-0.5 text-xs font-medium",
+                "px-2 py-0.5 text-xs font-medium hidden sm:inline-flex",
                 isDarkMode ? "bg-slate-800 text-slate-200" : "bg-gray-100 text-gray-600"
               )}>
                 {sortedAndFilteredUsers.length + sortedEventGroups.length} contacts
@@ -1267,15 +1268,18 @@ const Messages = () => {
         </div>
 
                  {/* Right Panel - Chat Area */}
-         <div className="flex flex-col h-full flex-1" data-chat-area tabIndex={-1}>
+         <div className={cn(
+           "flex flex-col h-full flex-1",
+           selectedUser ? "flex" : "hidden sm:flex" // Show only when user selected on mobile
+         )} data-chat-area tabIndex={-1}>
           {selectedUser ? (
             <div className="flex flex-col h-full">
               {/* Chat Header */}
               <div className={cn(
-                "flex items-center py-2 px-4 border-b sticky top-0 z-10",
+                "flex items-center justify-between py-2 px-3 sm:px-4 border-b sticky top-0 z-10",
                 isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
               )}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="relative">
                     <Avatar>
                       <AvatarFallback className={cn(
@@ -1290,16 +1294,16 @@ const Messages = () => {
                       "bg-green-500"
                     )} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className={cn(
-                      "font-semibold",
+                      "font-semibold text-sm sm:text-base truncate",
                       isDarkMode ? "text-white" : "text-gray-900"
                     )}>
                       {selectedUser.email}
                     </h3>
                     <div className="flex items-center gap-2">
                       <p className={cn(
-                        "text-sm",
+                        "text-xs sm:text-sm truncate",
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       )}>
                         {selectedUser.department}
@@ -1326,6 +1330,21 @@ const Messages = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* Back button for mobile - positioned on the right */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedUser(null)}
+                  className={cn(
+                    "ml-2 p-2 h-9 w-9 sm:hidden rounded-full shrink-0",
+                    isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-gray-100 text-gray-600"
+                  )}
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
 
               {/* Messages Area */}
@@ -1401,7 +1420,7 @@ const Messages = () => {
 
               {/* Message Input */}
               <div className={cn(
-                "py-2 px-4 border-t sticky bottom-0 z-10",
+                "py-2 px-3 sm:px-4 border-t sticky bottom-0 z-10",
                 isDarkMode ? "border-slate-800 bg-slate-900/95" : "border-gray-200 bg-white"
               )}>
                 <div className="flex items-end gap-2">
@@ -1411,7 +1430,7 @@ const Messages = () => {
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Type a message..."
                       className={cn(
-                        "resize-none min-h-[40px] max-h-[120px] bg-transparent",
+                        "resize-none min-h-[36px] sm:min-h-[40px] max-h-[100px] sm:max-h-[120px] bg-transparent text-sm sm:text-base",
                         isDarkMode ? "border-slate-800" : "border-gray-200"
                       )}
                       onKeyDown={(e) => {
@@ -1426,28 +1445,28 @@ const Messages = () => {
                     onClick={handleSendMessage}
                     size="icon"
                     className={cn(
-                      "rounded-full h-9 w-9",
+                      "rounded-full h-8 w-8 sm:h-9 sm:w-9 shrink-0",
                       message.trim() ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-200 hover:bg-gray-300"
                     )}
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center p-4">
               <div className="text-center">
                 <Users className={cn(
-                  "h-12 w-12 mx-auto mb-4",
+                  "h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4",
                   isDarkMode ? "text-gray-600" : "text-gray-400"
                 )} />
                 <h3 className={cn(
-                  "text-lg font-medium mb-2",
+                  "text-base sm:text-lg font-medium mb-2",
                   isDarkMode ? "text-gray-300" : "text-gray-600"
                 )}>Select a conversation</h3>
                 <p className={cn(
-                  "text-sm",
+                  "text-xs sm:text-sm",
                   isDarkMode ? "text-gray-500" : "text-gray-400"
                 )}>
                   Choose a user from the list to start messaging

@@ -258,7 +258,7 @@ const AllEventsNew = () => {
     )}>
       {/* Column 1 - Event Details */}
       <td className={cn(
-        "p-6 space-y-4 border-r",
+        "p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 border-r",
         isDarkMode ? "border-slate-700/50" : "border-gray-200"
       )}>
         {/* Department */}
@@ -312,7 +312,7 @@ const AllEventsNew = () => {
       </td>
       
       {/* Column 2 - Dates and Status */}
-      <td className="p-6 space-y-4">
+      <td className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Skeleton className="h-5 w-5 rounded" />
@@ -342,15 +342,15 @@ const AllEventsNew = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-[1400px] mx-auto px-8 py-8"
+      className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"
     >
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn(
-            "text-4xl font-bold tracking-tight mb-2",
+            "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mb-2",
             isDarkMode ? "text-white" : "text-gray-900"
           )}
         >
@@ -361,7 +361,7 @@ const AllEventsNew = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className={cn(
-            "text-lg",
+            "text-sm sm:text-base lg:text-lg",
             isDarkMode ? "text-gray-400" : "text-gray-500"
           )}
         >
@@ -376,9 +376,9 @@ const AllEventsNew = () => {
         transition={{ delay: 0.2 }}
         className="mb-6"
       >
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-col gap-4">
           {/* Search Bar */}
-          <div className="relative max-w-md flex-1">
+          <div className="relative w-full sm:max-w-md">
             <Search className={cn(
               "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4",
               isDarkMode ? "text-gray-400" : "text-gray-500"
@@ -388,7 +388,7 @@ const AllEventsNew = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "pl-10 h-11",
+                "pl-10 h-10 sm:h-11 w-full",
                 isDarkMode 
                   ? "bg-slate-900/50 border-slate-700 placeholder:text-gray-400" 
                   : "bg-white border-gray-200 placeholder:text-gray-500"
@@ -410,13 +410,13 @@ const AllEventsNew = () => {
           </div>
 
           {/* Filters and Sorting */}
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
             {/* Status Filter */}
             <div className="relative">
               <button
                 onClick={() => setStatusPopoverOpen(!statusPopoverOpen)}
                 className={cn(
-                  "h-10 px-4 rounded-lg flex items-center justify-between gap-3 text-sm font-medium transition-all duration-200 min-w-[120px]",
+                  "h-9 sm:h-10 px-3 sm:px-4 rounded-lg flex items-center justify-between gap-2 sm:gap-3 text-xs sm:text-sm font-medium transition-all duration-200 min-w-[100px] sm:min-w-[120px]",
                   isDarkMode 
                     ? "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600" 
                     : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm",
@@ -713,7 +713,8 @@ const AllEventsNew = () => {
         )}
       >
         {filteredEvents.length > 0 || loading ? (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
             <tbody>
               {loading ? (
                 // Skeleton Loading
@@ -742,7 +743,7 @@ const AllEventsNew = () => {
                   >
                     {/* Column 1 - Event Details */}
                     <td className={cn(
-                      "p-6 space-y-4 border-r align-top",
+                      "p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 border-r align-top",
                       isDarkMode ? "border-slate-700/50" : "border-gray-200"
                     )}>
                       {/* Department */}
@@ -752,13 +753,13 @@ const AllEventsNew = () => {
                           isDarkMode ? "text-gray-400" : "text-gray-600"
                         )} />
                         <span className={cn(
-                          "text-base font-bold",
+                          "text-sm sm:text-base font-bold",
                           isDarkMode ? "text-white" : "text-gray-900"
                         )}>
                           Department:
                         </span>
                         <span className={cn(
-                          "text-base",
+                          "text-sm sm:text-base",
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         )}>
                           {event.department || "No Department"}
@@ -877,7 +878,7 @@ const AllEventsNew = () => {
                     </td>
 
                     {/* Column 2 - Dates and Status */}
-                    <td className="p-6 space-y-4 align-top">
+                    <td className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 align-top">
                       {/* Start Date */}
                       <div className="flex items-center gap-2">
                         <Calendar className={cn(
@@ -957,6 +958,7 @@ const AllEventsNew = () => {
               )}
             </tbody>
           </table>
+          </div>
         ) : (
           // Empty State
           <div className={cn(

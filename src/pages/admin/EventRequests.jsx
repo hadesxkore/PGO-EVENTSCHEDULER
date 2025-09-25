@@ -113,13 +113,15 @@ const EventRequests = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [previewEvents, setPreviewEvents] = useState([]);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
-  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isDisapproveDialogOpen, setIsDisapproveDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [disapprovalReason, setDisapprovalReason] = useState("");
   const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [selectedEventActivity, setSelectedEventActivity] = useState(null);
   const [selectedEventForAction, setSelectedEventForAction] = useState(null);
+  const [sortBy, setSortBy] = useState("startDate-desc"); // Default to latest start date first
+  const [statusFilter, setStatusFilter] = useState("all");
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -143,11 +145,78 @@ const EventRequests = () => {
     }
   };
 
-  const filteredEvents = events.filter(event => {
-    const searchLower = searchTerm.toLowerCase().trim();
-    return event.title?.toLowerCase().includes(searchLower) ||
-           event.requestor?.toLowerCase().includes(searchLower);
-  });
+  // Sorting function
+  const sortEvents = (events, sortBy) => {
+    return [...events].sort((a, b) => {
+      switch (sortBy) {
+        case "startDate-desc":
+          // Latest start date first
+          const aStartDate = a.startDate ? new Date(a.startDate.seconds * 1000) : new Date(0);
+          const bStartDate = b.startDate ? new Date(b.startDate.seconds * 1000) : new Date(0);
+          return bStartDate - aStartDate;
+        
+        case "startDate-asc":
+          // Earliest start date first
+          const aStartDateAsc = a.startDate ? new Date(a.startDate.seconds * 1000) : new Date(0);
+          const bStartDateAsc = b.startDate ? new Date(b.startDate.seconds * 1000) : new Date(0);
+          return aStartDateAsc - bStartDateAsc;
+        
+        case "title-asc":
+          // Title A-Z
+          return (a.title || "").localeCompare(b.title || "");
+        
+        case "title-desc":
+          // Title Z-A
+          return (b.title || "").localeCompare(a.title || "");
+        
+        case "requestor-asc":
+          // Requestor A-Z
+          return (a.requestor || "").localeCompare(b.requestor || "");
+        
+        case "requestor-desc":
+          // Requestor Z-A
+          return (b.requestor || "").localeCompare(a.requestor || "");
+        
+        case "status-asc":
+          // Status A-Z
+          return (a.status || "pending").localeCompare(b.status || "pending");
+        
+        case "status-desc":
+          // Status Z-A
+          return (b.status || "pending").localeCompare(a.status || "pending");
+        
+        case "created-desc":
+          // Newest created first
+          const aCreated = new Date(a.createdAt.seconds * 1000);
+          const bCreated = new Date(b.createdAt.seconds * 1000);
+          return bCreated - aCreated;
+        
+        case "created-asc":
+          // Oldest created first
+          const aCreatedAsc = new Date(a.createdAt.seconds * 1000);
+          const bCreatedAsc = new Date(b.createdAt.seconds * 1000);
+          return aCreatedAsc - bCreatedAsc;
+        
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const filteredEvents = sortEvents(
+    events.filter(event => {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const matchesSearch = event.title?.toLowerCase().includes(searchLower) ||
+                           event.requestor?.toLowerCase().includes(searchLower) ||
+                           event.location?.toLowerCase().includes(searchLower);
+      
+      const matchesStatus = statusFilter === "all" || 
+                           (event.status || "pending").toLowerCase() === statusFilter.toLowerCase();
+      
+      return matchesSearch && matchesStatus;
+    }),
+    sortBy
+  );
 
   const container = {
     hidden: { opacity: 0 },
@@ -429,17 +498,29 @@ const EventRequests = () => {
                     Manage and review all event requests from users
                   </p>
                 </div>
-                <Badge variant="outline" className={cn(
-                  "h-10 px-4 text-base font-medium",
-                  isDarkMode ? "border-slate-700" : "border-gray-200"
-                )}>
-                  {events.length} requests
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={cn(
+                    "h-10 px-4 text-base font-medium",
+                    isDarkMode ? "border-slate-700" : "border-gray-200"
+                  )}>
+                    {events.length} total
+                  </Badge>
+                  {(searchTerm || statusFilter !== "all") && (
+                    <Badge variant="secondary" className={cn(
+                      "h-10 px-4 text-base font-medium",
+                      isDarkMode 
+                        ? "bg-slate-700 text-slate-200 border-slate-600" 
+                        : "bg-gray-100 text-gray-700 border-gray-300"
+                    )}>
+                      {filteredEvents.length} filtered
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              {/* Search and Sort */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
+              {/* Search and Filters */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[300px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search by event title, requestor, or location..."
@@ -453,17 +534,10 @@ const EventRequests = () => {
                     )}
                   />
                 </div>
-                <Select defaultValue="desc" onValueChange={(value) => {
-                  const sorted = [...filteredEvents].sort((a, b) => {
-                    const dateA = new Date(a.createdAt.seconds * 1000);
-                    const dateB = new Date(b.createdAt.seconds * 1000);
-                    return value === "asc" ? dateA - dateB : dateB - dateA;
-                  });
-                  setEvents(sorted);
-                }}>
+                <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger
                     className={cn(
-                      "w-[180px]",
+                      "w-[200px]",
                       isDarkMode
                         ? "bg-slate-900 border-slate-700"
                         : "bg-white border-gray-200"
@@ -471,7 +545,7 @@ const EventRequests = () => {
                   >
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-gray-400" />
-                      <SelectValue placeholder="Sort by date" />
+                      <SelectValue placeholder="Sort by..." />
                     </div>
                   </SelectTrigger>
                   <SelectContent
@@ -482,26 +556,139 @@ const EventRequests = () => {
                         : "bg-white border-gray-200"
                     )}
                   >
-                    <SelectItem 
-                      value="desc" 
-                      className={cn(
-                        isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}
-                    >
-                      Newest First
+                    <SelectItem value="startDate-desc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Latest Start Date
                     </SelectItem>
-                    <SelectItem 
-                      value="asc" 
-                      className={cn(
-                        isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
-                        isDarkMode ? "text-gray-100" : "text-gray-900"
-                      )}
-                    >
-                      Oldest First
+                    <SelectItem value="startDate-asc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Earliest Start Date
+                    </SelectItem>
+                    <SelectItem value="created-desc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Newest Created
+                    </SelectItem>
+                    <SelectItem value="created-asc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Oldest Created
+                    </SelectItem>
+                    <SelectItem value="title-asc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Title A-Z
+                    </SelectItem>
+                    <SelectItem value="title-desc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Title Z-A
+                    </SelectItem>
+                    <SelectItem value="requestor-asc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Requestor A-Z
+                    </SelectItem>
+                    <SelectItem value="requestor-desc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Requestor Z-A
+                    </SelectItem>
+                    <SelectItem value="status-asc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Status A-Z
+                    </SelectItem>
+                    <SelectItem value="status-desc" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Status Z-A
                     </SelectItem>
                   </SelectContent>
                 </Select>
+
+                {/* Status filter */}
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger
+                    className={cn(
+                      "w-[150px]",
+                      isDarkMode
+                        ? "bg-slate-900 border-slate-700"
+                        : "bg-white border-gray-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Settings className="h-4 w-4 text-gray-400" />
+                      <SelectValue placeholder="All Status" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent
+                    className={cn(
+                      "border-2",
+                      isDarkMode 
+                        ? "bg-slate-900 border-slate-700" 
+                        : "bg-white border-gray-200"
+                    )}
+                  >
+                    <SelectItem value="all" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      All Status
+                    </SelectItem>
+                    <SelectItem value="pending" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Pending
+                    </SelectItem>
+                    <SelectItem value="approved" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Approved
+                    </SelectItem>
+                    <SelectItem value="disapproved" className={cn(
+                      isDarkMode ? "focus:bg-slate-800" : "focus:bg-gray-100",
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    )}>
+                      Disapproved
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Clear Filters Button */}
+                {(searchTerm || statusFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                    }}
+                    className={cn(
+                      "gap-2 whitespace-nowrap",
+                      isDarkMode
+                        ? "border-slate-600 hover:bg-slate-800 text-slate-300"
+                        : "border-gray-300 hover:bg-gray-50 text-gray-600"
+                    )}
+                  >
+                    <X className="h-4 w-4" />
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             </div>
 

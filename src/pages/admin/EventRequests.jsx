@@ -16,13 +16,13 @@ import {
   Users,
   User,
   Eye,
+  FileOutput,
   FileText,
   ChevronDown,
   Download,
   Trash2,
   Phone,
   Mail,
-  FileOutput,
   AlertCircle,
   X,
   MoreHorizontal,
@@ -30,6 +30,7 @@ import {
   CheckCircle,
   Settings,
   XCircle,
+  Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -1729,7 +1730,7 @@ const EventRequests = () => {
                 <span className="sr-only">Close</span>
               </Button>
               
-              <ScrollArea className="flex-1">
+              <ScrollArea className="max-h-[80vh] overflow-y-auto">
                 <div className="p-8 space-y-6">
 
                 {selectedRequest.departmentRequirements && selectedRequest.departmentRequirements.length > 0 ? (

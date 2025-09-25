@@ -41,6 +41,7 @@ const AllEventsNew = () => {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [transformedEvents, setTransformedEvents] = useState([]);
   
   // Filter and Sort states
   const [statusFilter, setStatusFilter] = useState([]);
@@ -108,6 +109,7 @@ const AllEventsNew = () => {
             }
           });
           
+          setTransformedEvents(transformedEvents);
           setFilteredEvents(transformedEvents);
         } else {
           toast.error("Failed to load events");
@@ -123,7 +125,8 @@ const AllEventsNew = () => {
 
   // Filter and sort events based on search query, filters, and sorting
   useEffect(() => {
-    let filtered = [...allEvents];
+    // Use the transformedEvents as the base for filtering
+    let filtered = [...transformedEvents];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -189,16 +192,16 @@ const AllEventsNew = () => {
     });
 
     setFilteredEvents(filtered);
-  }, [searchQuery, allEvents, statusFilter, departmentFilter, sortBy, sortOrder]);
+  }, [searchQuery, transformedEvents, statusFilter, departmentFilter, sortBy, sortOrder]);
 
   // Get unique values for filters
   const getUniqueStatuses = () => {
-    const statuses = allEvents.map(event => event.status).filter(Boolean);
+    const statuses = transformedEvents.map(event => event.status).filter(Boolean);
     return [...new Set(statuses)];
   };
 
   const getUniqueDepartments = () => {
-    const departments = allEvents.map(event => event.department).filter(Boolean);
+    const departments = transformedEvents.map(event => event.department).filter(Boolean);
     return [...new Set(departments)];
   };
 

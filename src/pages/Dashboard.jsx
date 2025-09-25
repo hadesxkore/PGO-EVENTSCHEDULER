@@ -3,7 +3,7 @@ import { registerNotifications, saveSubscription } from "../lib/utils/notificati
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Calendar, Clock, Users, CalendarDays, ChevronRight, Bell, X, Tag, FileText, AlertCircle } from "lucide-react";
+import { Calendar, Users, CalendarDays, ChevronRight, Bell, X, Tag, FileText, AlertCircle } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -217,15 +217,6 @@ const Dashboard = () => {
       icon: <Users className="h-6 w-6 text-black" />,
       trend: `${dashboardData.thisWeekEvents} this week`,
       trendUp: dashboardData.thisWeekEvents > 0,
-      color: "bg-gray-100",
-      borderColor: "border-gray-200",
-    },
-    {
-      title: "Hours Scheduled",
-      value: loading ? "-" : dashboardData.totalHours.toString(),
-      icon: <Clock className="h-6 w-6 text-black" />,
-      trend: `${dashboardData.thisWeekHours} hours this week`,
-      trendUp: dashboardData.thisWeekHours > 0,
       color: "bg-gray-100",
       borderColor: "border-gray-200",
     },
@@ -788,7 +779,7 @@ const Dashboard = () => {
       {/* Stats Grid */}
       <motion.div 
         variants={container}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       >
         {stats.map((stat) => (
           <motion.div key={stat.title} variants={item}>

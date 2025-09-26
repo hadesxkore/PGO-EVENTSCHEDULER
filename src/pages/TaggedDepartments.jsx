@@ -20,18 +20,23 @@ import {
   ChevronRight,
   ArrowRight,
   Search,
-  X
+  X,
+  Send,
+  Edit
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "@/lib/firebase/firebase";
 import { db } from "@/lib/firebase/firebase";
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import useEventStore from "@/store/eventStore";
 import useMessageStore from "@/store/messageStore";
 import { Loader2 } from "lucide-react";
@@ -47,6 +52,11 @@ const TaggedDepartments = () => {
   const [events, setEvents] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState(location.state?.selectedTab || "created");
+  const [requirementStatus, setRequirementStatus] = useState({}); // Track checkbox states
+  const [requirementRemarks, setRequirementRemarks] = useState({}); // Track remarks
+  const [isSubmitting, setIsSubmitting] = useState(false); // Track submission state
+  const [submittedEvents, setSubmittedEvents] = useState({}); // Track which events are submitted
+  const [editingEvent, setEditingEvent] = useState(null); // Track which event is being edited
 
   // Get message store actions
   const { usersWhoTaggedMe, setUsersWhoTaggedMe } = useMessageStore();
@@ -174,6 +184,13 @@ const TaggedDepartments = () => {
     }
   }, [error]);
 
+  // Load accomplishment data when event is selected
+  useEffect(() => {
+    if (selectedEvent) {
+      loadAccomplishmentData(selectedEvent.id);
+    }
+  }, [selectedEvent]);
+
   // Helper function to get location display text
   const getLocationDisplay = (event) => {
     if (event.isMultipleLocations && event.locations && event.locations.length > 0) {
@@ -270,6 +287,159 @@ const TaggedDepartments = () => {
       
       return false;
     });
+  };
+
+  // Helper functions for requirement management
+  const getRequirementKey = (eventId, reqIndex) => `${eventId}-${reqIndex}`;
+  
+  const handleRequirementStatusChange = (eventId, reqIndex, checked) => {
+    const key = getRequirementKey(eventId, reqIndex);
+    setRequirementStatus(prev => ({
+      ...prev,
+      [key]: checked
+    }));
+  };
+
+  const handleRequirementRemarksChange = (eventId, reqIndex, remarks) => {
+    const key = getRequirementKey(eventId, reqIndex);
+    setRequirementRemarks(prev => ({
+      ...prev,
+      [key]: remarks
+    }));
+  };
+
+  // Load existing accomplishment data from Firebase
+  const loadAccomplishmentData = async (eventId) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) return;
+      
+      const userData = userDocSnap.data();
+      const userDepartment = userData.department;
+
+      // Query accomplishments for this event and department
+      const accomplishmentsRef = collection(db, "accomplishments");
+      const q = query(
+        accomplishmentsRef, 
+        where("eventId", "==", eventId),
+        where("departmentName", "==", userDepartment)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const accomplishmentDoc = querySnapshot.docs[0];
+        const data = accomplishmentDoc.data();
+        
+        // Load the saved data into state
+        const newRequirementStatus = {};
+        const newRequirementRemarks = {};
+        
+        data.requirements?.forEach((req, index) => {
+          const key = getRequirementKey(eventId, index);
+          newRequirementStatus[key] = req.completed;
+          newRequirementRemarks[key] = req.remarks || '';
+        });
+        
+        setRequirementStatus(prev => ({ ...prev, ...newRequirementStatus }));
+        setRequirementRemarks(prev => ({ ...prev, ...newRequirementRemarks }));
+        setSubmittedEvents(prev => ({ ...prev, [eventId]: true }));
+      }
+    } catch (error) {
+      console.error('Error loading accomplishment data:', error);
+    }
+  };
+
+  // Save accomplishment data to Firebase
+  const saveAccomplishmentData = async (accomplishmentData) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('User not authenticated');
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) throw new Error('User not found');
+      
+      const userData = userDocSnap.data();
+      const userDepartment = userData.department;
+
+      // Create accomplishment document ID
+      const accomplishmentId = `${accomplishmentData.eventId}_${userDepartment.replace(/\s+/g, '_')}`;
+      
+      // Save to Firebase
+      const accomplishmentRef = doc(db, "accomplishments", accomplishmentId);
+      await setDoc(accomplishmentRef, {
+        ...accomplishmentData,
+        departmentName: userDepartment,
+        userId: user.uid,
+        updatedAt: new Date()
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error saving accomplishment data:', error);
+      throw error;
+    }
+  };
+
+  // Submit accomplishment function
+  const handleSubmitAccomplishment = async () => {
+    if (!selectedEvent) return;
+
+    // Validate that at least one requirement is checked
+    const hasCompletedRequirements = selectedEvent.requirements?.some((req, index) => {
+      const key = getRequirementKey(selectedEvent.id, index);
+      return requirementStatus[key] === true;
+    });
+
+    if (!hasCompletedRequirements) {
+      toast.error('Please check at least one requirement as completed before submitting.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Prepare accomplishment data
+      const accomplishmentData = {
+        eventId: selectedEvent.id,
+        submittedAt: new Date(),
+        requirements: selectedEvent.requirements?.map((req, index) => {
+          const key = getRequirementKey(selectedEvent.id, index);
+          return {
+            requirementName: req.name,
+            completed: requirementStatus[key] || false,
+            remarks: requirementRemarks[key] || '',
+            originalRequirement: req
+          };
+        }) || []
+      };
+
+      // Save to Firebase
+      await saveAccomplishmentData(accomplishmentData);
+      
+      // Mark event as submitted
+      setSubmittedEvents(prev => ({ ...prev, [selectedEvent.id]: true }));
+      setEditingEvent(null); // Exit edit mode
+      
+      // Show success message
+      const completedCount = accomplishmentData.requirements.filter(req => req.completed).length;
+      toast.success(`Accomplishment submitted successfully! ${completedCount} requirement(s) marked as completed.`);
+      
+    } catch (error) {
+      console.error('Error submitting accomplishment:', error);
+      toast.error('Failed to submit accomplishment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle edit mode
+  const handleEditAccomplishment = (eventId) => {
+    setEditingEvent(eventId);
   };
 
   const container = {
@@ -1261,83 +1431,167 @@ const TaggedDepartments = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4">
-                    {selectedEvent.requirements?.map((req, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, delay: index * 0.1 }}
-                      >
-                                                <div
-                          className={cn(
-                            "flex flex-col gap-4 rounded-xl p-4 transition-all shadow-sm",
-                            isDarkMode 
-                              ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
-                              : "bg-slate-50 ring-1 ring-slate-200/50"
-                          )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    {selectedEvent.requirements?.map((req, index) => {
+                      const requirementKey = getRequirementKey(selectedEvent.id, index);
+                      const isCompleted = requirementStatus[requirementKey] || false;
+                      const remarks = requirementRemarks[requirementKey] || '';
+                      const hasData = isCompleted || (remarks && remarks.trim() !== '');
+                      const isCardSubmitted = submittedEvents[selectedEvent.id] && hasData && editingEvent !== selectedEvent.id;
+                      
+                      return (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.1 }}
                         >
-                          <div className="flex items-start gap-4">
-                            <div className={cn(
-                              "p-3 rounded-xl shrink-0",
-                              isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
-                            )}>
-                              <FileText className={cn(
-                                "h-5 w-5",
-                                isDarkMode ? "text-purple-400" : "text-purple-500"
-                              )} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className={cn(
-                                "font-medium flex items-center gap-2",
-                                isDarkMode ? "text-white" : "text-slate-900"
+                          <div className="relative">
+                            {/* Edit Button Overlay for individual card - outside blur container */}
+                            {isCardSubmitted && (
+                              <div className="absolute inset-0 flex items-center justify-center z-10">
+                                <Button
+                                  onClick={() => handleEditAccomplishment(selectedEvent.id)}
+                                  className={cn(
+                                    "gap-2 px-3 py-1.5 text-sm font-semibold shadow-xl transition-all duration-200 backdrop-blur-none",
+                                    isDarkMode
+                                      ? "bg-blue-600 hover:bg-blue-700 text-white border border-blue-500"
+                                      : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-500"
+                                  )}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  Edit
+                                </Button>
+                              </div>
+                            )}
+                            <div
+                              className={cn(
+                                "flex flex-col gap-3 md:gap-4 rounded-xl p-3 md:p-4 transition-all shadow-sm",
+                                isDarkMode 
+                                  ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
+                                  : "bg-slate-50 ring-1 ring-slate-200/50",
+                                isCardSubmitted && "blur-[2px] pointer-events-none"
+                              )}
+                            >
+                            <div className="flex items-start gap-3 md:gap-4">
+                              <div className={cn(
+                                "p-2 md:p-3 rounded-xl shrink-0",
+                                isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
                               )}>
-                                {req.name}
-                                <Badge className={cn(
-                                  "ml-2 px-2 py-0.5 text-[10px] font-medium",
-                                  isDarkMode 
-                                    ? "bg-purple-500/10 text-purple-300 border border-purple-500/20" 
-                                    : "bg-purple-50 text-purple-700 border border-purple-100"
-                                )}>
-                                  Required
-                                </Badge>
-                              </h4>
+                                <FileText className={cn(
+                                  "h-4 w-4 md:h-5 md:w-5",
+                                  isDarkMode ? "text-purple-400" : "text-purple-500"
+                                )} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+                                  <h4 className={cn(
+                                    "font-medium flex flex-col sm:flex-row sm:items-center gap-2",
+                                    isDarkMode ? "text-white" : "text-slate-900"
+                                  )}>
+                                    <span className="text-sm md:text-base">{req.name}</span>
+                                    <Badge className={cn(
+                                      "w-fit px-2 py-0.5 text-[10px] font-medium",
+                                      isDarkMode 
+                                        ? "bg-purple-500/10 text-purple-300 border border-purple-500/20" 
+                                        : "bg-purple-50 text-purple-700 border border-purple-100"
+                                    )}>
+                                      Required
+                                    </Badge>
+                                  </h4>
+                                  
+                                  {/* Checkbox in the right corner */}
+                                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                                    <Label 
+                                      htmlFor={`req-${requirementKey}`}
+                                      className={cn(
+                                        "text-xs md:text-sm font-medium cursor-pointer",
+                                        isDarkMode ? "text-slate-300" : "text-slate-700"
+                                      )}
+                                    >
+                                      Completed
+                                    </Label>
+                                    <Checkbox
+                                      id={`req-${requirementKey}`}
+                                      checked={isCompleted}
+                                      onCheckedChange={(checked) => 
+                                        handleRequirementStatusChange(selectedEvent.id, index, checked)
+                                      }
+                                      className={cn(
+                                        "h-4 w-4 md:h-5 md:w-5 data-[state=checked]:font-bold",
+                                        isDarkMode 
+                                          ? "border-slate-600 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white" 
+                                          : "border-slate-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
+                                      )}
+                                    />
+                                  </div>
+                                </div>
 
-                              {req.note && (
-                                <div className={cn(
-                                  "mt-4 pt-3 space-y-2 border-t",
-                                  isDarkMode ? "border-slate-800" : "border-slate-200"
-                                )}>
-                                  {req.note.split('\n').map((line, index) => {
-                                    const [key, value] = line.split(':').map(s => s.trim());
-                                    return (
-                                      <div key={index} className="flex items-center gap-2">
-                                        <span className={cn(
-                                          "text-base font-medium",
-                                          isDarkMode ? "text-slate-300" : "text-slate-700"
-                                        )}>
-                                          {key}
-                                        </span>
-                                        {value && (
-                                          <>
+                                {req.note && (
+                                  <div className={cn(
+                                    "mt-3 md:mt-4 pt-3 space-y-2 border-t",
+                                    isDarkMode ? "border-slate-800" : "border-slate-200"
+                                  )}>
+                                    {req.note.split('\n').map((line, lineIndex) => {
+                                      const [key, value] = line.split(':').map(s => s.trim());
+                                      return (
+                                        <div key={lineIndex} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                          <span className={cn(
+                                            "text-sm md:text-base font-medium",
+                                            isDarkMode ? "text-slate-300" : "text-slate-700"
+                                          )}>
+                                            {key}
+                                          </span>
+                                          {value && (
                                             <span className={cn(
-                                              "text-base",
+                                              "text-sm md:text-base",
                                               isDarkMode ? "text-slate-400" : "text-slate-600"
                                             )}>
                                               : {value}
                                             </span>
-                                          </>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Remarks Section */}
+                                <div className={cn(
+                                  "mt-3 md:mt-4 pt-3 space-y-2 md:space-y-3 border-t",
+                                  isDarkMode ? "border-slate-800" : "border-slate-200"
+                                )}>
+                                  <Label 
+                                    htmlFor={`remarks-${requirementKey}`}
+                                    className={cn(
+                                      "text-xs md:text-sm font-medium",
+                                      isDarkMode ? "text-slate-300" : "text-slate-700"
+                                    )}
+                                  >
+                                    Remarks
+                                  </Label>
+                                  <Textarea
+                                    id={`remarks-${requirementKey}`}
+                                    placeholder="Add any remarks or notes about this requirement (e.g., provided 25 chairs instead of 50 requested)"
+                                    value={remarks}
+                                    onChange={(e) => 
+                                      handleRequirementRemarksChange(selectedEvent.id, index, e.target.value)
+                                    }
+                                    className={cn(
+                                      "min-h-[60px] md:min-h-[80px] resize-none text-sm md:text-base",
+                                      isDarkMode 
+                                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400" 
+                                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-500"
+                                    )}
+                                  />
                                 </div>
-                              )}
+                              </div>
+                            </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                     {(!selectedEvent.requirements || selectedEvent.requirements.length === 0) && (
                       <div className="flex flex-col items-center justify-center py-8">
                         <div className={cn(
@@ -1362,6 +1616,34 @@ const TaggedDepartments = () => {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Submit Accomplishment Button */}
+                  {selectedEvent.requirements && selectedEvent.requirements.length > 0 && (
+                    <div className="flex justify-center sm:justify-end pt-4 md:pt-6 border-t border-slate-200 dark:border-slate-700">
+                      <Button
+                        onClick={handleSubmitAccomplishment}
+                        disabled={isSubmitting}
+                        className={cn(
+                          "gap-2 px-4 md:px-6 py-2 md:py-2.5 font-semibold shadow-lg transition-all duration-200 text-sm md:text-base w-full sm:w-auto",
+                          isDarkMode
+                            ? "bg-black hover:bg-gray-800 text-white border border-gray-700"
+                            : "bg-black hover:bg-gray-800 text-white border border-gray-700"
+                        )}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            {submittedEvents[selectedEvent.id] ? 'Update Accomplishment' : 'Submit Accomplishment'}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
           </div>

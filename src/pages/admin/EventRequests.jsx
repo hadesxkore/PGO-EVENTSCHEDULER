@@ -1098,14 +1098,16 @@ const EventRequests = () => {
                           </div>
                         ) : (
                           <Badge
-                            variant={event.status === 'approved' ? 'success' : 'secondary'}
+                            variant={event.status === 'approved' ? 'success' : event.status === 'disapproved' ? 'destructive' : 'secondary'}
                             className={cn(
                               "font-medium",
                               event.status === 'approved' 
                                 ? "bg-green-500/10 text-green-500" 
-                                : isDarkMode 
-                                  ? "bg-gray-500/10 text-gray-400" 
-                                  : "bg-gray-500/10 text-gray-500"
+                                : event.status === 'disapproved' 
+                                  ? "bg-red-500/10 text-red-500" 
+                                  : isDarkMode 
+                                    ? "bg-yellow-500/10 text-yellow-400" 
+                                    : "bg-yellow-500/10 text-yellow-600"
                             )}
                           >
                             {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
@@ -1801,11 +1803,11 @@ const EventRequests = () => {
                     <div className="p-2 bg-black rounded-lg">
                       <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <h3 className="font-semibold text-gray-900">Classifications</h3>
+                    <h3 className="font-semibold text-gray-900">Description</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-base leading-relaxed whitespace-pre-wrap text-gray-700">
-                      {selectedRequest.classifications || "No classifications provided"}
+                      {selectedRequest.classifications || "No description provided"}
                     </p>
                   </div>
                 </div>

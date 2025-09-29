@@ -1018,9 +1018,9 @@ const MyEvents = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden">
+        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
           {selectedEvent && (
-            <ScrollArea className="h-[85vh]">
+            <ScrollArea className="h-[85vh] w-full">
               {/* Header Section */}
               <div className="relative bg-white p-8 border-b border-gray-200">
                 <Button
@@ -1415,13 +1415,13 @@ const MyEvents = () => {
                   </div>
                 </div>
 
-                {/* Classifications Card */}
+                {/* Description Card */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="flex items-center gap-3 p-6 border-b border-gray-100">
                     <div className="p-2 rounded-lg bg-black">
                       <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">Classifications</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Description</h3>
                   </div>
                   <div className="p-6">
                     <div className="bg-gray-50 rounded-lg p-4">
@@ -1525,13 +1525,13 @@ const MyEvents = () => {
               </Button>
 
               {/* Content Section */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="h-[85vh] w-full">
                 <div className="p-8 space-y-6">
                   {selectedEvent.departmentRequirements && selectedEvent.departmentRequirements.length > 0 ? (
                     selectedEvent.departmentRequirements.map((dept, deptIndex) => (
                       <div key={deptIndex} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Department Header */}
-                        <div className="bg-white border-b border-gray-200 p-6">
+                        <div className="bg-white border-b border-gray-200 p-6 text-center">
                           <h3 className="text-xl font-bold text-gray-900">
                             {dept.departmentName}
                           </h3>

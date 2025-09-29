@@ -22,7 +22,10 @@ import {
   Search,
   X,
   Send,
-  Edit
+  Edit,
+  Filter,
+  Download,
+  Eye
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -32,13 +35,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
+import AccomplishmentReportPDF from "@/components/reports/AccomplishmentReportPDF";
 import { format } from "date-fns";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "@/lib/firebase/firebase";
 import { db } from "@/lib/firebase/firebase";
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import useEventStore from "@/store/eventStore";
 import useMessageStore from "@/store/messageStore";
+import useAccomplishmentStore from "@/store/accomplishmentStore";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,9 +66,24 @@ const TaggedDepartments = () => {
   const [isSubmitting, setIsSubmitting] = useState(false); // Track submission state
   const [submittedEvents, setSubmittedEvents] = useState({}); // Track which events are submitted
   const [editingEvent, setEditingEvent] = useState(null); // Track which event is being edited
+  const [requirementFilter, setRequirementFilter] = useState('all'); // Filter for requirements: 'all', 'complied', 'not-complied'
+  const [showPdfPreview, setShowPdfPreview] = useState(false); // Track PDF preview modal
+
+  // Completed accomplishments tracking
+  const [completedAccomplishments, setCompletedAccomplishments] = useState({});
+  const [lastViewedTimestamps, setLastViewedTimestamps] = useState({});
 
   // Get message store actions
   const { usersWhoTaggedMe, setUsersWhoTaggedMe } = useMessageStore();
+
+  // Get accomplishment store actions
+  const { 
+    getCompletedCount, 
+    getMultipleCompletedCounts, 
+    submitAccomplishment: submitAccomplishmentToStore, 
+    loadAccomplishmentData: loadAccomplishmentFromStore,
+    clearEventCache 
+  } = useAccomplishmentStore();
 
   // Reset badge count when component mounts
   useEffect(() => {
@@ -187,7 +211,46 @@ const TaggedDepartments = () => {
   // Load accomplishment data when event is selected
   useEffect(() => {
     if (selectedEvent) {
+      // Clear previous data first
+      setRequirementStatus({});
+      setRequirementRemarks({});
+      setSubmittedEvents({});
+      setEditingEvent(null);
+      
+      // Then load new data
       loadAccomplishmentData(selectedEvent.id);
+    }
+  }, [selectedEvent]);
+
+  // Load last viewed timestamps from localStorage on mount
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('taggedDepartmentsViewTimestamps') || '{}');
+    setLastViewedTimestamps(stored);
+  }, []);
+
+  // Check for completed accomplishments when events are loaded (only for created events)
+  useEffect(() => {
+    if (events.length > 0) {
+      const checkAllAccomplishments = async () => {
+        // Only check created events (events that the user created and tagged other departments)
+        const createdEvents = events.filter(event => event.tagType === 'sent');
+        
+        if (createdEvents.length > 0) {
+          const eventIds = createdEvents.map(event => event.id);
+          const completedCounts = await getMultipleCompletedCounts(eventIds);
+          
+          setCompletedAccomplishments(completedCounts);
+        }
+      };
+      
+      checkAllAccomplishments();
+    }
+  }, [events, getMultipleCompletedCounts]);
+
+  // Mark accomplishments as viewed when user clicks on an event
+  useEffect(() => {
+    if (selectedEvent && selectedEvent.tagType === 'sent') {
+      markAccomplishmentsAsViewed(selectedEvent.id);
     }
   }, [selectedEvent]);
 
@@ -290,25 +353,25 @@ const TaggedDepartments = () => {
   };
 
   // Helper functions for requirement management
-  const getRequirementKey = (eventId, reqIndex) => `${eventId}-${reqIndex}`;
+  const getRequirementKey = (eventId, reqName) => `${eventId}-${reqName}`;
   
-  const handleRequirementStatusChange = (eventId, reqIndex, checked) => {
-    const key = getRequirementKey(eventId, reqIndex);
+  const handleRequirementStatusChange = (eventId, reqName, checked) => {
+    const key = getRequirementKey(eventId, reqName);
     setRequirementStatus(prev => ({
       ...prev,
       [key]: checked
     }));
   };
 
-  const handleRequirementRemarksChange = (eventId, reqIndex, remarks) => {
-    const key = getRequirementKey(eventId, reqIndex);
+  const handleRequirementRemarksChange = (eventId, reqName, remarks) => {
+    const key = getRequirementKey(eventId, reqName);
     setRequirementRemarks(prev => ({
       ...prev,
       [key]: remarks
     }));
   };
 
-  // Load existing accomplishment data from Firebase
+  // Load existing accomplishment data using Zustand store
   const loadAccomplishmentData = async (eventId) => {
     try {
       const user = auth.currentUser;
@@ -321,78 +384,92 @@ const TaggedDepartments = () => {
       const userData = userDocSnap.data();
       const userDepartment = userData.department;
 
-      // Query accomplishments for this event and department
-      const accomplishmentsRef = collection(db, "accomplishments");
-      const q = query(
-        accomplishmentsRef, 
-        where("eventId", "==", eventId),
-        where("departmentName", "==", userDepartment)
-      );
+      console.log('Loading accomplishment data using Zustand store for event:', eventId);
       
-      const querySnapshot = await getDocs(q);
+      // Determine if this is a tagged event (current user's department) or created event (all departments)
+      const isTaggedEvent = selectedEvent && selectedEvent.tagType === 'received';
+      const departmentFilter = isTaggedEvent ? userDepartment : null;
       
-      if (!querySnapshot.empty) {
-        const accomplishmentDoc = querySnapshot.docs[0];
-        const data = accomplishmentDoc.data();
+      // Use Zustand store to load accomplishment data
+      const result = await loadAccomplishmentFromStore(eventId, departmentFilter);
+      
+      if (result.success && result.allAccomplishments && result.allAccomplishments.length > 0) {
+        console.log('Found accomplishment data from store:', result.allAccomplishments);
         
         // Load the saved data into state
         const newRequirementStatus = {};
         const newRequirementRemarks = {};
         
-        data.requirements?.forEach((req, index) => {
-          const key = getRequirementKey(eventId, index);
-          newRequirementStatus[key] = req.completed;
-          newRequirementRemarks[key] = req.remarks || '';
+        // Process all accomplishment documents (from different departments)
+        result.allAccomplishments.forEach((accomplishmentDoc, docIndex) => {
+          console.log(`Processing accomplishment doc ${docIndex + 1} from department: ${accomplishmentDoc.departmentName}`);
+          
+          // For tagged events, only process current user's department
+          // For created events, process all departments
+          if (isTaggedEvent && accomplishmentDoc.departmentName !== userDepartment) {
+            return; // Skip other departments for tagged events
+          }
+          
+          // Process requirements
+          if (accomplishmentDoc.requirements && Array.isArray(accomplishmentDoc.requirements)) {
+            accomplishmentDoc.requirements.forEach((req) => {
+              let matchedRequirement = null;
+              
+              // Try exact match first
+              matchedRequirement = selectedEvent?.requirements?.find(eventReq => 
+                eventReq.name.trim() === req.requirementName.trim()
+              );
+              
+              // If no exact match, try matching with department prefix
+              if (!matchedRequirement) {
+                matchedRequirement = selectedEvent?.requirements?.find(eventReq => {
+                  // Check if the event requirement ends with the saved requirement name
+                  // e.g., "PIO: Documentation" should match "Documentation"
+                  const eventReqParts = eventReq.name.split(':');
+                  if (eventReqParts.length === 2) {
+                    const eventReqSuffix = eventReqParts[1].trim();
+                    return eventReqSuffix === req.requirementName.trim();
+                  }
+                  return false;
+                });
+              }
+              
+              if (matchedRequirement) {
+                // Found match - use the current event requirement name as key
+                const key = getRequirementKey(eventId, matchedRequirement.name);
+                newRequirementStatus[key] = req.completed;
+                newRequirementRemarks[key] = req.remarks || '';
+                console.log(`✅ Matched: "${req.requirementName}" → "${matchedRequirement.name}" - Completed: ${req.completed}, Remarks: "${req.remarks}"`);
+              } else {
+                console.log(`❌ No match found for: "${req.requirementName}"`);
+                console.log('Available requirements:', selectedEvent?.requirements?.map(r => r.name));
+              }
+            });
+          }
         });
         
         setRequirementStatus(prev => ({ ...prev, ...newRequirementStatus }));
         setRequirementRemarks(prev => ({ ...prev, ...newRequirementRemarks }));
         setSubmittedEvents(prev => ({ ...prev, [eventId]: true }));
+        
+        console.log('Final requirement status:', newRequirementStatus);
+        console.log('Final requirement remarks:', newRequirementRemarks);
+      } else {
+        console.log('No accomplishment data found for event:', eventId);
       }
     } catch (error) {
       console.error('Error loading accomplishment data:', error);
     }
   };
 
-  // Save accomplishment data to Firebase
-  const saveAccomplishmentData = async (accomplishmentData) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      const userDocRef = doc(db, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) throw new Error('User not found');
-      
-      const userData = userDocSnap.data();
-      const userDepartment = userData.department;
-
-      // Create accomplishment document ID
-      const accomplishmentId = `${accomplishmentData.eventId}_${userDepartment.replace(/\s+/g, '_')}`;
-      
-      // Save to Firebase
-      const accomplishmentRef = doc(db, "accomplishments", accomplishmentId);
-      await setDoc(accomplishmentRef, {
-        ...accomplishmentData,
-        departmentName: userDepartment,
-        userId: user.uid,
-        updatedAt: new Date()
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error saving accomplishment data:', error);
-      throw error;
-    }
-  };
 
   // Submit accomplishment function
   const handleSubmitAccomplishment = async () => {
     if (!selectedEvent) return;
 
     // Validate that at least one requirement is checked
-    const hasCompletedRequirements = selectedEvent.requirements?.some((req, index) => {
-      const key = getRequirementKey(selectedEvent.id, index);
+    const hasCompletedRequirements = selectedEvent.requirements?.some((req) => {
+      const key = getRequirementKey(selectedEvent.id, req.name);
       return requirementStatus[key] === true;
     });
 
@@ -407,8 +484,8 @@ const TaggedDepartments = () => {
       const accomplishmentData = {
         eventId: selectedEvent.id,
         submittedAt: new Date(),
-        requirements: selectedEvent.requirements?.map((req, index) => {
-          const key = getRequirementKey(selectedEvent.id, index);
+        requirements: selectedEvent.requirements?.map((req) => {
+          const key = getRequirementKey(selectedEvent.id, req.name);
           return {
             requirementName: req.name,
             completed: requirementStatus[key] || false,
@@ -418,16 +495,39 @@ const TaggedDepartments = () => {
         }) || []
       };
 
-      // Save to Firebase
-      await saveAccomplishmentData(accomplishmentData);
+      // Get user department
+      const user = auth.currentUser;
+      if (!user) throw new Error('User not authenticated');
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) throw new Error('User not found');
       
-      // Mark event as submitted
-      setSubmittedEvents(prev => ({ ...prev, [selectedEvent.id]: true }));
-      setEditingEvent(null); // Exit edit mode
+      const userData = userDocSnap.data();
+      const userDepartment = userData.department;
+
+      // Save using Zustand store
+      const result = await submitAccomplishmentToStore(selectedEvent.id, userDepartment, accomplishmentData);
       
-      // Show success message
-      const completedCount = accomplishmentData.requirements.filter(req => req.completed).length;
-      toast.success(`Accomplishment submitted successfully! ${completedCount} requirement(s) marked as completed.`);
+      if (result.success) {
+        // Mark event as submitted
+        setSubmittedEvents(prev => ({ ...prev, [selectedEvent.id]: true }));
+        setEditingEvent(null); // Exit edit mode
+        
+        // Refresh the completed counts for all events
+        const createdEvents = events.filter(event => event.tagType === 'sent');
+        if (createdEvents.length > 0) {
+          const eventIds = createdEvents.map(event => event.id);
+          const updatedCounts = await getMultipleCompletedCounts(eventIds, true); // Force refresh
+          setCompletedAccomplishments(updatedCounts);
+        }
+        
+        // Show success message
+        const completedCount = accomplishmentData.requirements.filter(req => req.completed).length;
+        toast.success(`Accomplishment submitted successfully! ${completedCount} requirement(s) marked as completed.`);
+      } else {
+        throw new Error(result.error || 'Failed to submit accomplishment');
+      }
       
     } catch (error) {
       console.error('Error submitting accomplishment:', error);
@@ -440,6 +540,48 @@ const TaggedDepartments = () => {
   // Handle edit mode
   const handleEditAccomplishment = (eventId) => {
     setEditingEvent(eventId);
+  };
+
+
+  // Filter requirements based on completion status
+  const getFilteredRequirements = (requirements) => {
+    if (!requirements) return [];
+    
+    return requirements.filter((req) => {
+      const requirementKey = getRequirementKey(selectedEvent.id, req.name);
+      const isCompleted = requirementStatus[requirementKey] || false;
+      
+      switch (requirementFilter) {
+        case 'complied':
+          return isCompleted;
+        case 'not-complied':
+          return !isCompleted;
+        case 'all':
+        default:
+          return true;
+      }
+    });
+  };
+
+
+  // Function to mark accomplishments as viewed
+  const markAccomplishmentsAsViewed = (eventId) => {
+    const now = Date.now();
+    setLastViewedTimestamps(prev => ({
+      ...prev,
+      [eventId]: now
+    }));
+    
+    // Also store in localStorage for persistence
+    const stored = JSON.parse(localStorage.getItem('taggedDepartmentsViewTimestamps') || '{}');
+    stored[eventId] = now;
+    localStorage.setItem('taggedDepartmentsViewTimestamps', JSON.stringify(stored));
+    
+    // Clear the completed count for this event
+    setCompletedAccomplishments(prev => ({
+      ...prev,
+      [eventId]: 0
+    }));
   };
 
   const container = {
@@ -567,6 +709,16 @@ const TaggedDepartments = () => {
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">Created Events</span>
+                  {(() => {
+                    const totalCompleted = Object.values(completedAccomplishments).reduce((sum, count) => sum + count, 0);
+                    return totalCompleted > 0 ? (
+                      <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center ml-1">
+                        <span className="text-white text-xs font-bold">
+                          {totalCompleted > 9 ? '9+' : totalCompleted}
+                        </span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </TabsTrigger>
               <TabsTrigger 
@@ -705,11 +857,50 @@ const TaggedDepartments = () => {
                             className="cursor-pointer"
                           >
                             <Card className={cn(
-                              "border transition-all duration-200 hover:shadow-lg",
+                              "border transition-all duration-200 hover:shadow-lg relative",
                               isDarkMode 
                                 ? "bg-slate-900 border-slate-700 hover:border-blue-500/50" 
                                 : "bg-white border-slate-200 hover:border-blue-300"
                             )}>
+                              {/* Completed Accomplishments Badge - Positioned at top-right of card */}
+                              {completedAccomplishments[event.id] > 0 && (
+                                <HoverCard>
+                                  <HoverCardTrigger>
+                                    <div className="absolute -top-2 -right-2 z-10 cursor-pointer">
+                                      <div className="relative">
+                                        <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center shadow-lg hover:bg-green-700 transition-colors">
+                                          <span className="text-white text-xs font-bold">
+                                            {completedAccomplishments[event.id] > 9 ? '9+' : completedAccomplishments[event.id]}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-80 p-4 bg-white border border-gray-200 shadow-lg rounded-lg">
+                                    <div className="space-y-2">
+                                      <h4 className={cn(
+                                        "font-medium",
+                                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                                      )}>
+                                        Completed Accomplishments
+                                      </h4>
+                                      <p className={cn(
+                                        "text-sm",
+                                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                                      )}>
+                                        {completedAccomplishments[event.id]} accomplishment{completedAccomplishments[event.id] > 1 ? 's' : ''} completed by departments for this event.
+                                      </p>
+                                      <p className={cn(
+                                        "text-xs",
+                                        isDarkMode ? "text-gray-500" : "text-gray-400"
+                                      )}>
+                                        Click on the event to view accomplishment details.
+                                      </p>
+                                    </div>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              )}
+                              
                               <CardHeader className="pb-4">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
@@ -1417,27 +1608,161 @@ const TaggedDepartments = () => {
                   : "bg-white border-slate-200/50"
               )}>
                 <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <div className={cn(
-                      "p-2 rounded-full",
-                      isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
-                    )}>
-                      <CheckCircle2 className="h-5 w-5 text-purple-500" />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <div className={cn(
+                          "p-2 rounded-full",
+                          isDarkMode ? "bg-purple-500/20" : "bg-purple-100"
+                        )}>
+                          <CheckCircle2 className="h-5 w-5 text-purple-500" />
+                        </div>
+                        <span>Department Requirements</span>
+                      </CardTitle>
+                      <CardDescription className="ml-10">
+                        Resources and requirements needed for this event
+                      </CardDescription>
                     </div>
-                    <span>Department Requirements</span>
-                  </CardTitle>
-                  <CardDescription className="ml-10">
-                    Resources and requirements needed for this event
-                  </CardDescription>
+                    
+                    {/* Filter Dropdown and PDF Report Button - Responsive */}
+                    {selectedEvent.requirements && selectedEvent.requirements.length > 0 && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                        {/* Filter Dropdown */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <Filter className={cn(
+                            "h-4 w-4 shrink-0",
+                            isDarkMode ? "text-slate-400" : "text-slate-600"
+                          )} />
+                          <Select value={requirementFilter} onValueChange={setRequirementFilter}>
+                            <SelectTrigger className={cn(
+                              "w-full sm:w-[180px] h-8 text-xs",
+                              isDarkMode 
+                                ? "bg-slate-700 border-slate-600 text-white" 
+                                : "bg-white border-slate-300 text-slate-900"
+                            )}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">
+                                All ({selectedEvent.requirements.length})
+                              </SelectItem>
+                              <SelectItem value="complied">
+                                Complied ({selectedEvent.requirements.filter(req => {
+                                  const key = getRequirementKey(selectedEvent.id, req.name);
+                                  return requirementStatus[key];
+                                }).length})
+                              </SelectItem>
+                              <SelectItem value="not-complied">
+                                Not Complied ({selectedEvent.requirements.filter(req => {
+                                  const key = getRequirementKey(selectedEvent.id, req.name);
+                                  return !requirementStatus[key];
+                                }).length})
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* PDF Report Button */}
+                        <Dialog open={showPdfPreview} onOpenChange={setShowPdfPreview}>
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              className={cn(
+                                "h-8 px-3 text-xs gap-2 w-full sm:w-auto",
+                                isDarkMode
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                              )}
+                            >
+                              <FileText className="h-3 w-3" />
+                              <span className="hidden xs:inline">Report</span>
+                              <span className="xs:hidden">PDF</span>
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className={cn(
+                            "max-w-[95vw] sm:max-w-[900px] p-0 border-none h-[90vh] sm:h-auto",
+                            isDarkMode ? "bg-slate-900" : "bg-white"
+                          )}>
+                            <DialogHeader className="p-6 pb-2">
+                              <DialogTitle className={cn(
+                                isDarkMode ? "text-gray-100" : "text-gray-900"
+                              )}>Preview Report</DialogTitle>
+                            </DialogHeader>
+
+                            <div className={cn(
+                              "flex flex-col gap-4 p-3 sm:p-6 pt-2",
+                              isDarkMode ? "text-gray-100" : "text-gray-900"
+                            )}>
+                              <div className={cn(
+                                "w-full h-[60vh] sm:h-[70vh] rounded-lg overflow-hidden",
+                                isDarkMode ? "bg-slate-800" : "bg-gray-50"
+                              )}>
+                                <PDFViewer
+                                  width="100%"
+                                  height="100%"
+                                  style={{
+                                    border: 'none',
+                                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                                  }}
+                                >
+                                  <AccomplishmentReportPDF 
+                                    event={selectedEvent}
+                                    requirementStatus={requirementStatus}
+                                    requirementRemarks={requirementRemarks}
+                                    userDepartment={auth.currentUser?.displayName || 'Department'}
+                                  />
+                                </PDFViewer>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    isDarkMode ? "border-slate-700 hover:bg-slate-800" : "border-gray-200 hover:bg-gray-100"
+                                  )}
+                                  onClick={() => setShowPdfPreview(false)}
+                                >
+                                  Close
+                                </Button>
+                                <PDFDownloadLink
+                                  document={
+                                    <AccomplishmentReportPDF 
+                                      event={selectedEvent}
+                                      requirementStatus={requirementStatus}
+                                      requirementRemarks={requirementRemarks}
+                                      userDepartment={auth.currentUser?.displayName || 'Department'}
+                                    />
+                                  }
+                                  fileName={`accomplishment-report-${selectedEvent.title?.replace(/[^a-zA-Z0-9]/g, '-')}-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+                                >
+                                  {({ loading }) => (
+                                    <Button
+                                      className="bg-black hover:bg-gray-800 text-white gap-2 w-full sm:w-auto"
+                                      disabled={loading}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                      <span className="hidden xs:inline">{loading ? "Preparing..." : "Download PDF"}</span>
+                                      <span className="xs:hidden">{loading ? "..." : "Download"}</span>
+                                    </Button>
+                                  )}
+                                </PDFDownloadLink>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    {selectedEvent.requirements?.map((req, index) => {
-                      const requirementKey = getRequirementKey(selectedEvent.id, index);
+                    {getFilteredRequirements(selectedEvent.requirements)?.map((req, index) => {
+                      const requirementKey = getRequirementKey(selectedEvent.id, req.name);
                       const isCompleted = requirementStatus[requirementKey] || false;
                       const remarks = requirementRemarks[requirementKey] || '';
                       const hasData = isCompleted || (remarks && remarks.trim() !== '');
                       const isCardSubmitted = submittedEvents[selectedEvent.id] && hasData && editingEvent !== selectedEvent.id;
+                      const isTaggedEvent = selectedEvent.tagType === 'received'; // Only show completion for tagged events
                       
                       return (
                         <motion.div
@@ -1448,7 +1773,7 @@ const TaggedDepartments = () => {
                         >
                           <div className="relative">
                             {/* Edit Button Overlay for individual card - outside blur container */}
-                            {isCardSubmitted && (
+                            {isCardSubmitted && isTaggedEvent && (
                               <div className="absolute inset-0 flex items-center justify-center z-10">
                                 <Button
                                   onClick={() => handleEditAccomplishment(selectedEvent.id)}
@@ -1470,7 +1795,7 @@ const TaggedDepartments = () => {
                                 isDarkMode 
                                   ? "bg-slate-900/50 ring-1 ring-slate-700/50" 
                                   : "bg-slate-50 ring-1 ring-slate-200/50",
-                                isCardSubmitted && "blur-[2px] pointer-events-none"
+                                isCardSubmitted && isTaggedEvent && "blur-[2px] pointer-events-none"
                               )}
                             >
                             <div className="flex items-start gap-3 md:gap-4">
@@ -1505,23 +1830,26 @@ const TaggedDepartments = () => {
                                     <Label 
                                       htmlFor={`req-${requirementKey}`}
                                       className={cn(
-                                        "text-xs md:text-sm font-medium cursor-pointer",
+                                        "text-xs md:text-sm font-medium",
+                                        isTaggedEvent ? "cursor-pointer" : "cursor-default",
                                         isDarkMode ? "text-slate-300" : "text-slate-700"
                                       )}
                                     >
-                                      Completed
+                                      {isTaggedEvent ? "Completed" : (isCompleted ? "Complied" : "Not Yet Complied")}
                                     </Label>
                                     <Checkbox
                                       id={`req-${requirementKey}`}
                                       checked={isCompleted}
-                                      onCheckedChange={(checked) => 
-                                        handleRequirementStatusChange(selectedEvent.id, index, checked)
+                                      onCheckedChange={isTaggedEvent ? (checked) => 
+                                        handleRequirementStatusChange(selectedEvent.id, req.name, checked) : undefined
                                       }
+                                      disabled={!isTaggedEvent}
                                       className={cn(
                                         "h-4 w-4 md:h-5 md:w-5 data-[state=checked]:font-bold",
                                         isDarkMode 
                                           ? "border-slate-600 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white" 
-                                          : "border-slate-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
+                                          : "border-slate-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white",
+                                        !isTaggedEvent && "opacity-60 cursor-not-allowed"
                                       )}
                                     />
                                   </div>
@@ -1568,20 +1896,25 @@ const TaggedDepartments = () => {
                                       isDarkMode ? "text-slate-300" : "text-slate-700"
                                     )}
                                   >
-                                    Remarks
+                                    Remarks {!isTaggedEvent && "(from tagged department)"}
                                   </Label>
                                   <Textarea
                                     id={`remarks-${requirementKey}`}
-                                    placeholder="Add any remarks or notes about this requirement (e.g., provided 25 chairs instead of 50 requested)"
-                                    value={remarks}
-                                    onChange={(e) => 
-                                      handleRequirementRemarksChange(selectedEvent.id, index, e.target.value)
+                                    placeholder={isTaggedEvent 
+                                      ? "Add any remarks or notes about this requirement (e.g., provided 25 chairs instead of 50 requested)"
+                                      : "No remarks from tagged department yet"
                                     }
+                                    value={remarks}
+                                    onChange={isTaggedEvent ? (e) => 
+                                      handleRequirementRemarksChange(selectedEvent.id, req.name, e.target.value) : undefined
+                                    }
+                                    readOnly={!isTaggedEvent}
                                     className={cn(
                                       "min-h-[60px] md:min-h-[80px] resize-none text-sm md:text-base",
                                       isDarkMode 
                                         ? "bg-slate-800 border-slate-700 text-white placeholder-slate-400" 
-                                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-500"
+                                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-500",
+                                      !isTaggedEvent && "opacity-60 cursor-not-allowed"
                                     )}
                                   />
                                 </div>
@@ -1615,10 +1948,35 @@ const TaggedDepartments = () => {
                         </p>
                       </div>
                     )}
+                    
+                    {selectedEvent.requirements && selectedEvent.requirements.length > 0 && 
+                     getFilteredRequirements(selectedEvent.requirements).length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-8 col-span-full">
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center mb-4",
+                          isDarkMode ? "bg-slate-800" : "bg-slate-100"
+                        )}>
+                          <FileText className={cn(
+                            "w-6 h-6",
+                            isDarkMode ? "text-slate-400" : "text-slate-400"
+                          )} />
+                        </div>
+                        <h3 className={cn(
+                          "text-sm font-medium mb-2",
+                          isDarkMode ? "text-slate-300" : "text-slate-700"
+                        )}>No Requirements Match Filter</h3>
+                        <p className={cn(
+                          "text-xs text-center max-w-[200px]",
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        )}>
+                          No requirements match the current filter. Try selecting a different filter.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Submit Accomplishment Button */}
-                  {selectedEvent.requirements && selectedEvent.requirements.length > 0 && (
+                  {/* Submit Accomplishment Button - only for tagged events */}
+                  {selectedEvent.requirements && selectedEvent.requirements.length > 0 && selectedEvent.tagType === 'received' && (
                     <div className="flex justify-center sm:justify-end pt-4 md:pt-6 border-t border-slate-200 dark:border-slate-700">
                       <Button
                         onClick={handleSubmitAccomplishment}

@@ -6,6 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Separator } from "../ui/separator";
 import { Badge } from "../ui/badge";
 import useMessageStore from "../../store/messageStore";
+import useAccomplishmentStore from "../../store/accomplishmentStore";
+import useEventStore from "../../store/eventStore";
+import { auth } from "../../lib/firebase/firebase";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -25,6 +28,7 @@ import {
 const MainLayout = ({ children, userData }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [totalCompletedAccomplishments, setTotalCompletedAccomplishments] = useState(0);
   const isDarkMode = false; // Always use light mode
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +43,12 @@ const MainLayout = ({ children, userData }) => {
     taggedDepartments,
     usersWhoTaggedMe
   } = useMessageStore();
+
+  // Get accomplishment store actions
+  const { getMultipleCompletedCounts } = useAccomplishmentStore();
+  
+  // Get event store actions
+  const { fetchAllEvents } = useEventStore();
 
   // Subscribe to messages when component mounts
   useEffect(() => {
@@ -62,6 +72,58 @@ const MainLayout = ({ children, userData }) => {
       };
     }
   }, [userData?.email, setCurrentUser, subscribeToLastMessages, fetchTaggedDepartments]);
+
+  // Fetch completed accomplishments count for created events
+  useEffect(() => {
+    const fetchCompletedAccomplishments = async () => {
+      // Get the Firebase Auth user ID
+      const firebaseUser = auth.currentUser;
+      const userId = firebaseUser?.uid || userData?.uid || userData?.email || userData?.username;
+      
+      if (!userId) {
+        return;
+      }
+
+      try {
+        // Fetch all events to find created events by this user
+        const eventsResult = await fetchAllEvents();
+        
+        if (eventsResult.success) {
+          // Filter events created by current user (events they tagged other departments for)
+          const createdEvents = eventsResult.events.filter(event => {
+            // Try to match by userId, userEmail, or any identifier
+            const isCreatedByUser = event.userId === userId || 
+                                   event.userEmail === userData?.email || 
+                                   event.userId === userData?.email ||
+                                   event.userId === userData?.username;
+            return isCreatedByUser;
+          });
+
+          if (createdEvents.length > 0) {
+            // Get completed accomplishments count for all created events
+            const eventIds = createdEvents.map(event => event.id);
+            const completedCounts = await getMultipleCompletedCounts(eventIds);
+            
+            // Calculate total completed accomplishments
+            const total = Object.values(completedCounts).reduce((sum, count) => sum + count, 0);
+            setTotalCompletedAccomplishments(total);
+          } else {
+            setTotalCompletedAccomplishments(0);
+          }
+        }
+      } catch (error) {
+        setTotalCompletedAccomplishments(0);
+      }
+    };
+
+    // Fetch on mount and then periodically
+    fetchCompletedAccomplishments();
+    
+    // Refresh every 2 minutes
+    const interval = setInterval(fetchCompletedAccomplishments, 2 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [userData?.uid, userData?.email, userData?.username, fetchAllEvents, getMultipleCompletedCounts]);
 
   const handleLogout = () => {
     // Clear any stored user data/tokens
@@ -259,18 +321,38 @@ const MainLayout = ({ children, userData }) => {
                       {Object.values(unreadMessages).filter(Boolean).length}
                     </Badge>
                   )}
-                  {/* Show tagged departments count */}
-                  {item.title === "Tagged Departments" && usersWhoTaggedMe.length > 0 && (
-                    <Badge
-                      variant="default"
-                      className={cn(
-                        "absolute -top-2 -right-6 h-5 min-w-[20px] px-1",
-                        "bg-purple-500 text-white border-2",
-                        isDarkMode ? "border-slate-800" : "border-white"
+                  {/* Show tagged departments count and completed accomplishments */}
+                  {item.title === "Tagged Departments" && (
+                    <div className="absolute -top-2 -right-6 flex gap-1">
+                      {/* Purple badge for users who tagged me */}
+                      {usersWhoTaggedMe.length > 0 && (
+                        <Badge
+                          variant="default"
+                          className={cn(
+                            "h-5 min-w-[20px] px-1",
+                            "bg-purple-500 text-white border-2",
+                            isDarkMode ? "border-slate-800" : "border-white"
+                          )}
+                          title={`${usersWhoTaggedMe.length} department${usersWhoTaggedMe.length > 1 ? 's' : ''} tagged you`}
+                        >
+                          {usersWhoTaggedMe.length}
+                        </Badge>
                       )}
-                    >
-                      {usersWhoTaggedMe.length}
-                    </Badge>
+                      {/* Green badge for completed accomplishments */}
+                      {totalCompletedAccomplishments > 0 && (
+                        <Badge
+                          variant="default"
+                          className={cn(
+                            "h-5 min-w-[20px] px-1",
+                            "bg-green-600 text-white border-2",
+                            isDarkMode ? "border-slate-800" : "border-white"
+                          )}
+                          title={`${totalCompletedAccomplishments} completed accomplishment${totalCompletedAccomplishments > 1 ? 's' : ''} from your created events`}
+                        >
+                          {totalCompletedAccomplishments > 9 ? '9+' : totalCompletedAccomplishments}
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
               </Button>

@@ -2085,7 +2085,7 @@ const RequestEvent = () => {
                 {/* Governor Involvement */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-semibold", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                    With Governor
+                    w/o gov
                   </Label>
                   <button
                     type="button"
@@ -2118,7 +2118,7 @@ const RequestEvent = () => {
                         : isDarkMode ? "text-gray-400" : "text-gray-500"
                     )} />
                     <span className="transition-all duration-200">
-                      {formData.withGov ? "Governor Involved" : "No Governor"}
+                      {formData.withGov ? "w/ gov" : "w/o gov"}
                     </span>
                     {formData.withGov && (
                       <div className={cn(
@@ -4776,7 +4776,7 @@ const RequestEvent = () => {
                 {/* With Governor */}
                 <div className="space-y-2">
                   <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
-                    With Governor
+                    w/o gov
                   </Label>
                   <button
                     type="button"

@@ -701,9 +701,8 @@ const TaggedDepartments = () => {
                 value="created" 
                 className={cn(
                   "py-3 px-4 font-medium transition-all duration-200 rounded-md h-full flex items-center justify-center",
-                  isDarkMode 
-                    ? "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-300 hover:text-slate-100 hover:bg-slate-700" 
-                    : "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-700 hover:text-slate-900 hover:bg-slate-200"
+                  "data-[state=active]:bg-black data-[state=active]:text-white hover:bg-gray-800 hover:text-white",
+                  isDarkMode ? "text-slate-300" : "text-slate-700"
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -725,9 +724,8 @@ const TaggedDepartments = () => {
                 value="tagged" 
                 className={cn(
                   "py-3 px-4 font-medium transition-all duration-200 rounded-md h-full flex items-center justify-center",
-                  isDarkMode 
-                    ? "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-300 hover:text-slate-100 hover:bg-slate-700" 
-                    : "data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-700 hover:text-slate-900 hover:bg-slate-200"
+                  "data-[state=active]:bg-black data-[state=active]:text-white hover:bg-gray-800 hover:text-white",
+                  isDarkMode ? "text-slate-300" : "text-slate-700"
                 )}
               >
                 <div className="flex items-center gap-2">

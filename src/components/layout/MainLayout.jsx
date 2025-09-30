@@ -289,12 +289,10 @@ const MainLayout = ({ children, userData }) => {
                 className={cn(
                   "justify-start gap-4 px-4 py-7",
                   collapsed ? "justify-center px-3" : "px-3",
-                  isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100",
+                  "hover:bg-gray-800 hover:text-white",
                   "transition-colors duration-200",
                   location.pathname === item.href && (
-                    isDarkMode 
-                      ? "bg-gray-700 text-white" 
-                      : "bg-gray-100 text-blue-600"
+                    "bg-black text-white"
                   )
                 )}
                 onClick={() => navigate(item.href)}

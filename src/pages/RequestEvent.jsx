@@ -1015,6 +1015,11 @@ const RequestEvent = () => {
     const nextIndex = currentLocationIndex + 1;
     setCurrentLocationIndex(nextIndex);
 
+    // Check if government files have been uploaded
+    const hasGovFiles = govAttachments.brieferTemplate || 
+                       govAttachments.availableForDLBriefer || 
+                       govAttachments.programme;
+
     // Clear form for next location - clear location-specific fields
     setFormData(prev => ({
       ...prev,
@@ -1025,7 +1030,7 @@ const RequestEvent = () => {
       participants: '', // Clear participants for each location
       vip: '',         // Clear VIP count for each location  
       vvip: '',        // Clear VVIP count for each location
-      // Keep withGov as it applies to the overall event (same across all locations)
+      withGov: hasGovFiles || prev.withGov, // Auto-check if gov files exist or was previously checked
     }));
 
     // Reset dates and times for new location
@@ -1716,6 +1721,11 @@ const RequestEvent = () => {
                       // Entering multiple location mode - show modal
                       setHasMultipleLocations(true);
                       setShowMultipleLocationsModal(true);
+                      // Check if government files have been uploaded
+                      const hasGovFiles = govAttachments.brieferTemplate || 
+                                         govAttachments.availableForDLBriefer || 
+                                         govAttachments.programme;
+                      
                       // Initialize modal form with current form data
                       setMultiLocationForm({
                         title: formData.title || '',
@@ -1724,7 +1734,8 @@ const RequestEvent = () => {
                         participants: '',
                         vip: '',
                         vvip: '',
-                        classifications: formData.classifications || ''
+                        classifications: formData.classifications || '',
+                        withGov: hasGovFiles || formData.withGov // Auto-check if gov files exist or was previously checked
                       });
                     } else {
                       // Exiting multiple location mode
@@ -4476,23 +4487,30 @@ const RequestEvent = () => {
       {/* Multiple Locations Modal */}
       <Dialog open={showMultipleLocationsModal} onOpenChange={setShowMultipleLocationsModal}>
         <DialogContent className={cn(
-          "max-w-[90vw] w-[90vw] min-w-[1000px] p-0 border shadow-lg rounded-lg overflow-hidden",
+          "max-w-[95vw] w-full sm:max-w-[90vw] lg:max-w-[1000px] p-0 border shadow-lg rounded-lg overflow-hidden",
+          "max-h-[85vh] sm:max-h-[80vh] lg:max-h-[75vh]",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
+          "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+          "left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]",
           isDarkMode ? "bg-slate-950 border-slate-800" : "bg-white border-gray-200"
         )}>
           <div className={cn(
-            "px-6 py-4 border-b",
+            "px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b",
             isDarkMode ? "border-slate-800" : "border-gray-200"
           )}>
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <DialogTitle className={cn(
-                  "text-lg font-semibold",
+                  "text-base sm:text-lg font-semibold truncate",
                   isDarkMode ? "text-white" : "text-gray-900"
                 )}>
                   Multiple Locations Event
                 </DialogTitle>
                 <p className={cn(
-                  "text-sm mt-1",
+                  "text-xs sm:text-sm mt-1",
                   isDarkMode ? "text-slate-400" : "text-gray-500"
                 )}>
                   Location {currentLocationNumber} • {locationDrafts.length} added
@@ -4513,7 +4531,7 @@ const RequestEvent = () => {
           </div>
 
           <div className={cn(
-            "p-6 max-h-[70vh] overflow-y-auto",
+            "p-4 sm:p-6 lg:p-8 max-h-[55vh] sm:max-h-[60vh] lg:max-h-[65vh] overflow-y-auto",
             isDarkMode ? "bg-slate-950" : "bg-white"
           )}>
             {/* Animated Form Container */}
@@ -4523,12 +4541,12 @@ const RequestEvent = () => {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -300, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="space-y-6"
+              className="space-y-8"
             >
               {/* Form Fields - First Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                 {/* Event Title */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
                     Event Title
                   </Label>
@@ -4546,7 +4564,7 @@ const RequestEvent = () => {
                 </div>
 
                 {/* Requestor */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
                     Requestor
                   </Label>
@@ -4564,7 +4582,7 @@ const RequestEvent = () => {
                 </div>
 
                 {/* Location */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
                     Location
                   </Label>
@@ -4715,9 +4733,9 @@ const RequestEvent = () => {
               </div>
 
               {/* Second Row - Participants, VIP, VVIP, With Governor */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
                 {/* Number of Participants */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
                     Participants
                   </Label>
@@ -4775,9 +4793,41 @@ const RequestEvent = () => {
 
                 {/* With Governor */}
                 <div className="space-y-2">
-                  <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
-                    w/o gov
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label className={cn("text-sm font-medium", isDarkMode ? "text-slate-200" : "text-gray-700")}>
+                      w/o gov
+                    </Label>
+                    {multiLocationForm.withGov && (
+                      <div className="relative group">
+                        <div
+                          className={cn(
+                            "w-5 h-5 rounded-full flex items-center justify-center cursor-default",
+                            isDarkMode ? "bg-blue-500" : "bg-blue-500"
+                          )}
+                        >
+                          <AlertCircle className="h-3 w-3 text-white" />
+                        </div>
+                        
+                        {/* Hover tooltip */}
+                        <div className={cn(
+                          "absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-56 sm:w-64 p-3 rounded-md border shadow-lg z-50",
+                          "opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200",
+                          isDarkMode 
+                            ? "bg-slate-800 border-slate-700 text-slate-200" 
+                            : "bg-white border-gray-200 text-gray-700"
+                        )}>
+                          <p className="text-xs text-center">
+                            Files uploaded for government requirements will be used for all locations in this multiple location event.
+                          </p>
+                          {/* Arrow pointing down */}
+                          <div className={cn(
+                            "absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent",
+                            isDarkMode ? "border-t-slate-800" : "border-t-white"
+                          )}></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -5001,7 +5051,7 @@ const RequestEvent = () => {
 
           {/* Modal Footer */}
           <div className={cn(
-            "px-6 py-4 border-t flex items-center justify-between",
+            "px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-t flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0",
             isDarkMode ? "border-slate-800 bg-slate-950" : "border-gray-200 bg-white"
           )}>
             <Button
@@ -5012,7 +5062,7 @@ const RequestEvent = () => {
                 setLocationDrafts([]);
               }}
               className={cn(
-                "text-sm",
+                "text-sm order-2 sm:order-1",
                 isDarkMode 
                   ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" 
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -5021,7 +5071,7 @@ const RequestEvent = () => {
               Cancel
             </Button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 order-1 sm:order-2">
               <Button
                 onClick={async () => {
                   // Validate required fields
@@ -5044,6 +5094,11 @@ const RequestEvent = () => {
                   // Wait for exit animation
                   await new Promise(resolve => setTimeout(resolve, 300));
                   
+                  // Check if government files have been uploaded
+                  const hasGovFiles = govAttachments.brieferTemplate || 
+                                     govAttachments.availableForDLBriefer || 
+                                     govAttachments.programme;
+                  
                   // Clear ALL fields for next location
                   setMultiLocationForm({
                     title: '',
@@ -5053,7 +5108,7 @@ const RequestEvent = () => {
                     vip: '',
                     vvip: '',
                     classifications: '',
-                    withGov: false,
+                    withGov: hasGovFiles, // Auto-check if gov files exist
                     startDate: null,
                     endDate: null,
                     startTime: "10:30",
@@ -5073,7 +5128,7 @@ const RequestEvent = () => {
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "text-sm",
+                  "text-sm w-full sm:w-auto",
                   isDarkMode 
                     ? "border-slate-700 text-slate-300 hover:bg-slate-800" 
                     : "border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -5135,7 +5190,7 @@ const RequestEvent = () => {
                 }}
                 size="sm"
                 className={cn(
-                  "text-sm",
+                  "text-sm w-full sm:w-auto",
                   isDarkMode 
                     ? "bg-slate-800 hover:bg-slate-700 text-white" 
                     : "bg-gray-900 hover:bg-gray-800 text-white"

@@ -33,12 +33,6 @@ const useDepartmentStore = create((set, get) => ({
     const cacheAge = now - state.lastFetched;
     const isValid = cacheAge < state.cacheTime;
     
-    console.log('Department cache validation:', {
-      lastFetched: state.lastFetched,
-      cacheAge: cacheAge / 1000 / 60, // in minutes
-      isValid,
-      cacheTime: state.cacheTime / 1000 / 60 // in minutes
-    });
     
     return isValid;
   },
@@ -52,12 +46,6 @@ const useDepartmentStore = create((set, get) => ({
     const cacheAge = now - state.lastVisibleFetch;
     const isValid = cacheAge < state.cacheTime;
     
-    console.log('Visible departments cache validation:', {
-      lastVisibleFetch: state.lastVisibleFetch,
-      cacheAge: cacheAge / 1000 / 60, // in minutes
-      isValid,
-      cacheTime: state.cacheTime / 1000 / 60 // in minutes
-    });
     
     return isValid;
   },
@@ -68,13 +56,11 @@ const useDepartmentStore = create((set, get) => ({
     
     // Return cached data if valid and not forcing fetch
     if (!forceFetch && state.departments.length > 0 && state.isCacheValid()) {
-      console.log('Using cached all departments data');
       return { success: true, departments: state.departments };
     }
 
     try {
       set({ loading: true, error: null });
-      console.log('Fetching all departments from Firestore...');
       
       const result = await getAllDepartments();
       
@@ -84,7 +70,6 @@ const useDepartmentStore = create((set, get) => ({
           lastFetched: Date.now()
         });
         
-        console.log('All departments data stored in cache');
         return { success: true, departments: result.departments };
       } else {
         const error = 'Failed to fetch departments';
@@ -106,13 +91,11 @@ const useDepartmentStore = create((set, get) => ({
     
     // Return cached data if valid and not forcing fetch
     if (!forceFetch && state.visibleDepartments.length > 0 && state.isVisibleCacheValid()) {
-      console.log('Using cached visible departments data');
       return { success: true, departments: state.visibleDepartments };
     }
 
     try {
       set({ loading: true, error: null });
-      console.log('Fetching visible departments from Firestore...');
       
       const result = await getVisibleDepartments();
       
@@ -122,7 +105,6 @@ const useDepartmentStore = create((set, get) => ({
           lastVisibleFetch: Date.now()
         });
         
-        console.log('Visible departments data stored in cache');
         return { success: true, departments: result.departments };
       } else {
         const error = 'Failed to fetch visible departments';
@@ -176,7 +158,6 @@ const useDepartmentStore = create((set, get) => ({
           lastVisibleFetch: Date.now()
         });
         
-        console.log(`Department ${isHidden ? 'hidden' : 'shown'} and cache updated`);
         return { success: true };
       } else {
         const error = 'Failed to toggle department visibility';
@@ -206,7 +187,6 @@ const useDepartmentStore = create((set, get) => ({
           lastVisibleFetch: null
         });
         
-        console.log('Department added, cache invalidated');
         return { success: true, id: result.id };
       } else {
         const error = 'Failed to add department';
@@ -248,7 +228,6 @@ const useDepartmentStore = create((set, get) => ({
           lastVisibleFetch: Date.now()
         });
         
-        console.log('Department updated and cache refreshed');
         return { success: true };
       } else {
         const error = 'Failed to update department';
@@ -285,7 +264,6 @@ const useDepartmentStore = create((set, get) => ({
           lastVisibleFetch: Date.now()
         });
         
-        console.log('Department deleted and cache updated');
         return { success: true };
       } else {
         const error = 'Failed to delete department';

@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
 import useDepartmentStore from "../store/departmentStore";
+import useUserStore from "../store/userStore";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -136,8 +137,15 @@ const RequestEvent = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState(0);
 
-  // Zustand department store
-  const { fetchVisibleDepartments } = useDepartmentStore();
+  // Zustand stores - using stable references to prevent infinite loops
+  const fetchVisibleDepartments = useDepartmentStore((state) => state.fetchVisibleDepartments);
+  const fetchCurrentUser = useUserStore((state) => state.fetchCurrentUser);
+  const getUserDepartment = useUserStore((state) => state.getUserDepartment);
+  const submitEventRequest = useEventStore((state) => state.submitEventRequest);
+  const setPreferredDates = useEventStore((state) => state.setPreferredDates);
+  const togglePreferredDatesModal = useEventStore((state) => state.togglePreferredDatesModal);
+  const getBookedDates = useEventStore((state) => state.getBookedDates);
+  const preferredDates = useEventStore((state) => state.preferredDates);
   
   // Departments and requirements state
   const [departments, setDepartments] = useState([]);
@@ -262,16 +270,17 @@ const RequestEvent = () => {
   };
 
   useEffect(() => {
-    // Check if user is authenticated and load initial data
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
+    // Initialize user data and check authentication using user store
+    const initializeUserData = async () => {
+      const result = await fetchCurrentUser();
+      if (!result.success) {
         toast.error("Please login to submit event requests");
         navigate('/');
       }
-    });
-
-    return () => unsubscribe();
-  }, [navigate, formData.location]);
+    };
+    
+    initializeUserData();
+  }, [navigate]); // Removed formData.location and fetchCurrentUser from dependencies
 
 
   // Check form completion for each section
@@ -288,7 +297,6 @@ const RequestEvent = () => {
           draft.vip &&
           draft.classifications;
           // withGov is optional, so we don't check it
-        console.log('Draft validation:', draft, 'Complete:', isComplete);
         return isComplete;
       }) :
       // For single location: check traditional form fields
@@ -353,14 +361,6 @@ const RequestEvent = () => {
       isRequirementsComplete && 
       isScheduleComplete;
 
-    console.log('Validation results:', {
-      hasMultipleLocations,
-      locationDraftsLength: locationDrafts.length,
-      isEventDetailsComplete,
-      isAttachmentsComplete,
-      isTagDepartmentsComplete
-    });
-
     setCompletedSteps({
       eventDetails: isEventDetailsComplete,
       attachments: isAttachmentsComplete,
@@ -394,25 +394,17 @@ const RequestEvent = () => {
   // Test booking removed - using real data from database
 
 
-  // Fetch departments function using Zustand store
+  // Fetch departments function using Zustand stores (fully optimized)
   const fetchDepartments = async () => {
     try {
-      // Get current user's department
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        toast.error("User not authenticated");
+      // Get current user's department using cached user store
+      const userResult = await getUserDepartment();
+      if (!userResult.success) {
+        toast.error("User not authenticated or department not found");
         return;
       }
 
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) {
-        toast.error("User data not found");
-        return;
-      }
-
-      const userData = userDocSnap.data();
-      const userDepartment = userData.department;
+      const userDepartment = userResult.department;
 
       // Use Zustand store to get visible departments (with caching)
       const result = await fetchVisibleDepartments();
@@ -438,6 +430,7 @@ const RequestEvent = () => {
         toast.error("Failed to fetch departments");
       }
     } catch (error) {
+      console.error('Error fetching departments:', error);
       toast.error("An error occurred while fetching departments");
     }
   };
@@ -620,20 +613,17 @@ const RequestEvent = () => {
           });
         } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           // For PDFs, use a safe compression approach that maintains file integrity
-          console.log('PDF file detected - attempting safe compression');
           
           try {
             // Use browser's built-in compression by converting to compressed blob
             const compressedFile = await compressPDF(file);
             return compressedFile;
           } catch (pdfError) {
-            console.log('PDF compression failed, using original file');
             return file;
           }
         } else if (file.type.includes('document') || file.type.includes('word') || 
                    file.name.toLowerCase().endsWith('.doc') || file.name.toLowerCase().endsWith('.docx')) {
           // For Word documents, simulate compression while maintaining file integrity
-          console.log('Word document detected - simulating compression');
           
           // Simulate compression time
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -940,12 +930,12 @@ const RequestEvent = () => {
     setLocationSelectedFromDropdown(true);
     
     // Show preferred dates modal
-    useEventStore.getState().setPreferredDates({
+    setPreferredDates({
       location: location,
       startDate: null,
       endDate: null
     });
-    useEventStore.getState().togglePreferredDatesModal(true);
+    togglePreferredDatesModal(true);
     
     // Reset location selection flag after a delay
     setTimeout(() => {
@@ -1052,13 +1042,10 @@ const RequestEvent = () => {
 
     // Clear any custom location input state
     setShowCustomLocationInput(false);
-    setCustomLocation("");
-
     toast.success(`Saved location ${currentLocationIndex + 1}. Now configuring location ${nextIndex + 1}.`);
   };
 
-  const { submitEventRequest, setPreferredDates, togglePreferredDatesModal } = useEventStore();
-  const preferredDates = useEventStore((state) => state.preferredDates);
+  // preferredDates now comes from the main useEventStore hook above
 
   // Effect to populate schedule dates from preferred dates
   useEffect(() => {
@@ -1143,23 +1130,14 @@ const RequestEvent = () => {
       }
 
 
-      // Get current Firebase user
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        toast.error("User not authenticated");
+      // Get current user data using cached user store
+      const userResult = await fetchCurrentUser();
+      if (!userResult.success) {
+        toast.error(userResult.error || "User authentication failed");
         return;
       }
 
-      // Get user data from Firestore
-      const userDocRef = doc(db, "users", currentUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (!userDocSnap.exists()) {
-        toast.error("User data not found");
-        return;
-      }
-
-      const userData = userDocSnap.data();
+      const { user: currentUser, userData } = userResult;
 
       // Combine start date and time
       const [startHours, startMinutes] = startTime.split(':');
@@ -1214,10 +1192,8 @@ const RequestEvent = () => {
       
       if (hasMultipleLocations) {
         // For multiple locations: use locationDrafts directly (modal workflow)
-        console.log('Using locationDrafts for submission:', locationDrafts);
         
         locationDrafts.forEach((draft, index) => {
-          console.log(`Processing draft ${index + 1}:`, draft);
           
           if (draft.location && draft.startDate && draft.endDate) {
             // Create timestamps for this specific location
@@ -1249,10 +1225,8 @@ const RequestEvent = () => {
               locationIndex: index + 1 // For identification (1, 2, 3, etc.)
             };
             
-            console.log(`Event data for location ${index + 1}:`, eventData);
             eventsToSubmit.push(eventData);
           } else {
-            console.warn(`Skipping incomplete draft ${index + 1}:`, draft);
           }
         });
       } else {
@@ -1903,12 +1877,12 @@ const RequestEvent = () => {
                                 setIsLocationOpen(false);
                                 
                                 // Show preferred dates modal
-                                useEventStore.getState().setPreferredDates({
+                                setPreferredDates({
                                   location: currentValue,
                                   startDate: null,
                                   endDate: null
                                 });
-                                useEventStore.getState().togglePreferredDatesModal(true);
+                                togglePreferredDatesModal(true);
                               }}
                               className={cn(
                                 "cursor-pointer",
@@ -1980,12 +1954,12 @@ const RequestEvent = () => {
                               setCustomLocation("");
                               
                               // Show preferred dates modal
-                              useEventStore.getState().setPreferredDates({
+                              setPreferredDates({
                                 location: customLocation.trim(),
                                 startDate: null,
                                 endDate: null
                               });
-                              useEventStore.getState().togglePreferredDatesModal(true);
+                              togglePreferredDatesModal(true);
                             }
                           }}
                           className="bg-black hover:bg-gray-800 text-white h-12"
@@ -4658,7 +4632,7 @@ const RequestEvent = () => {
                                   setIsModalLocationOpen(false);
                                   
                                   // Get booked dates for this location
-                                  await useEventStore.getState().getBookedDates(currentValue);
+                                  await getBookedDates(currentValue);
                                   
                                   // Show preferred dates modal
                                   useEventStore.getState().setPreferredDates({
@@ -5162,7 +5136,6 @@ const RequestEvent = () => {
                     return;
                   }
                   
-                  console.log('Final location drafts:', finalLocationDrafts);
                   
                   // Don't populate single event fields when using multiple locations
                   // The validation will check locationDrafts instead of formData
@@ -5188,7 +5161,6 @@ const RequestEvent = () => {
                         tagDepartmentsCard.style.transform = '';
                       }, 3000);
                     } else {
-                      console.log('Tag departments card not found');
                     }
                   }, 800);
                   

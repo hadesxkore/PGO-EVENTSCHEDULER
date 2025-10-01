@@ -34,38 +34,50 @@ const AdminLayout = ({ children, userData }) => {
     window.location.reload();
   };
 
-  const sidebarItems = [
+  // Define all sidebar items
+  const allSidebarItems = [
     {
       title: "Dashboard",
       icon: <LayoutDashboard className="h-6 w-6" />,
       href: "/admin/dashboard",
-    },
-    {
-      title: "Event Requests",
-      icon: <CalendarDays className="h-6 w-6" />,
-      href: "/admin/event-requests",
+      roles: ["superadmin"], // Only SuperAdmin can see Dashboard
     },
     {
       title: "All Events",
       icon: <CalendarDays className="h-6 w-6" />,
+      href: "/admin/event-requests",
+      roles: ["admin", "superadmin"], // Both Admin and SuperAdmin can see All Events
+    },
+    {
+      title: "Calendar",
+      icon: <CalendarDays className="h-6 w-6" />,
       href: "/admin/all-events",
+      roles: ["admin", "superadmin"], // Both Admin and SuperAdmin can see Calendar
     },
     {
       title: "Users",
       icon: <Users className="h-6 w-6" />,
       href: "/admin/users",
+      roles: ["superadmin"], // Only SuperAdmin can see Users
     },
     {
       title: "Departments",
       icon: <Building2 className="h-6 w-6" />,
       href: "/admin/departments",
+      roles: ["superadmin"], // Only SuperAdmin can see Departments
     },
     {
       title: "Reports",
       icon: <BarChart3 className="h-6 w-6" />,
       href: "/admin/reports",
+      roles: ["superadmin"], // Only SuperAdmin can see Reports
     },
   ];
+
+  // Filter sidebar items based on user role
+  const sidebarItems = allSidebarItems.filter(item => 
+    item.roles.includes(userData?.role?.toLowerCase())
+  );
 
   return (
     <div className={cn(
@@ -151,14 +163,14 @@ const AdminLayout = ({ children, userData }) => {
                 </AvatarFallback>
               </Avatar>
               {!collapsed && (
-                <div className="flex-1 min-w-0">
+                <div>
                   <h2 className="text-base font-bold truncate">
                     {userData?.firstName}
                   </h2>
                   <div className="flex items-center gap-1 mt-1">
                     <Shield className="h-3 w-3 text-red-500" />
                     <p className="text-sm font-semibold text-red-500">
-                      Administrator
+                      {userData?.role?.toLowerCase() === 'superadmin' ? 'Super Administrator' : 'Administrator'}
                     </p>
                   </div>
                 </div>

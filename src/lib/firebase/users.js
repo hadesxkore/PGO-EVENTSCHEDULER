@@ -13,19 +13,48 @@ import {
 export const getAllUsers = async () => {
   try {
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    // Remove orderBy to avoid issues with missing createdAt fields
+    const querySnapshot = await getDocs(usersRef);
     const users = [];
     
+    console.log('Firestore query returned', querySnapshot.size, 'documents');
+    
     querySnapshot.forEach((doc) => {
-      users.push({ 
+      const userData = doc.data();
+      const generatedName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+      
+      // Debug logging for users with missing lastName
+      if (!userData.lastName && userData.firstName) {
+        console.log('User with missing lastName:', {
+          id: doc.id,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          generatedName: generatedName,
+          role: userData.role
+        });
+      }
+      
+      const userObj = { 
         id: doc.id,
-        ...doc.data(),
+        ...userData,
         // Add computed fields
-        name: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim(),
-        initials: `${(doc.data().firstName?.[0] || '').toUpperCase()}${(doc.data().lastName?.[0] || '').toUpperCase()}`,
-        status: doc.data().status || 'active', // Default to active if status is not set
-      });
+        name: generatedName,
+        initials: `${(userData.firstName?.[0] || '').toUpperCase()}${(userData.lastName?.[0] || '').toUpperCase()}`,
+        status: userData.status || 'active', // Default to active if status is not set
+      };
+      
+      // Debug logging for admin/superadmin roles
+      if (userData.role === 'Admin' || userData.role === 'SuperAdmin') {
+        console.log('Found admin/superadmin user:', {
+          id: doc.id,
+          role: userData.role,
+          firstName: userData.firstName,
+          email: userData.email,
+          generatedName: generatedName
+        });
+      }
+      
+      users.push(userObj);
     });
 
     return { success: true, users };
@@ -50,9 +79,17 @@ export const getActiveUsers = async () => {
 export const getAdminUsers = async () => {
   try {
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('role', '==', 'admin'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.size;
+    
+    // Query for admin users
+    const adminQuery = query(usersRef, where('role', '==', 'admin'));
+    const adminSnapshot = await getDocs(adminQuery);
+    
+    // Query for superadmin users
+    const superAdminQuery = query(usersRef, where('role', '==', 'superadmin'));
+    const superAdminSnapshot = await getDocs(superAdminQuery);
+    
+    // Return combined count
+    return adminSnapshot.size + superAdminSnapshot.size;
   } catch (error) {
     console.error('Error getting admin users count:', error);
     return 0;

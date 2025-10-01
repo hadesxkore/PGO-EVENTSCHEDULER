@@ -82,6 +82,9 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const roleColors = {
   admin: "bg-purple-500/10 text-purple-500",
+  Admin: "bg-purple-500/10 text-purple-500",
+  superadmin: "bg-red-500/10 text-red-500",
+  SuperAdmin: "bg-red-500/10 text-red-500",
   user: "bg-blue-500/10 text-blue-500",
 };
 
@@ -136,6 +139,34 @@ const Users = () => {
           setUsers(usersResult.users);
           setActiveUsersCount(activeCount);
           setAdminUsersCount(adminCount);
+          
+          // Debug logging to check user roles
+          console.log('All users loaded:', usersResult.users.map(user => ({
+            id: user.id,
+            name: user.name,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            roleType: typeof user.role,
+            status: user.status
+          })));
+          
+          // Show unique roles in the system
+          const uniqueRoles = [...new Set(usersResult.users.map(user => user.role))];
+          console.log('Unique roles found in database:', uniqueRoles);
+          
+          // Check for admin and superadmin users specifically
+          const adminUsers = usersResult.users.filter(user => user.role === 'Admin');
+          const superAdminUsers = usersResult.users.filter(user => user.role === 'SuperAdmin');
+          console.log('Admin users found:', adminUsers.length, adminUsers);
+          console.log('SuperAdmin users found:', superAdminUsers.length, superAdminUsers);
+          
+          // Also check with different case variations
+          const adminUsersLower = usersResult.users.filter(user => user.role?.toLowerCase() === 'admin');
+          const superAdminUsersLower = usersResult.users.filter(user => user.role?.toLowerCase() === 'superadmin');
+          console.log('admin (lowercase) users found:', adminUsersLower.length, adminUsersLower);
+          console.log('superadmin (lowercase) users found:', superAdminUsersLower.length, superAdminUsersLower);
         } else {
           toast.error("Failed to fetch users");
         }
@@ -201,14 +232,35 @@ const Users = () => {
 
   const filteredUsers = users.filter(user => {
     const matchesMainSearch = 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchTerm.toLowerCase());
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesTableSearch = tableSearchTerm === "" || 
-      user.name.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(tableSearchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      user.name?.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
+      (user.department && user.department.toLowerCase().includes(tableSearchTerm.toLowerCase()));
+    // Normalize role values for comparison (handle case and spaces)
+    const normalizeRole = (role) => role?.toLowerCase().replace(/\s+/g, '');
+    const matchesRole = roleFilter === 'all' || normalizeRole(user.role) === normalizeRole(roleFilter);
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    
+    // Debug logging for role filtering
+    if (roleFilter === 'SuperAdmin' || roleFilter === 'Admin') {
+      console.log(`Debugging ${roleFilter} filter:`, {
+        userName: user.name,
+        userFirstName: user.firstName,
+        userLastName: user.lastName,
+        userRole: user.role,
+        normalizedUserRole: normalizeRole(user.role),
+        roleFilter: roleFilter,
+        normalizedRoleFilter: normalizeRole(roleFilter),
+        matchesRole: matchesRole,
+        matchesMainSearch: matchesMainSearch,
+        matchesTableSearch: matchesTableSearch,
+        matchesStatus: matchesStatus,
+        allFiltersMatch: matchesMainSearch && matchesTableSearch && matchesRole && matchesStatus
+      });
+    }
+    
     return matchesMainSearch && matchesTableSearch && matchesRole && matchesStatus;
   });
 
@@ -270,7 +322,7 @@ const Users = () => {
 
       // Create user document in Firestore
       const userDocRef = doc(db, "users", data.localId);
-      await setDoc(userDocRef, {
+      const userData = {
         firstName: addUserForm.firstName,
         lastName: addUserForm.lastName,
         username: addUserForm.username,
@@ -281,7 +333,10 @@ const Users = () => {
         emailVerified: true,  // Set as verified by default
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+      
+      console.log('Creating user with data:', userData);
+      await setDoc(userDocRef, userData);
 
       // Update users list
       const usersResult = await getAllUsers();
@@ -493,7 +548,10 @@ const Users = () => {
                   )}
                 />
               </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <Select value={roleFilter} onValueChange={(value) => {
+                console.log('Role filter changed to:', value);
+                setRoleFilter(value);
+              }}>
                 <SelectTrigger className={cn(
                   "w-[130px]",
                   isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
@@ -505,7 +563,8 @@ const Users = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="SuperAdmin">Super Admin</SelectItem>
                   <SelectItem value="user">User</SelectItem>
                 </SelectContent>
               </Select>
@@ -575,7 +634,7 @@ const Users = () => {
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-gray-400" />
                     <span className={isDarkMode ? "text-gray-100" : "text-gray-900"}>
-                      {user.department}
+                      {user.department || 'N/A'}
                     </span>
                   </div>
                 </TableCell>
@@ -1086,7 +1145,8 @@ const Users = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                    <SelectItem value="SuperAdmin">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

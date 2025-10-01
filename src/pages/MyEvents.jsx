@@ -32,6 +32,7 @@ import {
   AlertCircle,
   ChevronDown,
   Trash2,
+  Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 import ModernCalendar from "@/components/ModernCalendar";
@@ -291,11 +292,11 @@ const MyEvents = () => {
     >
       {/* Header */}
       <motion.div variants={item} className="mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1
               className={cn(
-                "text-3xl font-bold",
+                "text-2xl sm:text-3xl font-bold",
                 isDarkMode ? "text-white" : "text-gray-900"
               )}
             >
@@ -330,7 +331,8 @@ const MyEvents = () => {
               className="bg-black hover:bg-gray-800 text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Request Event
+              <span className="hidden sm:inline">Request Event</span>
+              <span className="sm:hidden">Request</span>
             </Button>
           </div>
         </div>
@@ -396,19 +398,21 @@ const MyEvents = () => {
           <div className="px-2">
             {loading ? (
               <div className="py-8 text-center">
-                <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                  Loading events...
-                </p>
-              </div>
-            ) : filteredEvents.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                  No events found
-                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <RotateCw className="h-5 w-5 animate-spin text-gray-400" />
+                  <p className={cn(
+                    "text-lg font-medium",
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  )}>
+                    Loading your events...
+                  </p>
+                </div>
               </div>
             ) : (
               <div>
-                <Table>
+                {/* Desktop Table View */}
+                <div className="hidden lg:block">
+                  <Table>
                   <TableHeader>
                     <TableRow className={cn(
                       "border-b-2",
@@ -932,15 +936,336 @@ const MyEvents = () => {
                 )}>
                   <p>Click the "View" button to see complete event details and requirements</p>
                 </div>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden space-y-4 p-4">
+                  {filteredEvents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                        No events found
+                      </p>
+                    </div>
+                  ) : (
+                    filteredEvents
+                      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                      .map((event, index) => (
+                        <motion.div
+                          key={event.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.1 }}
+                          className={cn(
+                            "rounded-xl border p-4 space-y-4",
+                            isDarkMode 
+                              ? "bg-slate-800/50 border-slate-700/50" 
+                              : "bg-white border-gray-200"
+                          )}
+                        >
+                          {/* Event Title */}
+                          <div className="space-y-1">
+                            <h3 className={cn(
+                              "font-semibold text-lg leading-tight",
+                              isDarkMode ? "text-gray-100" : "text-gray-900"
+                            )}>
+                              {event.title}
+                            </h3>
+                            <p className={cn(
+                              "text-sm",
+                              isDarkMode ? "text-gray-400" : "text-gray-600"
+                            )}>
+                              {event.department}
+                            </p>
+                          </div>
+
+                          {/* Event Details Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            {/* Requestor */}
+                            <div>
+                              <span className={cn(
+                                "font-medium",
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
+                              )}>
+                                Requestor:
+                              </span>
+                              <p className={cn(
+                                "mt-1",
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {event.requestor}
+                              </p>
+                            </div>
+
+                            {/* Location */}
+                            <div>
+                              <span className={cn(
+                                "font-medium",
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
+                              )}>
+                                Location:
+                              </span>
+                              <p className={cn(
+                                "mt-1",
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {event.locations && event.locations.length > 0 ? (
+                                  event.locations.map((location, idx) => (
+                                    <span key={idx} className="block">
+                                      {location.location || "Not specified"}
+                                    </span>
+                                  ))
+                                ) : (
+                                  event.location || "Not specified"
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Start Date */}
+                            <div>
+                              <span className={cn(
+                                "font-medium",
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
+                              )}>
+                                Start Date:
+                              </span>
+                              <p className={cn(
+                                "mt-1",
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {event.locations && event.locations.length > 0 ? (
+                                  event.locations.map((location, idx) => (
+                                    <span key={idx} className="block">
+                                      {location.startDate?.seconds ? 
+                                        format(new Date(location.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
+                                        "Not set"
+                                      }
+                                    </span>
+                                  ))
+                                ) : (
+                                  event.startDate?.seconds ? 
+                                    format(new Date(event.startDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
+                                    "Not set"
+                                )}
+                              </p>
+                            </div>
+
+                            {/* End Date */}
+                            <div>
+                              <span className={cn(
+                                "font-medium",
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
+                              )}>
+                                End Date:
+                              </span>
+                              <p className={cn(
+                                "mt-1",
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {event.locations && event.locations.length > 0 ? (
+                                  event.locations.map((location, idx) => (
+                                    <span key={idx} className="block">
+                                      {location.endDate?.seconds ? 
+                                        format(new Date(location.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
+                                        "Not set"
+                                      }
+                                    </span>
+                                  ))
+                                ) : (
+                                  event.endDate?.seconds ? 
+                                    format(new Date(event.endDate.seconds * 1000), "MMM d, yyyy h:mm a") : 
+                                    "Not set"
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Status and Actions Row */}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-slate-700">
+                            {/* Status */}
+                            <div className="flex items-center">
+                              <Badge
+                                variant={event.status === 'approved' ? 'success' : event.status === 'disapproved' ? 'destructive' : 'secondary'}
+                                className={cn(
+                                  "font-medium",
+                                  event.status === 'approved' 
+                                    ? "bg-green-500/10 text-green-500" 
+                                    : event.status === 'disapproved' 
+                                      ? "bg-red-500/10 text-red-500" 
+                                      : isDarkMode 
+                                        ? "bg-yellow-500/10 text-yellow-400" 
+                                        : "bg-yellow-500/10 text-yellow-600"
+                                )}
+                              >
+                                {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
+                              </Badge>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "gap-1.5 font-medium transition-all duration-200",
+                                  isDarkMode
+                                    ? "bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-600"
+                                    : "bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:shadow-md"
+                                )}
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">View</span>
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setEventToEdit(event);
+                                  
+                                  // Automatically detect if event has multiple locations
+                                  const hasMultipleLocations = event.isMultipleLocations && event.locations && event.locations.length > 0;
+                                  
+                                  // Always set the mode based on the event data - no user choice needed
+                                  setEditUseMultipleLocations(hasMultipleLocations);
+                                  
+                                  if (hasMultipleLocations) {
+                                    // Initialize multiple locations mode
+                                    setEditMultipleLocations(event.locations.map((loc, idx) => {
+                                      // Handle the data structure where date and time are separate fields
+                                      let startDate, endDate;
+                                      
+                                      if (loc.startDate && loc.startTime) {
+                                        // Combine date string and time string into a proper Date object
+                                        const startDateTime = `${loc.startDate}T${loc.startTime}:00`;
+                                        startDate = new Date(startDateTime);
+                                      } else if (loc.startDate?.toDate) {
+                                        startDate = loc.startDate.toDate();
+                                      } else if (loc.startDate?.seconds) {
+                                        startDate = new Date(loc.startDate.seconds * 1000);
+                                      } else {
+                                        startDate = new Date();
+                                      }
+                                      
+                                      if (loc.endDate && loc.endTime) {
+                                        // Combine date string and time string into a proper Date object
+                                        const endDateTime = `${loc.endDate}T${loc.endTime}:00`;
+                                        endDate = new Date(endDateTime);
+                                      } else if (loc.endDate?.toDate) {
+                                        endDate = loc.endDate.toDate();
+                                      } else if (loc.endDate?.seconds) {
+                                        endDate = new Date(loc.endDate.seconds * 1000);
+                                      } else {
+                                        endDate = new Date();
+                                      }
+
+                                      return {
+                                        id: loc.id || Date.now() + Math.random(),
+                                        location: loc.location || "",
+                                        startDate: startDate,
+                                        endDate: endDate,
+                                        startTime: loc.startTime || format(startDate, "HH:mm"),
+                                        endTime: loc.endTime || format(endDate, "HH:mm")
+                                      };
+                                    }));
+                                    
+                                    // Set form data for title only
+                                    setEditFormData({
+                                      title: event.title,
+                                      location: "",
+                                    });
+                                  } else {
+                                    // Initialize single location mode
+                                    setEditMultipleLocations([]);
+                                    setEditFormData({
+                                      title: event.title,
+                                      location: event.location,
+                                    });
+                                    
+                                    // Check if location is in default list
+                                    const isDefaultLocation = defaultLocations.includes(event.location);
+                                    setShowCustomLocationInput(!isDefaultLocation);
+                                    if (!isDefaultLocation) {
+                                      setCustomLocation(event.location);
+                                    }
+                                    
+                                    // Set dates and times
+                                    if (event.startDate) {
+                                      const startDate = event.startDate.toDate ? event.startDate.toDate() : new Date(event.startDate.seconds * 1000);
+                                      setEditStartDate(startDate);
+                                      setEditStartTime(format(startDate, "HH:mm"));
+                                    }
+                                    if (event.endDate) {
+                                      const endDate = event.endDate.toDate ? event.endDate.toDate() : new Date(event.endDate.seconds * 1000);
+                                      setEditEndDate(endDate);
+                                      setEditEndTime(format(endDate, "HH:mm"));
+                                    }
+                                  }
+                                  
+                                  setIsEditDialogOpen(true);
+                                }}
+                                className={cn(
+                                  "gap-1.5 font-medium transition-all duration-200",
+                                  isDarkMode
+                                    ? "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 hover:shadow-md"
+                                )}
+                              >
+                                <Pencil className="h-4 w-4" />
+                                <span className="hidden sm:inline">Edit</span>
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  try {
+                                    // Create the selected user object
+                                    const selectedUser = {
+                                      isDepartmentMessage: true,
+                                      department: event.departmentRequirements?.[0]?.departmentName || event.department,
+                                      eventTitle: event.title,
+                                      eventId: event.id,
+                                      email: `department@${(event.departmentRequirements?.[0]?.departmentName || event.department).toLowerCase().replace(/\s+/g, '')}`
+                                    };
+
+                                    // Navigate to messages page
+                                    navigate('/messages', { 
+                                      state: { 
+                                        selectedUser,
+                                        from: 'myEvents'
+                                      }
+                                    });
+                                  } catch (error) {
+                                    console.error('Navigation error:', error);
+                                    toast.error('Failed to open messages');
+                                  }
+                                }}
+                                className={cn(
+                                  "gap-1.5 font-medium transition-all duration-200",
+                                  isDarkMode
+                                    ? "bg-green-600 hover:bg-green-500 text-white border border-green-500"
+                                    : "bg-green-600 hover:bg-green-700 text-white border border-green-600 hover:shadow-md"
+                                )}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                                <span className="hidden sm:inline">Message</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                  )}
+                </div>
                 
                 {/* Pagination */}
                 {filteredEvents.length >= 7 && (
                   <div className={cn(
-                    "flex items-center justify-between px-6 py-4 border-t",
+                    "flex flex-col sm:flex-row sm:items-center justify-between px-4 lg:px-6 py-4 border-t gap-2",
                     isDarkMode ? "border-slate-700" : "border-gray-100"
                   )}>
                     <p className={cn(
-                      "text-sm",
+                      "text-xs sm:text-sm",
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     )}>
                       Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredEvents.length)} of {filteredEvents.length} entries
@@ -951,7 +1276,7 @@ const MyEvents = () => {
                       transition={{ duration: 0.3 }}
                     >
                       <Pagination>
-                      <PaginationContent className="gap-1">
+                      <PaginationContent className="gap-1 flex-wrap">
                         <PaginationItem>
                           <motion.div
                             whileHover={{ scale: 1.05 }}
@@ -961,7 +1286,7 @@ const MyEvents = () => {
                             <PaginationPrevious 
                               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                               className={cn(
-                                "cursor-pointer transition-all duration-200 hover:shadow-md",
+                                "cursor-pointer transition-all duration-200 hover:shadow-md h-8 px-2 sm:h-10 sm:px-4",
                                 isDarkMode
                                   ? "hover:bg-slate-700 border-slate-600"
                                   : "hover:bg-gray-100 border-gray-200",
@@ -970,8 +1295,9 @@ const MyEvents = () => {
                             />
                           </motion.div>
                         </PaginationItem>
+                        {/* Desktop: Show page numbers */}
                         {Array.from({ length: Math.min(5, Math.ceil(filteredEvents.length / itemsPerPage)) }).map((_, i) => (
-                          <PaginationItem key={i}>
+                          <PaginationItem key={i} className="hidden sm:block">
                             <motion.div
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
@@ -981,7 +1307,7 @@ const MyEvents = () => {
                                 onClick={() => setCurrentPage(i + 1)}
                                 isActive={currentPage === i + 1}
                                 className={cn(
-                                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                                  "cursor-pointer transition-all duration-200 hover:shadow-md h-8 w-8 sm:h-10 sm:w-10",
                                   currentPage === i + 1
                                     ? isDarkMode
                                       ? "bg-blue-600 text-white border-blue-500 shadow-lg"
@@ -996,11 +1322,22 @@ const MyEvents = () => {
                             </motion.div>
                           </PaginationItem>
                         ))}
+                        {/* Mobile: Show only current page */}
+                        <PaginationItem className="sm:hidden">
+                          <span className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium",
+                            isDarkMode 
+                              ? "bg-slate-800 border-slate-700 text-white" 
+                              : "bg-white border-gray-200 text-gray-900"
+                          )}>
+                            {currentPage}
+                          </span>
+                        </PaginationItem>
                         <PaginationItem>
                           <PaginationNext 
                             onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredEvents.length / itemsPerPage), p + 1))}
                             className={cn(
-                              "cursor-pointer",
+                              "cursor-pointer h-8 px-2 sm:h-10 sm:px-4",
                               currentPage === Math.ceil(filteredEvents.length / itemsPerPage) && "pointer-events-none opacity-50"
                             )}
                           />
@@ -1018,25 +1355,25 @@ const MyEvents = () => {
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] p-0 border-0 bg-white rounded-2xl overflow-hidden max-h-[90vh]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[900px] lg:max-w-[1000px] p-0 border-0 bg-white rounded-lg sm:rounded-2xl overflow-hidden max-h-[90vh] h-[90vh] sm:h-auto">
           {selectedEvent && (
-            <ScrollArea className="h-[85vh] w-full">
+            <ScrollArea className="max-h-[90vh] w-full">
               {/* Header Section */}
-              <div className="relative bg-white p-8 border-b border-gray-200">
+              <div className="relative bg-white p-4 sm:p-8 border-b border-gray-200">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-4 top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                  className="absolute right-2 sm:right-4 top-2 sm:top-4 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
                   onClick={() => setIsViewDialogOpen(false)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
                 
-                <div className="space-y-3">
+                <div className="space-y-3 pr-10">
                   <Badge variant="outline" className="border-gray-300 text-gray-700 bg-gray-50">
                     {selectedEvent.department}
                   </Badge>
-                  <DialogTitle className="text-2xl font-bold text-gray-900 leading-tight">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
                     {selectedEvent.title}
                   </DialogTitle>
                   <p className="text-gray-600 text-sm">
@@ -1046,11 +1383,11 @@ const MyEvents = () => {
               </div>
 
               {/* Content Section */}
-              <div className="p-8 bg-gray-50 space-y-8">
+              <div className="p-4 sm:p-8 bg-gray-50 space-y-6 sm:space-y-8">
                 {/* Event Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                   {/* Requestor Card */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 rounded-lg bg-black">
                         <User className="h-5 w-5 text-white" />
@@ -1069,7 +1406,7 @@ const MyEvents = () => {
 
                   {/* Date & Time Card */}
                   {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm md:col-span-2">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm sm:col-span-2 lg:col-span-2">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-black">
                           <Calendar className="h-5 w-5 text-white" />
@@ -1178,7 +1515,7 @@ const MyEvents = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-black">
                           <Calendar className="h-5 w-5 text-white" />
@@ -1264,7 +1601,7 @@ const MyEvents = () => {
 
                   {/* Location Card */}
                   {selectedEvent.locations && selectedEvent.locations.length > 0 ? (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-black">
                           <MapPin className="h-5 w-5 text-white" />
@@ -1288,7 +1625,7 @@ const MyEvents = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-black">
                           <MapPin className="h-5 w-5 text-white" />
@@ -1431,7 +1768,147 @@ const MyEvents = () => {
                     </div>
                   </div>
                 </div>
+                {/* Governor's Requirements Attachments Card */}
+                {selectedEvent.govAttachments && Object.keys(selectedEvent.govAttachments).length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Shield className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900">Governor's Requirements Attachments</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Available for DL Briefer */}
+                      {selectedEvent.govAttachments.availableForDLBriefer && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedEvent.govAttachments.availableForDLBriefer.name}</p>
+                              <p className="text-sm text-gray-600">Available for DL Briefer</p>
+                              <p className="text-sm text-gray-500">{(selectedEvent.govAttachments.availableForDLBriefer.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => {
+                                const viewUrl = getCloudinaryFileUrl(selectedEvent.govAttachments.availableForDLBriefer.url);
+                                window.open(viewUrl, '_blank');
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedEvent.govAttachments.availableForDLBriefer.url, selectedEvent.govAttachments.availableForDLBriefer.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
+                      {/* Briefer Template */}
+                      {selectedEvent.govAttachments.brieferTemplate && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedEvent.govAttachments.brieferTemplate.name}</p>
+                              <p className="text-sm text-gray-600">Briefer Template</p>
+                              <p className="text-sm text-gray-500">{(selectedEvent.govAttachments.brieferTemplate.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => {
+                                const viewUrl = getCloudinaryFileUrl(selectedEvent.govAttachments.brieferTemplate.url);
+                                window.open(viewUrl, '_blank');
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedEvent.govAttachments.brieferTemplate.url, selectedEvent.govAttachments.brieferTemplate.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Programme */}
+                      {selectedEvent.govAttachments.programme && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedEvent.govAttachments.programme.name}</p>
+                              <p className="text-sm text-gray-600">Programme</p>
+                              <p className="text-sm text-gray-500">{(selectedEvent.govAttachments.programme.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => {
+                                const viewUrl = getCloudinaryFileUrl(selectedEvent.govAttachments.programme.url);
+                                window.open(viewUrl, '_blank');
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedEvent.govAttachments.programme.url, selectedEvent.govAttachments.programme.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Attachments Card */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="flex items-center gap-3 p-6 border-b border-gray-100">

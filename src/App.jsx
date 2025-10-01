@@ -75,18 +75,38 @@ function App() {
     <ThemeProvider>
       <Router>
         {isAuthenticated ? (
-          userData?.role?.toLowerCase() === 'admin' ? (
+          (userData?.role?.toLowerCase() === 'admin' || userData?.role?.toLowerCase() === 'superadmin') ? (
             <AdminLayout userData={userData} onLogout={handleLogout}>
               <Routes>
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/event-requests" element={<EventRequests />} />
-                <Route path="/admin/users" element={<Users />} />
-                <Route path="/admin/departments" element={<Departments />} />
-                <Route path="/admin/reports" element={<Reports />} />
+                <Route path="/admin/dashboard" element={
+                  userData?.role?.toLowerCase() === 'superadmin' ? 
+                    <AdminDashboard /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
+                <Route path="/admin/event-requests" element={
+                  userData?.role?.toLowerCase() === 'superadmin' || userData?.role?.toLowerCase() === 'admin' ? 
+                    <EventRequests userData={userData} /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
+                <Route path="/admin/users" element={
+                  userData?.role?.toLowerCase() === 'superadmin' ? 
+                    <Users /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
+                <Route path="/admin/departments" element={
+                  userData?.role?.toLowerCase() === 'superadmin' ? 
+                    <Departments /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
+                <Route path="/admin/reports" element={
+                  userData?.role?.toLowerCase() === 'superadmin' ? 
+                    <Reports /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
                 <Route path="/admin/all-events" element={<AllEvents />} />
-                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="/admin" element={<Navigate to={userData?.role?.toLowerCase() === 'superadmin' ? "/admin/dashboard" : "/admin/all-events"} replace />} />
+                <Route path="/" element={<Navigate to={userData?.role?.toLowerCase() === 'superadmin' ? "/admin/dashboard" : "/admin/all-events"} replace />} />
+                <Route path="*" element={<Navigate to={userData?.role?.toLowerCase() === 'superadmin' ? "/admin/dashboard" : "/admin/all-events"} replace />} />
               </Routes>
             </AdminLayout>
           ) : (

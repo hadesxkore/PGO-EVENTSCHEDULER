@@ -100,7 +100,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-const EventRequests = () => {
+const EventRequests = ({ userData }) => {
   const { isDarkMode } = useTheme();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -480,34 +480,34 @@ const EventRequests = () => {
           "rounded-xl border shadow-sm",
           isDarkMode ? "border-slate-700 bg-slate-900" : "border-gray-100 bg-white"
         )}>
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Table Header */}
             <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
                 <div>
                   <h3 className={cn(
-                    "text-2xl font-bold mb-2",
+                    "text-xl lg:text-2xl font-bold mb-2",
                     isDarkMode ? "text-gray-100" : "text-gray-900"
                   )}>
                     Event Requests
                   </h3>
                   <p className={cn(
-                    "text-base",
+                    "text-sm lg:text-base",
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   )}>
                     Manage and review all event requests from users
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className={cn(
-                    "h-10 px-4 text-base font-medium",
+                    "h-8 lg:h-10 px-3 lg:px-4 text-sm lg:text-base font-medium",
                     isDarkMode ? "border-slate-700" : "border-gray-200"
                   )}>
                     {events.length} total
                   </Badge>
                   {(searchTerm || statusFilter !== "all") && (
                     <Badge variant="secondary" className={cn(
-                      "h-10 px-4 text-base font-medium",
+                      "h-8 lg:h-10 px-3 lg:px-4 text-sm lg:text-base font-medium",
                       isDarkMode 
                         ? "bg-slate-700 text-slate-200 border-slate-600" 
                         : "bg-gray-100 text-gray-700 border-gray-300"
@@ -519,11 +519,11 @@ const EventRequests = () => {
               </div>
 
               {/* Search and Filters */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[300px]">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search by event title, requestor, or location..."
+                    placeholder="Search events..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className={cn(
@@ -534,19 +534,20 @@ const EventRequests = () => {
                     )}
                   />
                 </div>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger
-                    className={cn(
-                      "w-[200px]",
-                      isDarkMode
-                        ? "bg-slate-900 border-slate-700"
-                        : "bg-white border-gray-200"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-gray-400" />
-                      <SelectValue placeholder="Sort by..." />
-                    </div>
+                <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger
+                      className={cn(
+                        "w-full sm:w-[180px]",
+                        isDarkMode
+                          ? "bg-slate-900 border-slate-700"
+                          : "bg-white border-gray-200"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-gray-400" />
+                        <SelectValue placeholder="Sort by..." />
+                      </div>
                   </SelectTrigger>
                   <SelectContent
                     className={cn(
@@ -619,16 +620,16 @@ const EventRequests = () => {
                   </SelectContent>
                 </Select>
 
-                {/* Status filter */}
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger
-                    className={cn(
-                      "w-[150px]",
-                      isDarkMode
-                        ? "bg-slate-900 border-slate-700"
-                        : "bg-white border-gray-200"
-                    )}
-                  >
+                  {/* Status filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger
+                      className={cn(
+                        "w-full sm:w-[140px]",
+                        isDarkMode
+                          ? "bg-slate-900 border-slate-700"
+                          : "bg-white border-gray-200"
+                      )}
+                    >
                     <div className="flex items-center gap-2">
                       <Settings className="h-4 w-4 text-gray-400" />
                       <SelectValue placeholder="All Status" />
@@ -669,68 +670,72 @@ const EventRequests = () => {
                   </SelectContent>
                 </Select>
 
-                {/* Clear Filters Button */}
-                {(searchTerm || statusFilter !== "all") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setStatusFilter("all");
-                    }}
-                    className={cn(
-                      "gap-2 whitespace-nowrap",
-                      isDarkMode
-                        ? "border-slate-600 hover:bg-slate-800 text-slate-300"
-                        : "border-gray-300 hover:bg-gray-50 text-gray-600"
-                    )}
-                  >
-                    <X className="h-4 w-4" />
-                    Clear Filters
-                  </Button>
-                )}
+                  {/* Clear Filters Button */}
+                  {(searchTerm || statusFilter !== "all") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setStatusFilter("all");
+                      }}
+                      className={cn(
+                        "gap-2 whitespace-nowrap w-full sm:w-auto",
+                        isDarkMode
+                          ? "border-slate-600 hover:bg-slate-800 text-slate-300"
+                          : "border-gray-300 hover:bg-gray-50 text-gray-600"
+                      )}
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="hidden sm:inline">Clear Filters</span>
+                      <span className="sm:hidden">Clear</span>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow className={cn(
-                  "border-b h-12",
-                  isDarkMode 
-                    ? "border-slate-700 bg-slate-800/30" 
-                    : "border-gray-200 bg-gray-50/50"
-                )}>
-                  <TableHead className={cn(
-                    "w-[250px] py-3 px-4 text-xs font-medium",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Event Title</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Requestor</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Start Date</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>End Date</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Location</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium text-center",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Status</TableHead>
-                  <TableHead className={cn(
-                    "py-3 px-4 text-xs font-medium text-center",
-                    isDarkMode ? "text-slate-400" : "text-gray-600"
-                  )}>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className={cn(
+                    "border-b h-12",
+                    isDarkMode 
+                      ? "border-slate-700 bg-slate-800/30" 
+                      : "border-gray-200 bg-gray-50/50"
+                  )}>
+                    <TableHead className={cn(
+                      "w-[250px] py-3 px-4 text-xs font-medium",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Event Title</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Requestor</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Start Date</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>End Date</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Location</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium text-center",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Status</TableHead>
+                    <TableHead className={cn(
+                      "py-3 px-4 text-xs font-medium text-center",
+                      isDarkMode ? "text-slate-400" : "text-gray-600"
+                    )}>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
@@ -1116,279 +1121,152 @@ const EventRequests = () => {
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="flex items-center justify-end">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent 
-                              align="end" 
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Admin users: Direct View Details button */}
+                          {userData?.role === 'Admin' ? (
+                            <Button
+                              size="sm"
                               className={cn(
-                                "w-56 p-2 border-0 shadow-xl bg-white/95 backdrop-blur-md rounded-xl",
-                                isDarkMode ? "bg-slate-900/95 border-slate-700/50" : "bg-white/95 border-gray-200/50"
+                                "gap-1.5 font-medium transition-all duration-200",
+                                isDarkMode 
+                                  ? "bg-black hover:bg-gray-800 text-white" 
+                                  : "bg-black hover:bg-gray-800 text-white"
                               )}
-                              sideOffset={8}
+                              onClick={() => {
+                                setSelectedRequest(event);
+                                setIsViewDialogOpen(true);
+                              }}
                             >
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedRequest(event);
-                                  setIsViewDialogOpen(true);
-                                }}
-                                className={cn(
-                                  "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
-                                  "flex items-center gap-3 group",
-                                  isDarkMode 
-                                    ? "hover:bg-slate-800/80 text-gray-200 hover:text-white" 
-                                    : "hover:bg-gray-100/80 text-gray-700 hover:text-gray-900"
-                                )}
-                              >
-                                <div className={cn(
-                                  "p-2 rounded-lg transition-colors",
-                                  isDarkMode 
-                                    ? "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20" 
-                                    : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
-                                )}>
-                                  <Eye className="h-4 w-4" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-sm">View Details</span>
-                                  <span className={cn(
-                                    "text-xs opacity-70",
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  )}>
-                                    See full event information
-                                  </span>
-                                </div>
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedEventForAction(event);
-                                  setIsApproveDialogOpen(true);
-                                }}
-                                className={cn(
-                                  "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
-                                  "flex items-center gap-3 group",
-                                  isDarkMode 
-                                    ? "hover:bg-green-500/10 text-gray-200 hover:text-green-400" 
-                                    : "hover:bg-green-50 text-gray-700 hover:text-green-600"
-                                )}
-                              >
-                                <div className={cn(
-                                  "p-2 rounded-lg transition-colors",
-                                  isDarkMode 
-                                    ? "bg-green-500/10 text-green-400 group-hover:bg-green-500/20" 
-                                    : "bg-green-50 text-green-600 group-hover:bg-green-100"
-                                )}>
-                                  <Check className="h-4 w-4" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-sm">Approve</span>
-                                  <span className={cn(
-                                    "text-xs opacity-70",
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  )}>
-                                    Accept this event request
-                                  </span>
-                                </div>
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedEventForAction(event);
-                                  setDisapprovalReason("");
-                                  setIsReasonDialogOpen(true);
-                                }}
-                                className={cn(
-                                  "cursor-pointer rounded-lg p-3 transition-all duration-200 hover:scale-[1.02]",
-                                  "flex items-center gap-3 group",
-                                  isDarkMode 
-                                    ? "hover:bg-red-500/10 text-gray-200 hover:text-red-400" 
-                                    : "hover:bg-red-50 text-gray-700 hover:text-red-600"
-                                )}
-                              >
-                                <div className={cn(
-                                  "p-2 rounded-lg transition-colors",
-                                  isDarkMode 
-                                    ? "bg-red-500/10 text-red-400 group-hover:bg-red-500/20" 
-                                    : "bg-red-50 text-red-600 group-hover:bg-red-100"
-                                )}>
-                                  <XCircle className="h-4 w-4" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-sm">Disapprove</span>
-                                  <span className={cn(
-                                    "text-xs opacity-70",
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  )}>
-                                    Reject with reason
-                                  </span>
-                                </div>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-
-                          {/* Approve Dialog */}
-                          <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-                            <DialogContent className={cn(
-                              "sm:max-w-[425px] border-none",
-                              isDarkMode ? "bg-slate-900" : "bg-white"
-                            )}>
-                              <DialogHeader>
-                                <DialogTitle className={cn(
-                                  isDarkMode ? "text-gray-100" : "text-gray-900"
-                                )}>Approve Event Request</DialogTitle>
-                                <DialogDescription className={cn(
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                )}>
-                                  Are you sure you want to approve this event request? This will notify the requestor.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="flex justify-end gap-3 mt-4">
+                              <Eye className="h-4 w-4" />
+                              View Details
+                            </Button>
+                          ) : userData?.role === 'SuperAdmin' || userData?.role?.toLowerCase() === 'superadmin' ? (
+                            /* SuperAdmin users: Full dropdown menu */
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent 
+                                align="end" 
+                                className={cn(
+                                  "w-56 p-2 border-0 shadow-xl bg-white/95 backdrop-blur-md rounded-xl",
+                                  isDarkMode ? "bg-slate-900/95 border-slate-700/50" : "bg-white/95 border-gray-200/50"
+                                )}
+                                sideOffset={8}
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedRequest(event);
+                                    setIsViewDialogOpen(true);
+                                  }}
                                   className={cn(
+                                    "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
                                     isDarkMode 
-                                      ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
-                                      : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                                      ? "hover:bg-slate-800/80 text-gray-200 hover:text-white" 
+                                      : "hover:bg-gray-100/80 text-gray-700 hover:text-gray-900"
                                   )}
+                                >
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20" 
+                                      : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
+                                  )}>
+                                    <Eye className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">View Details</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      See full event information
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                                
+                                {/* SuperAdmin only: Approve and Disapprove options */}
+                                <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setIsApproveDialogOpen(false);
+                                    setSelectedEventForAction(event);
+                                    setIsApproveDialogOpen(true);
                                   }}
+                                  className={cn(
+                                    "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
+                                    isDarkMode 
+                                      ? "hover:bg-green-500/10 text-gray-200 hover:text-green-400" 
+                                      : "hover:bg-green-50 text-gray-700 hover:text-green-600"
+                                  )}
                                 >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  className="bg-green-500 hover:bg-green-600 text-white"
-                                  onClick={async () => {
-                                    try {
-                                      // TODO: Get actual admin ID from auth context
-                                      const adminId = "admin"; // Temporary admin ID
-                                      const result = await updateEventRequestStatus(selectedEventForAction.id, 'approved', adminId);
-                                      if (result.success) {
-                                        toast.success("Event request approved successfully");
-                                        // Immediately update the local state
-                                        setEvents(prevEvents => 
-                                          prevEvents.map(e => 
-                                            e.id === selectedEventForAction.id 
-                                              ? { ...e, status: 'approved', adminId: 'admin', actionDate: new Date() }
-                                              : e
-                                          )
-                                        );
-                                        setIsApproveDialogOpen(false);
-                                        // Also fetch fresh data to ensure consistency
-                                        setTimeout(async () => {
-                                          await fetchEvents();
-                                        }, 1000);
-                                      } else {
-                                        toast.error("Failed to approve event request");
-                                      }
-                                    } catch (error) {
-                                      toast.error("Failed to approve event request");
-                                    }
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-green-500/10 text-green-400 group-hover:bg-green-500/20" 
+                                      : "bg-green-50 text-green-600 group-hover:bg-green-100"
+                                  )}>
+                                    <Check className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">Approve</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Accept this event request
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                                
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedEventForAction(event);
+                                    setDisapprovalReason("");
+                                    setIsReasonDialogOpen(true);
                                   }}
+                                  className={cn(
+                                    "cursor-pointer rounded-lg p-3 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
+                                    isDarkMode 
+                                      ? "hover:bg-red-500/10 text-gray-200 hover:text-red-400" 
+                                      : "hover:bg-red-50 text-gray-700 hover:text-red-600"
+                                  )}
                                 >
-                                  Approve
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-
-                          {/* Disapprove Dialog */}
-                          <Dialog open={isReasonDialogOpen} onOpenChange={setIsReasonDialogOpen}>
-                            <DialogContent className={cn(
-                              "sm:max-w-[425px] border-none",
-                              isDarkMode ? "bg-slate-900" : "bg-white"
-                            )}>
-                              <DialogHeader>
-                                <DialogTitle className={cn(
-                                  isDarkMode ? "text-gray-100" : "text-gray-900"
-                                )}>Provide Disapproval Reason</DialogTitle>
-                                <DialogDescription className={cn(
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                )}>
-                                  Please provide a reason for disapproving this event request. This will be shown to the requestor.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="mt-6 space-y-6">
-                                <div className="space-y-2">
-                                  <Label className={cn(
-                                    isDarkMode ? "text-gray-200" : "text-gray-700"
-                                  )}>Reason for Disapproval</Label>
-                                  <textarea
-                                    value={disapprovalReason}
-                                    onChange={(e) => setDisapprovalReason(e.target.value)}
-                                    placeholder="Enter the reason for disapproving this event request..."
-                                    className={cn(
-                                      "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
-                                      isDarkMode 
-                                        ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
-                                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                                    )}
-                                  />
-                                </div>
-                                <div className="flex justify-end gap-3">
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      isDarkMode 
-                                        ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
-                                        : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
-                                    )}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsReasonDialogOpen(false);
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    className="bg-red-500 hover:bg-red-600 text-white"
-                                    disabled={!disapprovalReason.trim()}
-                                    onClick={async () => {
-                                      try {
-                                        // TODO: Get actual admin ID from auth context
-                                        const adminId = "admin"; // Temporary admin ID
-                                        const result = await updateEventRequestStatus(selectedEventForAction.id, 'disapproved', adminId, disapprovalReason.trim());
-                                        if (result.success) {
-                                          toast.success("Event request disapproved with reason provided");
-                                          // Immediately update the local state
-                                          setEvents(prevEvents => 
-                                            prevEvents.map(e => 
-                                              e.id === selectedEventForAction.id 
-                                                ? { ...e, status: 'disapproved', adminId: 'admin', actionDate: new Date(), disapprovalReason: disapprovalReason.trim() }
-                                                : e
-                                            )
-                                          );
-                                          setIsReasonDialogOpen(false);
-                                          setDisapprovalReason(""); // Reset the reason after successful update
-                                          // Also fetch fresh data to ensure consistency
-                                          setTimeout(async () => {
-                                            await fetchEvents();
-                                          }, 1000);
-                                        } else {
-                                          toast.error("Failed to disapprove event request");
-                                        }
-                                      } catch (error) {
-                                        toast.error("Failed to disapprove event request");
-                                      }
-                                    }}
-                                  >
-                                    Submit
-                                  </Button>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-red-500/10 text-red-400 group-hover:bg-red-500/20" 
+                                      : "bg-red-50 text-red-600 group-hover:bg-red-100"
+                                  )}>
+                                    <XCircle className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">Disapprove</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Reject with reason
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            /* Fallback for debugging - show role info */
+                            <div className="text-xs text-red-500">
+                              Role: {userData?.role || 'undefined'}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       </motion.tr>
@@ -1396,18 +1274,419 @@ const EventRequests = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                    Loading events...
+                  </p>
+                </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                    No events found
+                  </p>
+                </div>
+              ) : (
+                filteredEvents
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((event, index) => (
+                    <motion.div
+                      key={event.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className={cn(
+                        "rounded-xl border p-4 space-y-4",
+                        isDarkMode 
+                          ? "bg-slate-800/50 border-slate-700/50" 
+                          : "bg-white border-gray-200"
+                      )}
+                    >
+                      {/* Event Title */}
+                      <div className="space-y-1">
+                        <h3 className={cn(
+                          "font-semibold text-lg leading-tight",
+                          isDarkMode ? "text-gray-100" : "text-gray-900"
+                        )}>
+                          {event.eventTitle || event.title || "Untitled Event"}
+                        </h3>
+                        <p className={cn(
+                          "text-sm",
+                          isDarkMode ? "text-gray-400" : "text-gray-600"
+                        )}>
+                          {event.userDepartment || event.department || "No department"}
+                        </p>
+                      </div>
+
+                      {/* Event Details Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {/* Requestor */}
+                        <div>
+                          <span className={cn(
+                            "font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          )}>
+                            Requestor:
+                          </span>
+                          <p className={cn(
+                            "mt-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          )}>
+                            {event.eventRequestor || event.requestor || "Not specified"}
+                          </p>
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                          <span className={cn(
+                            "font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          )}>
+                            Location:
+                          </span>
+                          <p className={cn(
+                            "mt-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          )}>
+                            {event.locations && event.locations.length > 0 ? (
+                              event.locations.map((location, idx) => (
+                                <span key={idx} className="block">
+                                  {location.location || location.name || "Not specified"}
+                                </span>
+                              ))
+                            ) : (
+                              event.eventLocation || event.location || "Not specified"
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Start Date */}
+                        <div>
+                          <span className={cn(
+                            "font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          )}>
+                            Start Date:
+                          </span>
+                          <p className={cn(
+                            "mt-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          )}>
+                            {event.locations && event.locations.length > 0 ? (
+                              event.locations.map((location, idx) => (
+                                <span key={idx} className="block">
+                                  {(() => {
+                                    if (!location.startDate) return "Not set";
+                                    let date;
+                                    if (location.startDate.toDate) {
+                                      date = location.startDate.toDate();
+                                    } else if (location.startDate.seconds) {
+                                      date = new Date(location.startDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.startDate);
+                                    }
+                                    return format(date, "MMM d, yyyy");
+                                  })()}
+                                </span>
+                              ))
+                            ) : (
+                              (() => {
+                                if (!event.eventStartDate && !event.startDate) return "Not set";
+                                const dateToFormat = event.eventStartDate || event.startDate;
+                                let date;
+                                if (dateToFormat.toDate) {
+                                  date = dateToFormat.toDate();
+                                } else if (dateToFormat.seconds) {
+                                  date = new Date(dateToFormat.seconds * 1000);
+                                } else {
+                                  date = new Date(dateToFormat);
+                                }
+                                return format(date, "MMM d, yyyy");
+                              })()
+                            )}
+                          </p>
+                        </div>
+
+                        {/* End Date */}
+                        <div>
+                          <span className={cn(
+                            "font-medium",
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          )}>
+                            End Date:
+                          </span>
+                          <p className={cn(
+                            "mt-1",
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          )}>
+                            {event.locations && event.locations.length > 0 ? (
+                              event.locations.map((location, idx) => (
+                                <span key={idx} className="block">
+                                  {(() => {
+                                    if (!location.endDate) return "Not set";
+                                    let date;
+                                    if (location.endDate.toDate) {
+                                      date = location.endDate.toDate();
+                                    } else if (location.endDate.seconds) {
+                                      date = new Date(location.endDate.seconds * 1000);
+                                    } else {
+                                      date = new Date(location.endDate);
+                                    }
+                                    return format(date, "MMM d, yyyy");
+                                  })()}
+                                </span>
+                              ))
+                            ) : (
+                              (() => {
+                                if (!event.eventEndDate && !event.endDate) return "Not set";
+                                const dateToFormat = event.eventEndDate || event.endDate;
+                                let date;
+                                if (dateToFormat.toDate) {
+                                  date = dateToFormat.toDate();
+                                } else if (dateToFormat.seconds) {
+                                  date = new Date(dateToFormat.seconds * 1000);
+                                } else {
+                                  date = new Date(dateToFormat);
+                                }
+                                return format(date, "MMM d, yyyy");
+                              })()
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status and Actions Row */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-slate-700">
+                        {/* Status */}
+                        <div className="flex items-center">
+                          {event.status === 'disapproved' ? (
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="destructive"
+                                className="bg-red-500/10 text-red-500"
+                              >
+                                Disapproved
+                              </Badge>
+                              <HoverCard>
+                                <HoverCardTrigger>
+                                  <div className="p-1 rounded-full bg-red-500/10 cursor-pointer hover:bg-red-500/20">
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
+                                  </div>
+                                </HoverCardTrigger>
+                                <HoverCardContent
+                                  className={cn(
+                                    "w-80 border",
+                                    isDarkMode 
+                                      ? "bg-slate-900 border-slate-700/30" 
+                                      : "bg-white border-gray-200/70"
+                                  )}
+                                >
+                                  <div className="space-y-2">
+                                    <h4 className={cn(
+                                      "font-medium",
+                                      isDarkMode ? "text-gray-200" : "text-gray-900"
+                                    )}>
+                                      Reason for Disapproval
+                                    </h4>
+                                    <p className={cn(
+                                      "text-sm",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      {event.disapprovalReason || "No reason provided"}
+                                    </p>
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant={event.status === 'approved' ? 'success' : event.status === 'disapproved' ? 'destructive' : 'secondary'}
+                              className={cn(
+                                "font-medium",
+                                event.status === 'approved' 
+                                  ? "bg-green-500/10 text-green-500" 
+                                  : event.status === 'disapproved' 
+                                    ? "bg-red-500/10 text-red-500" 
+                                    : isDarkMode 
+                                      ? "bg-yellow-500/10 text-yellow-400" 
+                                      : "bg-yellow-500/10 text-yellow-600"
+                              )}
+                            >
+                              {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Pending'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          {/* Admin users: Direct View Details button */}
+                          {userData?.role === 'Admin' ? (
+                            <Button
+                              size="sm"
+                              className={cn(
+                                "gap-1.5 font-medium transition-all duration-200",
+                                isDarkMode 
+                                  ? "bg-black hover:bg-gray-800 text-white" 
+                                  : "bg-black hover:bg-gray-800 text-white"
+                              )}
+                              onClick={() => {
+                                setSelectedRequest(event);
+                                setIsViewDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="hidden sm:inline">View Details</span>
+                              <span className="sm:hidden">View</span>
+                            </Button>
+                          ) : userData?.role === 'SuperAdmin' || userData?.role?.toLowerCase() === 'superadmin' ? (
+                            /* SuperAdmin users: Full dropdown menu */
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent 
+                                align="end" 
+                                className={cn(
+                                  "w-56 p-2 border-0 shadow-xl bg-white/95 backdrop-blur-md rounded-xl",
+                                  isDarkMode ? "bg-slate-900/95 border-slate-700/50" : "bg-white/95 border-gray-200/50"
+                                )}
+                                sideOffset={8}
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedRequest(event);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
+                                    isDarkMode 
+                                      ? "hover:bg-slate-800/80 text-gray-200 hover:text-white" 
+                                      : "hover:bg-gray-100/80 text-gray-700 hover:text-gray-900"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20" 
+                                      : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
+                                  )}>
+                                    <Eye className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">View Details</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      See full event information
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                                
+                                {/* SuperAdmin only: Approve and Disapprove options */}
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedEventForAction(event);
+                                    setIsApproveDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer rounded-lg p-3 mb-1 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
+                                    isDarkMode 
+                                      ? "hover:bg-green-500/10 text-gray-200 hover:text-green-400" 
+                                      : "hover:bg-green-50 text-gray-700 hover:text-green-600"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-green-500/10 text-green-400 group-hover:bg-green-500/20" 
+                                      : "bg-green-50 text-green-600 group-hover:bg-green-100"
+                                  )}>
+                                    <Check className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">Approve</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Accept this event request
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                                
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedEventForAction(event);
+                                    setDisapprovalReason("");
+                                    setIsReasonDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer rounded-lg p-3 transition-all duration-200 hover:scale-[1.02]",
+                                    "flex items-center gap-3 group",
+                                    isDarkMode 
+                                      ? "hover:bg-red-500/10 text-gray-200 hover:text-red-400" 
+                                      : "hover:bg-red-50 text-gray-700 hover:text-red-600"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "bg-red-500/10 text-red-400 group-hover:bg-red-500/20" 
+                                      : "bg-red-50 text-red-600 group-hover:bg-red-100"
+                                  )}>
+                                    <XCircle className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">Disapprove</span>
+                                    <span className={cn(
+                                      "text-xs opacity-70",
+                                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    )}>
+                                      Reject with reason
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            /* Fallback for debugging - show role info */
+                            <div className="text-xs text-red-500">
+                              Role: {userData?.role || 'undefined'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+              )}
+            </div>
 
             {/* Table Footer */}
             <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className={cn(
-                  "text-sm",
+                  "text-xs sm:text-sm",
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 )}>
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredEvents.length)} of {filteredEvents.length} events
                 </p>
                 <p className={cn(
-                  "text-sm",
+                  "text-xs sm:text-sm",
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 )}>
                   Last updated {format(new Date(), "MMM d, yyyy 'at' h:mm a")}
@@ -1418,32 +1697,46 @@ const EventRequests = () => {
               {Math.ceil(filteredEvents.length / itemsPerPage) > 1 && (
                 <div className="flex justify-center">
                   <Pagination>
-                    <PaginationContent>
+                    <PaginationContent className="flex-wrap gap-1">
                       <PaginationItem>
                         <PaginationPrevious 
                           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                           className={cn(
-                            "cursor-pointer",
+                            "cursor-pointer h-8 px-2 sm:h-10 sm:px-4",
                             currentPage === 1 && "pointer-events-none opacity-50"
                           )}
                         />
                       </PaginationItem>
-                      {Array.from({ length: Math.min(5, Math.ceil(filteredEvents.length / itemsPerPage)) }).map((_, i) => (
-                        <PaginationItem key={i}>
+                      {/* Show page numbers on desktop */}
+                      {Array.from({ 
+                        length: Math.min(5, Math.ceil(filteredEvents.length / itemsPerPage))
+                      }).map((_, i) => (
+                        <PaginationItem key={i} className="hidden sm:block">
                           <PaginationLink
                             onClick={() => setCurrentPage(i + 1)}
                             isActive={currentPage === i + 1}
-                            className="cursor-pointer"
+                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
                           >
                             {i + 1}
                           </PaginationLink>
                         </PaginationItem>
                       ))}
+                      {/* Mobile: Show only current page */}
+                      <PaginationItem className="sm:hidden">
+                        <span className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium",
+                          isDarkMode 
+                            ? "bg-slate-800 border-slate-700 text-white" 
+                            : "bg-white border-gray-200 text-gray-900"
+                        )}>
+                          {currentPage}
+                        </span>
+                      </PaginationItem>
                       <PaginationItem>
                         <PaginationNext 
                           onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredEvents.length / itemsPerPage), p + 1))}
                           className={cn(
-                            "cursor-pointer",
+                            "cursor-pointer h-8 px-2 sm:h-10 sm:px-4",
                             currentPage === Math.ceil(filteredEvents.length / itemsPerPage) && "pointer-events-none opacity-50"
                           )}
                         />
@@ -1456,6 +1749,160 @@ const EventRequests = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Approve Dialog */}
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[425px] border-none",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader>
+            <DialogTitle className={cn(
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            )}>Approve Event Request</DialogTitle>
+            <DialogDescription className={cn(
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            )}>
+              Are you sure you want to approve this event request? This will notify the requestor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button
+              variant="outline"
+              className={cn(
+                isDarkMode 
+                  ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsApproveDialogOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-500 hover:bg-green-600 text-white"
+              onClick={async () => {
+                try {
+                  // TODO: Get actual admin ID from auth context
+                  const adminId = "admin"; // Temporary admin ID
+                  const result = await updateEventRequestStatus(selectedEventForAction.id, 'approved', adminId);
+                  if (result.success) {
+                    toast.success("Event request approved successfully");
+                    // Immediately update the local state
+                    setEvents(prevEvents => 
+                      prevEvents.map(e => 
+                        e.id === selectedEventForAction.id 
+                          ? { ...e, status: 'approved', adminId: 'admin', actionDate: new Date() }
+                          : e
+                      )
+                    );
+                    setIsApproveDialogOpen(false);
+                    // Also fetch fresh data to ensure consistency
+                    setTimeout(async () => {
+                      await fetchEvents();
+                    }, 1000);
+                  } else {
+                    toast.error("Failed to approve event request");
+                  }
+                } catch (error) {
+                  toast.error("Failed to approve event request");
+                }
+              }}
+            >
+              Approve
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disapprove Dialog */}
+      <Dialog open={isReasonDialogOpen} onOpenChange={setIsReasonDialogOpen}>
+        <DialogContent className={cn(
+          "sm:max-w-[425px] border-none",
+          isDarkMode ? "bg-slate-900" : "bg-white"
+        )}>
+          <DialogHeader>
+            <DialogTitle className={cn(
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            )}>Provide Disapproval Reason</DialogTitle>
+            <DialogDescription className={cn(
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            )}>
+              Please provide a reason for disapproving this event request. This will be shown to the requestor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-6 space-y-6">
+            <div className="space-y-2">
+              <Label className={cn(
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              )}>Reason for Disapproval</Label>
+              <textarea
+                value={disapprovalReason}
+                onChange={(e) => setDisapprovalReason(e.target.value)}
+                placeholder="Enter the reason for disapproving this event request..."
+                className={cn(
+                  "w-full min-h-[100px] rounded-lg p-3 text-base resize-none border",
+                  isDarkMode 
+                    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                    : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                )}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                className={cn(
+                  isDarkMode 
+                    ? "bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-700" 
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsReasonDialogOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-red-500 hover:bg-red-600 text-white"
+                disabled={!disapprovalReason.trim()}
+                onClick={async () => {
+                  try {
+                    // TODO: Get actual admin ID from auth context
+                    const adminId = "admin"; // Temporary admin ID
+                    const result = await updateEventRequestStatus(selectedEventForAction.id, 'disapproved', adminId, disapprovalReason.trim());
+                    if (result.success) {
+                      toast.success("Event request disapproved with reason provided");
+                      // Immediately update the local state
+                      setEvents(prevEvents => 
+                        prevEvents.map(e => 
+                          e.id === selectedEventForAction.id 
+                            ? { ...e, status: 'disapproved', adminId: 'admin', actionDate: new Date(), disapprovalReason: disapprovalReason.trim() }
+                            : e
+                        )
+                      );
+                      setIsReasonDialogOpen(false);
+                      setDisapprovalReason(""); // Reset the reason after successful update
+                      // Also fetch fresh data to ensure consistency
+                      setTimeout(async () => {
+                        await fetchEvents();
+                      }, 1000);
+                    } else {
+                      toast.error("Failed to disapprove event request");
+                    }
+                  } catch (error) {
+                    toast.error("Failed to disapprove event request");
+                  }
+                }}
+              >
+                Submit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -1840,6 +2287,139 @@ const EventRequests = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Governor's Requirements Attachments Card */}
+                {selectedRequest.govAttachments && Object.keys(selectedRequest.govAttachments).length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Shield className="h-5 w-5 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Governor's Requirements</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Available for DL Briefer */}
+                      {selectedRequest.govAttachments.availableForDLBriefer && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedRequest.govAttachments.availableForDLBriefer.name}</p>
+                              <p className="text-sm text-gray-600">Available for DL Briefer</p>
+                              <p className="text-sm text-gray-500">{(selectedRequest.govAttachments.availableForDLBriefer.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => window.open(selectedRequest.govAttachments.availableForDLBriefer.url, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedRequest.govAttachments.availableForDLBriefer.url, selectedRequest.govAttachments.availableForDLBriefer.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Briefer Template */}
+                      {selectedRequest.govAttachments.brieferTemplate && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedRequest.govAttachments.brieferTemplate.name}</p>
+                              <p className="text-sm text-gray-600">Briefer Template</p>
+                              <p className="text-sm text-gray-500">{(selectedRequest.govAttachments.brieferTemplate.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => window.open(selectedRequest.govAttachments.brieferTemplate.url, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedRequest.govAttachments.brieferTemplate.url, selectedRequest.govAttachments.brieferTemplate.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Programme */}
+                      {selectedRequest.govAttachments.programme && (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-black rounded-lg shrink-0">
+                              <FileText className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{selectedRequest.govAttachments.programme.name}</p>
+                              <p className="text-sm text-gray-600">Programme</p>
+                              <p className="text-sm text-gray-500">{(selectedRequest.govAttachments.programme.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={() => window.open(selectedRequest.govAttachments.programme.url, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-black hover:bg-gray-800 text-white gap-1.5"
+                              onClick={async () => {
+                                try {
+                                  await downloadFile(selectedRequest.govAttachments.programme.url, selectedRequest.govAttachments.programme.name);
+                                } catch (error) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Attachments Card */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">

@@ -13,6 +13,10 @@ import {
   XCircle,
   ListChecks,
   X,
+  Eye,
+  EyeOff,
+  Filter,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -37,6 +41,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -58,18 +68,28 @@ import {
 } from "@/components/ui/pagination";
 
 import { 
-  getAllDepartments, 
-  addDepartment, 
-  updateDepartment, 
-  deleteDepartment 
+  updateDepartment
 } from "@/lib/firebase/departments";
+import useDepartmentStore from "../../store/departmentStore";
 
 
 
 const Departments = () => {
   const { isDarkMode } = useTheme();
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Zustand store
+  const {
+    departments,
+    loading,
+    error,
+    fetchAllDepartments,
+    toggleVisibility,
+    addDepartment: addDepartmentToStore,
+    updateDepartment: updateDepartmentInStore,
+    deleteDepartment: deleteDepartmentFromStore
+  } = useDepartmentStore();
+  
+  const [localLoading, setLocalLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -83,32 +103,25 @@ const Departments = () => {
   const [isRequirementsDialogOpen, setIsRequirementsDialogOpen] = useState(false);
   const [newRequirement, setNewRequirement] = useState("");
   const [departmentRequirements, setDepartmentRequirements] = useState([]);
+  // Remove localStorage-based hidden departments state
+  // Now using Firestore isHidden field directly
+  const [visibilityFilter, setVisibilityFilter] = useState("all"); // "all", "visible", "hidden"
 
   useEffect(() => {
-    fetchDepartments();
-  }, []);
+    const loadDepartments = async () => {
+      setLocalLoading(true);
+      await fetchAllDepartments();
+      setLocalLoading(false);
+    };
+    loadDepartments();
+  }, [fetchAllDepartments]);
 
-  // Reset to first page when search term changes
+  // Reset to first page when search term or visibility filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, visibilityFilter]);
 
-  const fetchDepartments = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllDepartments();
-      if (result.success) {
-        setDepartments(result.departments);
-      } else {
-        toast.error("Failed to fetch departments");
-      }
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      toast.error("An error occurred while fetching departments");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Remove fetchDepartments - now handled by Zustand store
 
   useEffect(() => {
     if (selectedDepartment) {
@@ -123,11 +136,12 @@ const Departments = () => {
   const handleAddDepartment = async () => {
     try {
       setIsSubmitting(true);
-      const result = await addDepartment({ name, location });
+      const result = await addDepartmentToStore({ name, location });
       
       if (result.success) {
         toast.success("Department added successfully");
-        await fetchDepartments();
+        // Refresh the departments list
+        await fetchAllDepartments(true); // Force refresh
         setIsAddDialogOpen(false);
         setName("");
         setLocation("");
@@ -145,11 +159,10 @@ const Departments = () => {
   const handleUpdateDepartment = async () => {
     try {
       setIsSubmitting(true);
-      const result = await updateDepartment(selectedDepartment.id, { name, location });
+      const result = await updateDepartmentInStore(selectedDepartment.id, { name, location });
       
       if (result.success) {
         toast.success("Department updated successfully");
-        await fetchDepartments();
         setIsEditDialogOpen(false);
       } else {
         toast.error("Failed to update department");
@@ -165,11 +178,10 @@ const Departments = () => {
   const handleDeleteDepartment = async () => {
     try {
       setIsSubmitting(true);
-      const result = await deleteDepartment(selectedDepartment.id);
+      const result = await deleteDepartmentFromStore(selectedDepartment.id);
       
       if (result.success) {
         toast.success("Department deleted successfully");
-        await fetchDepartments();
         setIsDeleteDialogOpen(false);
       } else {
         toast.error("Failed to delete department");
@@ -182,11 +194,45 @@ const Departments = () => {
     }
   };
 
-  const filteredDepartments = departments.filter(dept =>
-    dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dept.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dept.location?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDepartments = departments.filter(dept => {
+    // Filter by search term
+    const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      dept.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      dept.location?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filter by visibility using Firestore isHidden field
+    const isHidden = dept.isHidden || false;
+    let matchesVisibility = true;
+    
+    if (visibilityFilter === "visible") {
+      matchesVisibility = !isHidden;
+    } else if (visibilityFilter === "hidden") {
+      matchesVisibility = isHidden;
+    }
+    // If visibilityFilter is "all", show all departments
+    
+    return matchesSearch && matchesVisibility;
+  });
+
+  // Toggle department visibility using Zustand store
+  const handleToggleDepartmentVisibility = async (departmentId) => {
+    try {
+      const department = departments.find(d => d.id === departmentId);
+      const newHiddenState = !(department.isHidden || false);
+      
+      const result = await toggleVisibility(departmentId, newHiddenState);
+      
+      if (result.success) {
+        toast.success(`Department ${newHiddenState ? 'hidden' : 'shown'} successfully`);
+        // No need to manually refresh - Zustand store handles cache updates
+      } else {
+        toast.error("Failed to update department visibility");
+      }
+    } catch (error) {
+      console.error('Error toggling department visibility:', error);
+      toast.error("An error occurred while updating department visibility");
+    }
+  };
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
@@ -265,7 +311,7 @@ const Departments = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Departments</p>
-              <p className="text-2xl font-bold tracking-tight">{loading ? "-" : departments.length}</p>
+              <p className="text-2xl font-bold tracking-tight">{(loading || localLoading) ? "-" : departments.length}</p>
             </div>
           </div>
         </div>
@@ -294,12 +340,66 @@ const Departments = () => {
                   View and manage all departments
                 </p>
               </div>
-              <Badge variant="outline" className={cn(
-                "h-10 px-4 text-base font-medium",
-                isDarkMode ? "border-slate-700" : "border-gray-200"
-              )}>
-                {departments.length} departments
-              </Badge>
+              <div className="flex items-center gap-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "h-10 px-4 gap-2 border-0",
+                        isDarkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-100 hover:bg-gray-200"
+                      )}
+                    >
+                      <Filter className="h-4 w-4" />
+                      {visibilityFilter === "all" && "All Departments"}
+                      {visibilityFilter === "visible" && "Visible Only"}
+                      {visibilityFilter === "hidden" && "Hidden Only"}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className={cn(
+                    "w-48",
+                    isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"
+                  )}>
+                    <DropdownMenuItem
+                      onClick={() => setVisibilityFilter("all")}
+                      className={cn(
+                        "cursor-pointer flex items-center gap-2",
+                        visibilityFilter === "all" && "bg-blue-50 dark:bg-blue-500/10"
+                      )}
+                    >
+                      <Building2 className="h-4 w-4" />
+                      All Departments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setVisibilityFilter("visible")}
+                      className={cn(
+                        "cursor-pointer flex items-center gap-2",
+                        visibilityFilter === "visible" && "bg-blue-50 dark:bg-blue-500/10"
+                      )}
+                    >
+                      <Eye className="h-4 w-4 text-green-500" />
+                      Visible Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setVisibilityFilter("hidden")}
+                      className={cn(
+                        "cursor-pointer flex items-center gap-2",
+                        visibilityFilter === "hidden" && "bg-blue-50 dark:bg-blue-500/10"
+                      )}
+                    >
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      Hidden Only
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Badge variant="outline" className={cn(
+                  "h-10 px-4 text-base font-medium",
+                  isDarkMode ? "border-slate-700" : "border-gray-200"
+                )}>
+                  {filteredDepartments.length} of {departments.length}
+                </Badge>
+              </div>
             </div>
 
             {/* Search */}
@@ -324,6 +424,7 @@ const Departments = () => {
               <TableRow className={cn(
                 isDarkMode ? "border-slate-700 hover:bg-transparent" : "border-gray-100 hover:bg-transparent"
               )}>
+                <TableHead className="w-[60px] py-3 text-sm font-semibold text-center">Toggle</TableHead>
                 <TableHead className="w-[300px] py-3 text-sm font-semibold">Department</TableHead>
                 <TableHead className="py-3 text-sm font-semibold">Location</TableHead>
                 <TableHead className="py-3 text-sm font-semibold">Created</TableHead>
@@ -336,9 +437,28 @@ const Departments = () => {
                   key={department.id}
                   className={cn(
                     "transition-colors border-gray-200",
-                    isDarkMode ? "border-gray-700/50" : ""
+                    isDarkMode ? "border-gray-700/50" : "",
+                    (department.isHidden || false) && visibilityFilter === "all" && "opacity-50 bg-gray-50 dark:bg-slate-800/50"
                   )}
                 >
+                  <TableCell className="text-center">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-slate-800",
+                        department.isHidden ? "text-gray-400 hover:text-gray-600" : "text-green-500 hover:text-green-600"
+                      )}
+                      onClick={() => handleToggleDepartmentVisibility(department.id)}
+                      title={department.isHidden ? "Show department" : "Hide department"}
+                    >
+                      {department.isHidden ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -704,7 +824,8 @@ const Departments = () => {
                     });
                     if (result.success) {
                       toast.success("Requirements updated successfully");
-                      fetchDepartments(); // Refresh the departments list
+                      // Refresh the departments list from store
+                      await fetchAllDepartments(true); // Force refresh
                       setIsRequirementsDialogOpen(false);
                     } else {
                       toast.error("Failed to update requirements");

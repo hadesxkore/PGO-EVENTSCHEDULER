@@ -30,6 +30,7 @@ export async function addDepartment(departmentData) {
     const docRef = await addDoc(departmentsRef, {
       ...departmentData,
       defaultRequirements: [],
+      isHidden: false, // New departments are visible by default
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -87,6 +88,26 @@ export async function updateDepartment(departmentId, departmentData) {
   }
 }
 
+export async function toggleDepartmentVisibility(departmentId, isHidden) {
+  try {
+    const departmentRef = doc(db, "departments", departmentId);
+    await updateDoc(departmentRef, {
+      isHidden: isHidden,
+      updatedAt: serverTimestamp()
+    });
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error("Error toggling department visibility:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 export async function deleteDepartment(departmentId) {
   try {
     const departmentRef = doc(db, "departments", departmentId);
@@ -97,6 +118,35 @@ export async function deleteDepartment(departmentId) {
     };
   } catch (error) {
     console.error("Error deleting department:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Get only visible departments (not hidden)
+ * @returns {Object} Result object with success status and departments array
+ */
+export async function getVisibleDepartments() {
+  try {
+    const departmentsRef = collection(db, "departments");
+    const querySnapshot = await getDocs(departmentsRef);
+    
+    const departments = querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .filter(dept => !dept.isHidden); // Filter out hidden departments
+
+    return {
+      success: true,
+      departments
+    };
+  } catch (error) {
+    console.error("Error fetching visible departments:", error);
     return {
       success: false,
       error: error.message

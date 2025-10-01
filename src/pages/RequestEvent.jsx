@@ -10,7 +10,7 @@ import useEventStore from "../store/eventStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTheme } from "../contexts/ThemeContext";
-import { getAllDepartments } from "../lib/firebase/departments";
+import useDepartmentStore from "../store/departmentStore";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -136,6 +136,9 @@ const RequestEvent = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState(0);
 
+  // Zustand department store
+  const { fetchVisibleDepartments } = useDepartmentStore();
+  
   // Departments and requirements state
   const [departments, setDepartments] = useState([]);
   const [selectedDepartments, setSelectedDepartments] = useState([]);
@@ -391,53 +394,56 @@ const RequestEvent = () => {
   // Test booking removed - using real data from database
 
 
+  // Fetch departments function using Zustand store
+  const fetchDepartments = async () => {
+    try {
+      // Get current user's department
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error("User not authenticated");
+        return;
+      }
+
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) {
+        toast.error("User data not found");
+        return;
+      }
+
+      const userData = userDocSnap.data();
+      const userDepartment = userData.department;
+
+      // Use Zustand store to get visible departments (with caching)
+      const result = await fetchVisibleDepartments();
+      if (result.success) {
+        // Get user counts for each department and filter out user's own department
+        const departmentsWithUsers = await Promise.all(
+          result.departments
+            .filter(dept => dept.name !== userDepartment) // Filter out user's department
+            .map(async (dept) => {
+              const usersRef = collection(db, 'users');
+              const q = query(usersRef, where('department', '==', dept.name));
+              const querySnapshot = await getDocs(q);
+              return {
+                ...dept,
+                userCount: querySnapshot.size
+              };
+            })
+        );
+        // Only filter by user count - hidden departments are already filtered out by Zustand store
+        const validDepartments = departmentsWithUsers.filter(dept => dept.userCount > 0);
+        setDepartments(validDepartments);
+      } else {
+        toast.error("Failed to fetch departments");
+      }
+    } catch (error) {
+      toast.error("An error occurred while fetching departments");
+    }
+  };
+
   // Fetch departments on component mount
   useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        // Get current user's department
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          toast.error("User not authenticated");
-          return;
-        }
-
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (!userDocSnap.exists()) {
-          toast.error("User data not found");
-          return;
-        }
-
-        const userData = userDocSnap.data();
-        const userDepartment = userData.department;
-
-        const result = await getAllDepartments();
-        if (result.success) {
-          // Get user counts for each department and filter out user's own department
-          const departmentsWithUsers = await Promise.all(
-            result.departments
-              .filter(dept => dept.name !== userDepartment) // Filter out user's department
-              .map(async (dept) => {
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('department', '==', dept.name));
-                const querySnapshot = await getDocs(q);
-                return {
-                  ...dept,
-                  userCount: querySnapshot.size
-                };
-              })
-          );
-          setDepartments(departmentsWithUsers.filter(dept => dept.userCount > 0));
-        } else {
-          toast.error("Failed to fetch departments");
-        }
-      } catch (error) {
-        toast.error("An error occurred while fetching departments");
-      }
-    };
-
     fetchDepartments();
   }, []);
 

@@ -55,7 +55,6 @@ const useUserLogsStore = create((set, get) => ({
       }
     });
     
-    console.log(`Removed ${state.logs.length - uniqueLogs.length} duplicate logs`);
     set({ logs: uniqueLogs });
   },
   
@@ -76,7 +75,6 @@ const useUserLogsStore = create((set, get) => ({
       if (stored) {
         const pendingLogs = JSON.parse(stored);
         set({ pendingLogs });
-        console.log(`Loaded ${pendingLogs.length} pending logs from localStorage`);
       }
     } catch (error) {
       console.error('Error loading pending logs:', error);
@@ -104,14 +102,9 @@ const useUserLogsStore = create((set, get) => ({
         
         if (cacheAge < get().cacheTime) {
           set({ logs, lastFetched: timestamp });
-          console.log(`Loaded ${logs.length} logs from cache`);
-          console.log('Cached logs:', logs.map(log => ({ id: log.id, user: log.userName, action: log.action })));
           return true;
         } else {
-          console.log('Cache expired, will fetch fresh data');
         }
-      } else {
-        console.log('No cached logs found');
       }
     } catch (error) {
       console.error('Error loading cached logs:', error);
@@ -146,7 +139,6 @@ const useUserLogsStore = create((set, get) => ({
       );
       
       if (recentDepartmentLogin) {
-        console.log(`Updating existing login record for department: ${logData.department}`);
         
         const updatedLogData = {
           userName: logData.userName || recentDepartmentLogin.userName,
@@ -183,7 +175,6 @@ const useUserLogsStore = create((set, get) => ({
               userEmail: updatedLogData.userEmail,
               timestamp: Timestamp.fromDate(new Date(updatedLogData.timestamp))
             });
-            console.log(`Updated Firestore record for department: ${logData.department}`);
           } catch (error) {
             console.error('Error updating Firestore log:', error);
             // If Firestore update fails, we still have the local update
@@ -194,7 +185,6 @@ const useUserLogsStore = create((set, get) => ({
         get().savePendingLogs();
         get().saveCachedLogs();
         
-        console.log(`Updated existing login record for department: ${logData.department}`);
         return;
       }
     }
@@ -204,7 +194,6 @@ const useUserLogsStore = create((set, get) => ({
     
     // Check if this exact log was already processed recently
     if (state.recentLogHashes.has(logHash)) {
-      console.log('Duplicate log prevented (hash):', logData.action, 'for', logData.userName);
       return;
     }
     
@@ -250,8 +239,6 @@ const useUserLogsStore = create((set, get) => ({
     get().savePendingLogs();
     get().saveCachedLogs();
     
-    console.log(`Added log: ${logData.action} for ${logData.userName}`);
-    console.log(`Total logs in store: ${newLogs.length}, Pending logs: ${newPendingLogs.length}`);
     
     // Check if we need to flush to Firestore (with batch size 1, this will always flush immediately)
     if (newPendingLogs.length >= state.batchSize) {
@@ -269,7 +256,6 @@ const useUserLogsStore = create((set, get) => ({
     set({ isFlushingLogs: true });
     
     try {
-      console.log(`Flushing ${state.pendingLogs.length} pending logs to Firestore...`);
       
       const batch = writeBatch(db);
       const logsCollection = collection(db, 'userLogs');
@@ -306,7 +292,6 @@ const useUserLogsStore = create((set, get) => ({
       set({ pendingLogs: [] });
       localStorage.removeItem(state.PENDING_LOGS_KEY);
       
-      console.log(`Successfully flushed ${state.pendingLogs.length} logs to Firestore`);
       
     } catch (error) {
       console.error('Error flushing logs to Firestore:', error);
@@ -324,18 +309,15 @@ const useUserLogsStore = create((set, get) => ({
     
     // PRIORITY 1: Return cached data if valid (REDUCE FIRESTORE READS)
     if (!forceFetch && state.isCacheValid() && state.logs.length > 0) {
-      console.log('🚀 USING ZUSTAND CACHE - No Firestore read needed!', `${state.logs.length} logs from cache`);
       return { success: true, logs: state.logs };
     }
     
     // PRIORITY 2: Try to load from localStorage cache first (REDUCE FIRESTORE READS)
     if (!forceFetch && get().loadCachedLogs()) {
-      console.log('🚀 USING LOCALSTORAGE CACHE - No Firestore read needed!', `${get().logs.length} logs from localStorage`);
       return { success: true, logs: get().logs };
     }
     
     // PRIORITY 3: Only fetch from Firestore if absolutely necessary
-    console.log('⚠️ FETCHING FROM FIRESTORE - Cache expired or force fetch requested');
     
     try {
       set({ loading: true, error: null });
@@ -391,9 +373,6 @@ const useUserLogsStore = create((set, get) => ({
       // Save to cache
       get().saveCachedLogs();
       
-      console.log(`Fetched ${logs.length} new logs from Firestore`);
-      console.log(`Total logs after merge: ${mergedLogs.length}`);
-      console.log('All logs:', mergedLogs.map(log => ({ id: log.id, user: log.userName, action: log.action, timestamp: log.timestamp })));
       return { success: true, logs: mergedLogs };
       
     } catch (error) {
@@ -461,15 +440,12 @@ const useUserLogsStore = create((set, get) => ({
   
   // Initialize store (call on app startup)
   initialize: async () => {
-    console.log('Initializing UserLogsStore...');
     
     // Load pending logs from localStorage
     get().loadPendingLogs();
     
     // CRITICAL: Always flush pending logs first before doing anything else
-    console.log('Flushing any pending logs from localStorage...');
     if (get().pendingLogs.length > 0) {
-      console.log(`Found ${get().pendingLogs.length} pending logs, flushing to Firestore...`);
       await get().flushPendingLogs();
     }
     
@@ -477,18 +453,15 @@ const useUserLogsStore = create((set, get) => ({
     const hasCachedLogs = get().loadCachedLogs();
     
     // Always fetch fresh data to ensure we have all logs from Firestore
-    console.log('Fetching fresh data from Firestore to ensure completeness...');
     await get().fetchLogs(true);
     
     // Clean up any duplicates that might exist
     get().removeDuplicates();
     
-    console.log('UserLogsStore initialization complete');
   },
   
   // Force sync with Firestore (useful for admin refresh)
   forceSync: async () => {
-    console.log('Force syncing - clearing ALL cached data...');
     
     // Clear ALL localStorage data related to logs
     localStorage.removeItem(get().LOGS_CACHE_KEY);
@@ -504,12 +477,8 @@ const useUserLogsStore = create((set, get) => ({
       error: null
     });
     
-    console.log('All cache and state cleared, fetching fresh data from Firestore...');
-    
     // Fetch completely fresh data from Firestore
     const result = await get().fetchLogs(true);
-    
-    console.log('Fresh data fetched:', result);
     
     return result;
   },
@@ -532,7 +501,6 @@ const useUserLogsStore = create((set, get) => ({
       // Update cache
       get().saveCachedLogs();
       
-      console.log(`Successfully deleted log: ${logId}`);
       return { success: true };
       
     } catch (error) {
@@ -570,11 +538,9 @@ const useUserLogsStore = create((set, get) => ({
       // UPDATE existing log
       newLogs = [...state.logs];
       newLogs[existingLogIndex] = logEntry;
-      console.log('🔄 UPDATED LOG IN ZUSTAND CACHE - Same department, updated timestamp!', logEntry.action, 'for', logEntry.department);
     } else {
       // ADD new log to beginning of array (newest first)
       newLogs = [logEntry, ...state.logs];
-      console.log('🚀 ADDED NEW LOG TO ZUSTAND CACHE - Real-time update without Firestore read!', logEntry.action, 'for', logEntry.userName);
     }
     
     set({ logs: newLogs });
@@ -585,7 +551,6 @@ const useUserLogsStore = create((set, get) => ({
 
   // Clear all cached data completely (for debugging/admin use)
   clearAllCache: () => {
-    console.log('CLEARING ALL CACHE DATA - This will remove all localStorage logs data');
     
     // Clear ALL localStorage data
     localStorage.removeItem(get().PENDING_LOGS_KEY);
@@ -602,7 +567,6 @@ const useUserLogsStore = create((set, get) => ({
       isFlushingLogs: false
     });
     
-    console.log('All cache cleared! Next fetch will be completely fresh from Firestore.');
   },
 
   // Clear all data (on logout)

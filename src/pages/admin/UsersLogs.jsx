@@ -176,7 +176,6 @@ const UsersLogs = () => {
   const confirmDeleteLog = async () => {
     if (selectedLogForDelete) {
       try {
-        console.log('Deleting log:', selectedLogForDelete.id);
         const result = await deleteLog(selectedLogForDelete.id);
         
         if (result.success) {

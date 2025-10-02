@@ -55,7 +55,6 @@ const LoginForm = ({ onLoginSuccess }) => {
         setHasLoggedThisSession(true);
         setLastLogTime(now);
         
-        console.log('Logging user login DIRECTLY to Firestore:', userData.email, 'Role:', userData.role);
         
         // DIRECT FIRESTORE WRITE WITH DEPARTMENT UPDATE LOGIC
         try {
@@ -79,7 +78,6 @@ const LoginForm = ({ onLoginSuccess }) => {
           
           if (recentDepartmentLogin && recentDepartmentLogin.id && !recentDepartmentLogin.id.startsWith('temp_')) {
             // UPDATE existing record instead of creating new one
-            console.log(`🔄 UPDATING existing login record for department: ${logEntry.department}`);
             
             const { updateDoc, doc, Timestamp } = await import('firebase/firestore');
             const { db } = await import('../../lib/firebase/firebase');
@@ -91,7 +89,6 @@ const LoginForm = ({ onLoginSuccess }) => {
               timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
             });
             
-            console.log('✅ UPDATED existing Firestore record for department:', logEntry.department);
             
             // Update Zustand cache
             const { addLogToCache } = useUserLogsStore.getState();
@@ -100,11 +97,9 @@ const LoginForm = ({ onLoginSuccess }) => {
               id: recentDepartmentLogin.id // Keep the same ID
             });
             
-            console.log('🚀 Updated log in Zustand cache - No new row created!');
             
           } else {
             // CREATE new record (first login or after 24 hours)
-            console.log(`➕ CREATING new login record for department: ${logEntry.department}`);
             
             const { addDoc, collection, Timestamp } = await import('firebase/firestore');
             const { db } = await import('../../lib/firebase/firebase');
@@ -114,9 +109,7 @@ const LoginForm = ({ onLoginSuccess }) => {
               timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
             };
             
-            console.log('Writing NEW log DIRECTLY to Firestore...', firestoreLog);
             const docRef = await addDoc(collection(db, 'userLogs'), firestoreLog);
-            console.log('✅ NEW Log written DIRECTLY to Firestore with ID:', docRef.id);
             
             // Add to Zustand cache
             const { addLogToCache } = useUserLogsStore.getState();
@@ -125,7 +118,6 @@ const LoginForm = ({ onLoginSuccess }) => {
               id: docRef.id // Use the actual Firestore document ID
             });
             
-            console.log('🚀 Added NEW log to Zustand cache!');
           }
           
         } catch (error) {
@@ -146,7 +138,6 @@ const LoginForm = ({ onLoginSuccess }) => {
           await flushPendingLogs();
         }
       } else if (isAdminRole) {
-        console.log('Skipping log for admin role:', userData.email, 'Role:', userData.role);
       }
       
       // Save user data to localStorage for access across the app

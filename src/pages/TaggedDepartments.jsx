@@ -2161,7 +2161,9 @@ const TaggedDepartments = () => {
                     <p className={cn(
                       "text-sm font-medium truncate",
                       isDarkMode ? "text-white" : "text-slate-900"
-                    )}>
+                    )}
+                    title={attachment.name} // Show full name on hover
+                    >
                       {attachment.name}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
@@ -2176,7 +2178,40 @@ const TaggedDepartments = () => {
                           "text-xs px-2 py-0.5 rounded-full",
                           isDarkMode ? "bg-slate-600 text-slate-300" : "bg-slate-200 text-slate-600"
                         )}>
-                          {attachment.type.split('/').pop().toUpperCase()}
+                          {(() => {
+                            // Map MIME types to clean file extensions
+                            const mimeTypeMap = {
+                              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+                              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+                              'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PPTX',
+                              'application/msword': 'DOC',
+                              'application/vnd.ms-excel': 'XLS',
+                              'application/vnd.ms-powerpoint': 'PPT',
+                              'application/pdf': 'PDF',
+                              'text/plain': 'TXT',
+                              'image/jpeg': 'JPG',
+                              'image/png': 'PNG',
+                              'image/gif': 'GIF',
+                              'application/zip': 'ZIP',
+                              'application/x-rar-compressed': 'RAR'
+                            };
+                            
+                            // Try to get clean extension from MIME type map
+                            if (mimeTypeMap[attachment.type]) {
+                              return mimeTypeMap[attachment.type];
+                            }
+                            
+                            // Fallback: try to extract from filename
+                            if (attachment.name) {
+                              const fileExtension = attachment.name.split('.').pop();
+                              if (fileExtension && fileExtension !== attachment.name) {
+                                return fileExtension.toUpperCase();
+                              }
+                            }
+                            
+                            // Last fallback: use MIME type
+                            return attachment.type.split('/').pop().toUpperCase();
+                          })()}
                         </span>
                       )}
                     </div>

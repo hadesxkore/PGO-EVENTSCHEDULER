@@ -729,19 +729,22 @@ const AllEventsNew = ({ userData }) => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <CalendarDays className={cn(
-                            "h-5 w-5",
+                            "h-5 w-5 flex-shrink-0",
                             isDarkMode ? "text-gray-400" : "text-gray-600"
                           )} />
                           <span className={cn(
-                            "text-base font-bold",
+                            "text-base font-bold flex-shrink-0",
                             isDarkMode ? "text-white" : "text-gray-900"
                           )}>
                             Event Title:
                           </span>
-                          <span className={cn(
-                            "text-base font-bold",
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          )}>
+                          <span 
+                            className={cn(
+                              "text-base font-bold truncate min-w-0 max-w-xs",
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            )}
+                            title={event.title || "Untitled Event"} // Show full title on hover
+                          >
                             {event.title || "Untitled Event"}
                           </span>
                         </div>

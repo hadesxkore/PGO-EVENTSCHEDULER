@@ -46,21 +46,70 @@ const LoginForm = ({ onLoginSuccess }) => {
         icon: <Check className="h-5 w-5 text-green-500" />,
       });
       
-      // Log successful login (only for regular users, not Admin or SuperAdmin)
+                                                  // Log successful login (exclude Admin and SuperAdmin)
       const now = Date.now();
-      if (userData.role && userData.role.toLowerCase() === 'user' && !hasLoggedThisSession && (now - lastLogTime > 5000)) {
+      const userRole = userData.role?.toLowerCase();
+      const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
+      
+      if (!isAdminRole && !hasLoggedThisSession && (now - lastLogTime > 5000)) {
         setHasLoggedThisSession(true);
         setLastLogTime(now);
         
-        console.log('Logging user login:', userData.email);
-        await addLog({
-          userId: userData.uid || userData.id,
-          userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.name || 'Unknown User',
-          userEmail: userData.email,
-          department: userData.department,
-          action: "Login",
-          status: "success"
-        });
+        console.log('Logging user login DIRECTLY to Firestore:', userData.email, 'Role:', userData.role);
+        
+        // DIRECT FIRESTORE WRITE - Skip local storage, write directly to Firestore
+        try {
+          const logEntry = {
+            userId: userData.uid || userData.id,
+            userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.name || userData.email || 'Unknown User',
+            userEmail: userData.email,
+            department: userData.department || 'Unknown Department',
+            action: "Login",
+            status: "success",
+            timestamp: new Date().toISOString()
+          };
+          
+          // Write DIRECTLY to Firestore immediately
+          const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+          const { db } = await import('../../lib/firebase/firebase');
+          
+          const firestoreLog = {
+            ...logEntry,
+            timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
+          };
+          
+          console.log('Writing log DIRECTLY to Firestore...', firestoreLog);
+          const docRef = await addDoc(collection(db, 'userLogs'), firestoreLog);
+          console.log('✅ Log written DIRECTLY to Firestore with ID:', docRef.id);
+          
+          // Add to Zustand cache for immediate UI update (REDUCES FUTURE FIRESTORE READS)
+          const { addLogToCache } = useUserLogsStore.getState();
+          addLogToCache({
+            ...logEntry,
+            id: docRef.id // Use the actual Firestore document ID
+          });
+          
+          console.log('🚀 Added log to Zustand cache - Admin page will use cache instead of Firestore read!');
+          
+        } catch (error) {
+          console.error('❌ Error writing log directly to Firestore:', error);
+          
+          // Fallback to normal addLog method
+          await addLog({
+            userId: userData.uid || userData.id,
+            userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.name || userData.email || 'Unknown User',
+            userEmail: userData.email,
+            department: userData.department || 'Unknown Department',
+            action: "Login",
+            status: "success"
+          });
+          
+          // Force flush as backup
+          const { flushPendingLogs } = useUserLogsStore.getState();
+          await flushPendingLogs();
+        }
+      } else if (isAdminRole) {
+        console.log('Skipping log for admin role:', userData.email, 'Role:', userData.role);
       }
       
       // Save user data to localStorage for access across the app

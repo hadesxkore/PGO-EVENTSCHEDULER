@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import useUserLogsStore from "@/store/userLogsStore";
+import { toast } from "sonner";
 import {
   Search,
   Filter,
@@ -77,7 +78,9 @@ const UsersLogs = () => {
     fetchLogs, 
     forceSync, 
     getFilteredLogs,
-    initialize 
+    initialize,
+    deleteLog,
+    clearAllCache
   } = useUserLogsStore();
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -172,11 +175,22 @@ const UsersLogs = () => {
 
   const confirmDeleteLog = async () => {
     if (selectedLogForDelete) {
-      // TODO: Add delete functionality to the store
-      console.log('Deleting log:', selectedLogForDelete.id);
-      // For now, just close the dialog
-      setIsDeleteDialogOpen(false);
-      setSelectedLogForDelete(null);
+      try {
+        console.log('Deleting log:', selectedLogForDelete.id);
+        const result = await deleteLog(selectedLogForDelete.id);
+        
+        if (result.success) {
+          toast.success("Log entry deleted successfully");
+        } else {
+          toast.error(result.error || "Failed to delete log entry");
+        }
+      } catch (error) {
+        console.error('Error deleting log:', error);
+        toast.error("An error occurred while deleting the log entry");
+      } finally {
+        setIsDeleteDialogOpen(false);
+        setSelectedLogForDelete(null);
+      }
     }
   };
 
@@ -212,6 +226,18 @@ const UsersLogs = () => {
           <Button 
             variant="outline"
             className="gap-2"
+            onClick={() => {
+              clearAllCache();
+              toast.success("Cache cleared! Refreshing data...");
+              handleRefresh();
+            }}
+          >
+            <XCircle className="h-4 w-4" />
+            Clear Cache
+          </Button>
+          <Button 
+            variant="outline"
+            className="gap-2"
             onClick={handleRefresh}
             disabled={loading}
           >
@@ -231,70 +257,85 @@ const UsersLogs = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className={cn(
-          "rounded-xl p-6 bg-gradient-to-br",
+          "rounded-xl p-6 border-0 shadow-md hover:shadow-lg transition-shadow duration-200",
           isDarkMode 
-            ? "from-blue-500/10 to-purple-500/10 shadow-lg shadow-blue-500/5" 
-            : "from-blue-50 to-purple-50"
+            ? "bg-slate-800/50 shadow-slate-900/20" 
+            : "bg-white shadow-gray-200/60"
         )}>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-blue-500 rounded-full blur opacity-25"></div>
               <div className={cn(
-                "relative p-3 rounded-full",
-                isDarkMode ? "bg-blue-500/10" : "bg-blue-100"
+                "p-3 rounded-xl",
+                isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
               )}>
                 <FileText className="h-6 w-6 text-blue-500" />
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Logs</p>
-              <p className="text-2xl font-bold tracking-tight">{totalLogs}</p>
+              <p className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-slate-400" : "text-gray-600"
+              )}>Total Logs</p>
+              <p className={cn(
+                "text-2xl font-bold tracking-tight",
+                isDarkMode ? "text-white" : "text-gray-900"
+              )}>{totalLogs}</p>
             </div>
           </div>
         </div>
 
         <div className={cn(
-          "rounded-xl p-6 bg-gradient-to-br",
+          "rounded-xl p-6 border-0 shadow-md hover:shadow-lg transition-shadow duration-200",
           isDarkMode 
-            ? "from-green-500/10 to-emerald-500/10 shadow-lg shadow-green-500/5" 
-            : "from-green-50 to-emerald-50"
+            ? "bg-slate-800/50 shadow-slate-900/20" 
+            : "bg-white shadow-gray-200/60"
         )}>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-green-500 rounded-full blur opacity-25"></div>
               <div className={cn(
-                "relative p-3 rounded-full",
-                isDarkMode ? "bg-green-500/10" : "bg-green-100"
+                "p-3 rounded-xl",
+                isDarkMode ? "bg-green-500/10" : "bg-green-50"
               )}>
                 <CheckCircle className="h-6 w-6 text-green-500" />
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Success Events</p>
-              <p className="text-2xl font-bold tracking-tight">{successLogs}</p>
+              <p className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-slate-400" : "text-gray-600"
+              )}>Success Events</p>
+              <p className={cn(
+                "text-2xl font-bold tracking-tight",
+                isDarkMode ? "text-white" : "text-gray-900"
+              )}>{successLogs}</p>
             </div>
           </div>
         </div>
 
         <div className={cn(
-          "rounded-xl p-6 bg-gradient-to-br",
+          "rounded-xl p-6 border-0 shadow-md hover:shadow-lg transition-shadow duration-200",
           isDarkMode 
-            ? "from-red-500/10 to-pink-500/10 shadow-lg shadow-red-500/5" 
-            : "from-red-50 to-pink-50"
+            ? "bg-slate-800/50 shadow-slate-900/20" 
+            : "bg-white shadow-gray-200/60"
         )}>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full blur opacity-25"></div>
               <div className={cn(
-                "relative p-3 rounded-full",
-                isDarkMode ? "bg-red-500/10" : "bg-red-100"
+                "p-3 rounded-xl",
+                isDarkMode ? "bg-red-500/10" : "bg-red-50"
               )}>
                 <XCircle className="h-6 w-6 text-red-500" />
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Error Events</p>
-              <p className="text-2xl font-bold tracking-tight">{errorLogs}</p>
+              <p className={cn(
+                "text-sm font-medium",
+                isDarkMode ? "text-slate-400" : "text-gray-600"
+              )}>Error Events</p>
+              <p className={cn(
+                "text-2xl font-bold tracking-tight",
+                isDarkMode ? "text-white" : "text-gray-900"
+              )}>{errorLogs}</p>
             </div>
           </div>
         </div>
@@ -302,8 +343,10 @@ const UsersLogs = () => {
 
       {/* Filters */}
       <div className={cn(
-        "rounded-xl p-6 space-y-4",
-        isDarkMode ? "bg-slate-800/50" : "bg-white"
+        "rounded-xl p-6 space-y-4 border-0 shadow-md",
+        isDarkMode 
+          ? "bg-slate-800/50 shadow-slate-900/20" 
+          : "bg-white shadow-gray-200/60"
       )}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
@@ -315,7 +358,12 @@ const UsersLogs = () => {
                 placeholder="Search logs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className={cn(
+                  "pl-10 border-0 shadow-sm focus:shadow-md transition-shadow duration-200",
+                  isDarkMode 
+                    ? "bg-slate-700/50 shadow-slate-900/20 focus:shadow-slate-900/30" 
+                    : "bg-white shadow-gray-200/60 focus:shadow-gray-300/60"
+                )}
               />
             </div>
           </div>
@@ -323,7 +371,12 @@ const UsersLogs = () => {
           <div className="space-y-2">
             <Label htmlFor="action-filter">Action</Label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger>
+              <SelectTrigger className={cn(
+                "border-0 shadow-sm focus:shadow-md transition-shadow duration-200",
+                isDarkMode 
+                  ? "bg-slate-700/50 shadow-slate-900/20 focus:shadow-slate-900/30" 
+                  : "bg-white shadow-gray-200/60 focus:shadow-gray-300/60"
+              )}>
                 <SelectValue placeholder="All Actions" />
               </SelectTrigger>
               <SelectContent>
@@ -339,7 +392,12 @@ const UsersLogs = () => {
           <div className="space-y-2">
             <Label htmlFor="status-filter">Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className={cn(
+                "border-0 shadow-sm focus:shadow-md transition-shadow duration-200",
+                isDarkMode 
+                  ? "bg-slate-700/50 shadow-slate-900/20 focus:shadow-slate-900/30" 
+                  : "bg-white shadow-gray-200/60 focus:shadow-gray-300/60"
+              )}>
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -354,7 +412,12 @@ const UsersLogs = () => {
           <div className="space-y-2">
             <Label htmlFor="date-filter">Date Range</Label>
             <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger>
+              <SelectTrigger className={cn(
+                "border-0 shadow-sm focus:shadow-md transition-shadow duration-200",
+                isDarkMode 
+                  ? "bg-slate-700/50 shadow-slate-900/20 focus:shadow-slate-900/30" 
+                  : "bg-white shadow-gray-200/60 focus:shadow-gray-300/60"
+              )}>
                 <SelectValue placeholder="All Time" />
               </SelectTrigger>
               <SelectContent>
@@ -370,8 +433,10 @@ const UsersLogs = () => {
 
       {/* Logs Table */}
       <div className={cn(
-        "rounded-lg shadow-sm overflow-hidden",
-        isDarkMode ? "bg-slate-800/50" : "bg-white"
+        "rounded-xl overflow-hidden border-0 shadow-md",
+        isDarkMode 
+          ? "bg-slate-800/50 shadow-slate-900/20" 
+          : "bg-white shadow-gray-200/60"
       )}>
         <Table className="border-0" style={{ border: 'none', borderCollapse: 'separate' }}>
           <TableHeader className="border-0" style={{ border: 'none' }}>

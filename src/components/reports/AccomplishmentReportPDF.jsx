@@ -237,7 +237,6 @@ const AccomplishmentReportPDF = ({ event, requirementStatus, requirementRemarks,
                 event.userEmail || 
                 event.contactEmail ||
                 event.userName ||
-                event.department || // Use department as fallback since no requestor field exists
                 'N/A'
               )}</Text>
             </View>

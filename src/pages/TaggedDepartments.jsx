@@ -131,6 +131,7 @@ const TaggedDepartments = () => {
                 id: event.id,
                 title: event.title,
                 department: event.department,
+                requestor: event.requestor || event.eventRequestor, // Add requestor field
                 startDate: event.startDate,
                 endDate: event.endDate,
                 date: event.date,
@@ -169,6 +170,7 @@ const TaggedDepartments = () => {
                 id: event.id,
                 title: event.title,
                 department: event.department,
+                requestor: event.requestor || event.eventRequestor, // Add requestor field
                 startDate: event.startDate,
                 endDate: event.endDate,
                 date: event.date,
@@ -1050,13 +1052,15 @@ const TaggedDepartments = () => {
                                             key={reqIndex}
                                             variant="outline"
                                             className={cn(
-                                              "text-xs",
+                                              "text-xs max-w-[200px]",
                                               isDarkMode 
                                                 ? "border-slate-600 text-slate-300" 
                                                 : "border-slate-300 text-slate-600"
                                             )}
                                           >
-                                            {typeof req === 'string' ? req : req.name}
+                                            <span className="truncate">
+                                              {typeof req === 'string' ? req : req.name}
+                                            </span>
                                           </Badge>
                                         ))}
                                         {event.requirements.length > 2 && (
@@ -1253,13 +1257,15 @@ const TaggedDepartments = () => {
                                             key={reqIndex}
                                             variant="outline"
                                             className={cn(
-                                              "text-xs",
+                                              "text-xs max-w-[200px]",
                                               isDarkMode 
                                                 ? "border-slate-600 text-slate-300" 
                                                 : "border-slate-300 text-slate-600"
                                             )}
                                           >
-                                            {typeof req === 'string' ? req : req.name}
+                                            <span className="truncate">
+                                              {typeof req === 'string' ? req : req.name}
+                                            </span>
                                           </Badge>
                                         ))}
                                         {event.requirements.length > 2 && (

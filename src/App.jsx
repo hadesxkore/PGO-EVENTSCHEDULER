@@ -18,15 +18,19 @@ import Departments from "./pages/admin/Departments";
 import Reports from "./pages/admin/Reports";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import useUserLogsStore from "./store/userLogsStore";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Get UserLogsStore initialize function
+  const { initialize: initializeUserLogs } = useUserLogsStore();
+
   // Check for existing authentication on app initialization
   useEffect(() => {
-    const checkExistingAuth = () => {
+    const checkExistingAuth = async () => {
       try {
         const storedUserData = localStorage.getItem('userData');
         if (storedUserData) {
@@ -46,8 +50,19 @@ function App() {
       }
     };
 
+    // Initialize UserLogsStore on app startup
+    const initializeApp = async () => {
+      try {
+        console.log('Initializing UserLogsStore on app startup...');
+        await initializeUserLogs();
+      } catch (error) {
+        console.error('Error initializing UserLogsStore:', error);
+      }
+    };
+
     checkExistingAuth();
-  }, []);
+    initializeApp();
+  }, [initializeUserLogs]);
 
   const handleLoginSuccess = (userData) => {
     setIsAuthenticated(true);

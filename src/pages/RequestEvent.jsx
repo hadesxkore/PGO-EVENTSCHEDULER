@@ -139,6 +139,7 @@ const RequestEvent = () => {
 
   // Zustand stores - using stable references to prevent infinite loops
   const fetchVisibleDepartments = useDepartmentStore((state) => state.fetchVisibleDepartments);
+  const visibleDepartments = useDepartmentStore((state) => state.visibleDepartments);
   const fetchCurrentUser = useUserStore((state) => state.fetchCurrentUser);
   const getUserDepartment = useUserStore((state) => state.getUserDepartment);
   const submitEventRequest = useEventStore((state) => state.submitEventRequest);
@@ -439,6 +440,84 @@ const RequestEvent = () => {
   useEffect(() => {
     fetchDepartments();
   }, []);
+
+  // React to changes in visible departments from Zustand store (realtime updates)
+  useEffect(() => {
+    const updateDepartmentsFromStore = async () => {
+      if (visibleDepartments.length > 0) {
+        try {
+          // Get current user's department
+          const userResult = await getUserDepartment();
+          if (!userResult.success) return;
+
+          const userDepartment = userResult.department;
+
+          // Process visible departments from store and add user counts
+          const departmentsWithUsers = await Promise.all(
+            visibleDepartments
+              .filter(dept => dept.name !== userDepartment) // Filter out user's department
+              .map(async (dept) => {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('department', '==', dept.name));
+                const querySnapshot = await getDocs(q);
+                return {
+                  ...dept,
+                  userCount: querySnapshot.size
+                };
+              })
+          );
+          
+          // Only show departments with users
+          const validDepartments = departmentsWithUsers.filter(dept => dept.userCount > 0);
+          setDepartments(validDepartments);
+        } catch (error) {
+          console.error('Error updating departments from store:', error);
+        }
+      }
+    };
+
+    updateDepartmentsFromStore();
+  }, [visibleDepartments, getUserDepartment]);
+
+  // Realtime polling for department changes (every 30 seconds)
+  useEffect(() => {
+    const pollDepartments = async () => {
+      try {
+        // Force fetch from server to get latest department visibility changes
+        await fetchVisibleDepartments(true);
+      } catch (error) {
+        console.error('Error polling departments:', error);
+      }
+    };
+
+    // Initial poll
+    pollDepartments();
+
+    // Set up polling interval (every 30 seconds)
+    const intervalId = setInterval(pollDepartments, 30000);
+
+    // Add focus event listener for immediate updates when user returns to tab
+    const handleFocus = () => {
+      pollDepartments();
+    };
+
+    // Add visibility change listener for when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        pollDepartments();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup interval and event listeners on unmount
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchVisibleDepartments]);
 
   // Filter departments based on search query
   const filteredDepartments = useMemo(() => {

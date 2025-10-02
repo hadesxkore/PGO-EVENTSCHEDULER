@@ -25,7 +25,9 @@ import {
   Edit,
   Filter,
   Download,
-  Eye
+  Eye,
+  Paperclip,
+  File
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +69,8 @@ const TaggedDepartments = () => {
   const [submittedEvents, setSubmittedEvents] = useState({}); // Track which events are submitted
   const [editingEvent, setEditingEvent] = useState(null); // Track which event is being edited
   const [requirementFilter, setRequirementFilter] = useState('all'); // Filter for requirements: 'all', 'complied', 'not-complied'
-  const [showPdfPreview, setShowPdfPreview] = useState(false); // Track PDF preview modal
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false); // Track PDF preview modal
 
   // Completed accomplishments tracking
   const [completedAccomplishments, setCompletedAccomplishments] = useState({});
@@ -142,6 +145,7 @@ const TaggedDepartments = () => {
                 locations: event.locations,
                 isMultipleLocations: event.isMultipleLocations,
                 participants: event.participants,
+                attachments: event.attachments || [], // Include attachments
                 tagType: 'received',
                 requirements: taggedDept.requirements || []
               };
@@ -181,6 +185,7 @@ const TaggedDepartments = () => {
                 locations: event.locations,
                 isMultipleLocations: event.isMultipleLocations,
                 participants: event.participants,
+                attachments: event.attachments || [], // Include attachments
                 tagType: 'sent',
                 requirements: allRequirements
               };
@@ -1489,7 +1494,7 @@ const TaggedDepartments = () => {
                         ))}
                       </div>
                     ) : (
-                      <div className="grid gap-6 md:grid-cols-3">
+                      <div className="grid gap-6 md:grid-cols-4">
                         {/* Start Time */}
                         <div className={cn(
                           "p-4 rounded-xl space-y-2",
@@ -1646,6 +1651,64 @@ const TaggedDepartments = () => {
                           )}>
                             {selectedEvent.location || 'Not specified'}
                           </p>
+                        </div>
+
+                        {/* File Attachments */}
+                        <div className={cn(
+                          "p-4 rounded-xl space-y-2",
+                          isDarkMode 
+                            ? "bg-slate-800 border border-slate-700" 
+                            : "bg-slate-50 border border-slate-200"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "p-1.5 rounded-lg",
+                              isDarkMode ? "bg-green-500/20" : "bg-green-100"
+                            )}>
+                              <Paperclip className={cn(
+                                "h-4 w-4",
+                                isDarkMode ? "text-green-400" : "text-green-600"
+                              )} />
+                            </div>
+                            <h4 className={cn(
+                              "text-sm font-medium",
+                              isDarkMode ? "text-slate-300" : "text-slate-600"
+                            )}>Attachments</h4>
+                          </div>
+                          <div className={cn(
+                            "text-sm font-medium",
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          )}>
+                            {selectedEvent.attachments && selectedEvent.attachments.length > 0 ? (
+                              <div className="space-y-1">
+                                <p>{selectedEvent.attachments.length} file{selectedEvent.attachments.length > 1 ? 's' : ''}</p>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full gap-1 h-7 text-xs",
+                                    isDarkMode 
+                                      ? "border-slate-600 hover:bg-slate-700" 
+                                      : "border-slate-300 hover:bg-slate-50"
+                                  )}
+                                  onClick={() => {
+                                    // Always show modal for both single and multiple files
+                                    setShowAttachmentsModal(true);
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  View Files
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className={cn(
+                                "text-xs",
+                                isDarkMode ? "text-slate-400" : "text-slate-500"
+                              )}>
+                                No files
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -2059,6 +2122,147 @@ const TaggedDepartments = () => {
           </div>
         </motion.div>
       )}
+
+      {/* Attachments Modal */}
+      <Dialog open={showAttachmentsModal} onOpenChange={setShowAttachmentsModal}>
+        <DialogContent className={cn(
+          "max-w-2xl max-h-[80vh] overflow-hidden",
+          isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+        )}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5 text-green-500" />
+              Event Attachments
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto max-h-[60vh] space-y-3">
+            {selectedEvent?.attachments?.map((attachment, index) => (
+              <div 
+                key={index}
+                className={cn(
+                  "flex items-center justify-between p-4 rounded-lg border",
+                  isDarkMode 
+                    ? "bg-slate-700/50 border-slate-600" 
+                    : "bg-slate-50 border-slate-200"
+                )}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className={cn(
+                    "p-2 rounded-lg flex-shrink-0",
+                    isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
+                  )}>
+                    <File className={cn(
+                      "h-5 w-5",
+                      isDarkMode ? "text-blue-400" : "text-blue-600"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      "text-sm font-medium truncate",
+                      isDarkMode ? "text-white" : "text-slate-900"
+                    )}>
+                      {attachment.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className={cn(
+                        "text-xs",
+                        isDarkMode ? "text-slate-400" : "text-slate-500"
+                      )}>
+                        {attachment.size ? `${(attachment.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                      </p>
+                      {attachment.type && (
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full",
+                          isDarkMode ? "bg-slate-600 text-slate-300" : "bg-slate-200 text-slate-600"
+                        )}>
+                          {attachment.type.split('/').pop().toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(
+                      "gap-1 px-3",
+                      isDarkMode 
+                        ? "border-slate-600 hover:bg-slate-700" 
+                        : "border-slate-300 hover:bg-slate-50"
+                    )}
+                    onClick={() => {
+                      if (attachment.url) {
+                        window.open(attachment.url, '_blank');
+                      }
+                    }}
+                  >
+                    <Eye className="h-3 w-3" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(
+                      "gap-1 px-3",
+                      isDarkMode 
+                        ? "border-slate-600 hover:bg-slate-700" 
+                        : "border-slate-300 hover:bg-slate-50"
+                    )}
+                    onClick={async () => {
+                      if (attachment.url) {
+                        try {
+                          // Fetch the file as a blob to force download
+                          const response = await fetch(attachment.url);
+                          const blob = await response.blob();
+                          
+                          // Create a blob URL
+                          const blobUrl = window.URL.createObjectURL(blob);
+                          
+                          // Create a temporary anchor element to trigger download
+                          const link = document.createElement('a');
+                          link.href = blobUrl;
+                          link.download = attachment.name || 'download';
+                          document.body.appendChild(link);
+                          link.click();
+                          
+                          // Clean up
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch (error) {
+                          console.error('Download failed:', error);
+                          // Fallback to opening in new tab if download fails
+                          window.open(attachment.url, '_blank');
+                        }
+                      }
+                    }}
+                  >
+                    <Download className="h-3 w-3" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
+            <p className={cn(
+              "text-sm",
+              isDarkMode ? "text-slate-400" : "text-slate-600"
+            )}>
+              {selectedEvent?.attachments?.length || 0} file{(selectedEvent?.attachments?.length || 0) !== 1 ? 's' : ''} total
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setShowAttachmentsModal(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </motion.div>
     </AnimatePresence>
   );

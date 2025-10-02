@@ -57,7 +57,7 @@ const LoginForm = ({ onLoginSuccess }) => {
         
         console.log('Logging user login DIRECTLY to Firestore:', userData.email, 'Role:', userData.role);
         
-        // DIRECT FIRESTORE WRITE - Skip local storage, write directly to Firestore
+        // DIRECT FIRESTORE WRITE WITH DEPARTMENT UPDATE LOGIC
         try {
           const logEntry = {
             userId: userData.uid || userData.id,
@@ -69,27 +69,64 @@ const LoginForm = ({ onLoginSuccess }) => {
             timestamp: new Date().toISOString()
           };
           
-          // Write DIRECTLY to Firestore immediately
-          const { addDoc, collection, Timestamp } = await import('firebase/firestore');
-          const { db } = await import('../../lib/firebase/firebase');
+          // Check if department already has a recent login (within 24 hours)
+          const { logs } = useUserLogsStore.getState();
+          const recentDepartmentLogin = logs.find(log => 
+            log.department === logEntry.department && 
+            log.action === 'Login' && 
+            (Date.now() - new Date(log.timestamp).getTime()) < 24 * 60 * 60 * 1000 // Within 24 hours
+          );
           
-          const firestoreLog = {
-            ...logEntry,
-            timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
-          };
-          
-          console.log('Writing log DIRECTLY to Firestore...', firestoreLog);
-          const docRef = await addDoc(collection(db, 'userLogs'), firestoreLog);
-          console.log('✅ Log written DIRECTLY to Firestore with ID:', docRef.id);
-          
-          // Add to Zustand cache for immediate UI update (REDUCES FUTURE FIRESTORE READS)
-          const { addLogToCache } = useUserLogsStore.getState();
-          addLogToCache({
-            ...logEntry,
-            id: docRef.id // Use the actual Firestore document ID
-          });
-          
-          console.log('🚀 Added log to Zustand cache - Admin page will use cache instead of Firestore read!');
+          if (recentDepartmentLogin && recentDepartmentLogin.id && !recentDepartmentLogin.id.startsWith('temp_')) {
+            // UPDATE existing record instead of creating new one
+            console.log(`🔄 UPDATING existing login record for department: ${logEntry.department}`);
+            
+            const { updateDoc, doc, Timestamp } = await import('firebase/firestore');
+            const { db } = await import('../../lib/firebase/firebase');
+            
+            const logDocRef = doc(db, 'userLogs', recentDepartmentLogin.id);
+            await updateDoc(logDocRef, {
+              userName: logEntry.userName,
+              userEmail: logEntry.userEmail,
+              timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
+            });
+            
+            console.log('✅ UPDATED existing Firestore record for department:', logEntry.department);
+            
+            // Update Zustand cache
+            const { addLogToCache } = useUserLogsStore.getState();
+            addLogToCache({
+              ...logEntry,
+              id: recentDepartmentLogin.id // Keep the same ID
+            });
+            
+            console.log('🚀 Updated log in Zustand cache - No new row created!');
+            
+          } else {
+            // CREATE new record (first login or after 24 hours)
+            console.log(`➕ CREATING new login record for department: ${logEntry.department}`);
+            
+            const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+            const { db } = await import('../../lib/firebase/firebase');
+            
+            const firestoreLog = {
+              ...logEntry,
+              timestamp: Timestamp.fromDate(new Date(logEntry.timestamp))
+            };
+            
+            console.log('Writing NEW log DIRECTLY to Firestore...', firestoreLog);
+            const docRef = await addDoc(collection(db, 'userLogs'), firestoreLog);
+            console.log('✅ NEW Log written DIRECTLY to Firestore with ID:', docRef.id);
+            
+            // Add to Zustand cache
+            const { addLogToCache } = useUserLogsStore.getState();
+            addLogToCache({
+              ...logEntry,
+              id: docRef.id // Use the actual Firestore document ID
+            });
+            
+            console.log('🚀 Added NEW log to Zustand cache!');
+          }
           
         } catch (error) {
           console.error('❌ Error writing log directly to Firestore:', error);

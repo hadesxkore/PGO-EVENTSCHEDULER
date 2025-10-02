@@ -562,15 +562,25 @@ const useUserLogsStore = create((set, get) => ({
       createdAt: Date.now()
     };
     
-    // Add to beginning of logs array (newest first)
-    const newLogs = [logEntry, ...state.logs];
+    // Check if this log already exists (for updates)
+    const existingLogIndex = state.logs.findIndex(log => log.id === logEntry.id);
+    
+    let newLogs;
+    if (existingLogIndex !== -1) {
+      // UPDATE existing log
+      newLogs = [...state.logs];
+      newLogs[existingLogIndex] = logEntry;
+      console.log('🔄 UPDATED LOG IN ZUSTAND CACHE - Same department, updated timestamp!', logEntry.action, 'for', logEntry.department);
+    } else {
+      // ADD new log to beginning of array (newest first)
+      newLogs = [logEntry, ...state.logs];
+      console.log('🚀 ADDED NEW LOG TO ZUSTAND CACHE - Real-time update without Firestore read!', logEntry.action, 'for', logEntry.userName);
+    }
     
     set({ logs: newLogs });
     
     // Update cache
     get().saveCachedLogs();
-    
-    console.log('🚀 ADDED LOG TO ZUSTAND CACHE - Real-time update without Firestore read!', logEntry.action, 'for', logEntry.userName);
   },
 
   // Clear all cached data completely (for debugging/admin use)

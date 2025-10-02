@@ -8,6 +8,7 @@ import { Badge } from "../ui/badge";
 import useMessageStore from "../../store/messageStore";
 import useAccomplishmentStore from "../../store/accomplishmentStore";
 import useEventStore from "../../store/eventStore";
+import useUserLogsStore from "../../store/userLogsStore";
 import { auth } from "../../lib/firebase/firebase";
 import {
   LayoutDashboard,
@@ -49,6 +50,9 @@ const MainLayout = ({ children, userData }) => {
   
   // Get event store actions
   const { fetchAllEvents } = useEventStore();
+  
+  // Get user logs store actions
+  const { addLog } = useUserLogsStore();
 
   // Subscribe to messages when component mounts
   useEffect(() => {

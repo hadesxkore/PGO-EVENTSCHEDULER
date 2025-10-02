@@ -786,7 +786,7 @@ const EventRequests = ({ userData }) => {
                       whileHover={isSelectMode ? { scale: 1.01 } : {}}
                       transition={{ duration: 0.2 }}
                     >
-                      <TableCell className="py-3 px-4">
+                      <TableCell className="py-3 px-4 max-w-[250px]">
                         <div className="flex items-center gap-3">
                           {isSelectMode && (
                             <motion.div
@@ -807,7 +807,7 @@ const EventRequests = ({ userData }) => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <h3 className={cn(
-                                "font-medium text-sm cursor-pointer transition-colors duration-200 truncate",
+                                "font-medium text-sm cursor-pointer transition-colors duration-200 truncate flex-1 min-w-0",
                                 isDarkMode 
                                   ? "text-slate-100 hover:text-white" 
                                   : "text-gray-900 hover:text-black"
@@ -1309,7 +1309,7 @@ const EventRequests = ({ userData }) => {
                       {/* Event Title */}
                       <div className="space-y-1">
                         <h3 className={cn(
-                          "font-semibold text-lg leading-tight",
+                          "font-semibold text-lg leading-tight truncate",
                           isDarkMode ? "text-gray-100" : "text-gray-900"
                         )}>
                           {event.eventTitle || event.title || "Untitled Event"}

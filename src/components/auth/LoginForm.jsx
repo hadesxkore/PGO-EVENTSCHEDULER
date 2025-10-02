@@ -7,10 +7,14 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { toast } from "sonner";
 import { loginUser } from "../../lib/firebase/firebase";
+import useUserLogsStore from "../../store/userLogsStore";
 
 const LoginForm = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
+  const { addLog } = useUserLogsStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasLoggedThisSession, setHasLoggedThisSession] = useState(false);
+  const [lastLogTime, setLastLogTime] = useState(0);
   const [formData, setFormData] = useState({
     username: "",
     password: ""
@@ -42,6 +46,23 @@ const LoginForm = ({ onLoginSuccess }) => {
         icon: <Check className="h-5 w-5 text-green-500" />,
       });
       
+      // Log successful login (only for regular users, not Admin or SuperAdmin)
+      const now = Date.now();
+      if (userData.role && userData.role.toLowerCase() === 'user' && !hasLoggedThisSession && (now - lastLogTime > 5000)) {
+        setHasLoggedThisSession(true);
+        setLastLogTime(now);
+        
+        console.log('Logging user login:', userData.email);
+        await addLog({
+          userId: userData.uid || userData.id,
+          userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.name || 'Unknown User',
+          userEmail: userData.email,
+          department: userData.department,
+          action: "Login",
+          status: "success"
+        });
+      }
+      
       // Save user data to localStorage for access across the app
       localStorage.setItem('userData', JSON.stringify(userData));
       
@@ -55,6 +76,17 @@ const LoginForm = ({ onLoginSuccess }) => {
       
     } catch (error) {
       console.error("Login error:", error);
+      
+      // Log failed login attempt (we can't determine role for failed attempts, so we log all)
+      await addLog({
+        userId: formData.username, // Use username since we don't have user ID for failed attempts
+        userName: formData.username,
+        userEmail: formData.username, // Might be email or username
+        department: "Unknown",
+        action: "Failed Login",
+        status: "error"
+      });
+      
       toast.error("Login Failed", {
         className: "bg-white dark:bg-slate-800 border-red-500/20",
         description: (

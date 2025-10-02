@@ -17,6 +17,7 @@ import {
   BarChart3,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 
 const AdminLayout = ({ children, userData }) => {
@@ -27,6 +28,7 @@ const AdminLayout = ({ children, userData }) => {
   const location = useLocation();
 
   const handleLogout = () => {
+    // Admin and SuperAdmin logout actions are not logged in Users Logs
     localStorage.removeItem('user');
     localStorage.removeItem('userData');
     sessionStorage.removeItem('user');
@@ -59,6 +61,12 @@ const AdminLayout = ({ children, userData }) => {
       icon: <Users className="h-6 w-6" />,
       href: "/admin/users",
       roles: ["superadmin"], // Only SuperAdmin can see Users
+    },
+    {
+      title: "Users Logs",
+      icon: <FileText className="h-6 w-6" />,
+      href: "/admin/users-logs",
+      roles: ["superadmin"], // Only SuperAdmin can see Users Logs
     },
     {
       title: "Departments",

@@ -247,6 +247,54 @@ const TaggedDepartments = () => {
     }
   }, [events, getMultipleCompletedCounts]);
 
+  // Realtime polling for completed accomplishments (every 30 seconds)
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const pollAccomplishments = async () => {
+      const createdEvents = events.filter(event => event.tagType === 'sent');
+      
+      if (createdEvents.length > 0) {
+        const eventIds = createdEvents.map(event => event.id);
+        const completedCounts = await getMultipleCompletedCounts(eventIds, true); // Force refresh
+        
+        setCompletedAccomplishments(prev => {
+          // Only update if there are actual changes to prevent unnecessary re-renders
+          const hasChanges = JSON.stringify(prev) !== JSON.stringify(completedCounts);
+          return hasChanges ? completedCounts : prev;
+        });
+      }
+    };
+
+    // Initial check
+    pollAccomplishments();
+
+    // Set up polling interval (every 30 seconds)
+    const intervalId = setInterval(pollAccomplishments, 30000);
+
+    // Add focus event listener for immediate updates when user returns to tab
+    const handleFocus = () => {
+      pollAccomplishments();
+    };
+
+    // Add visibility change listener for when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        pollAccomplishments();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup interval and event listeners on unmount
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [events, getMultipleCompletedCounts]);
+
   // Mark accomplishments as viewed when user clicks on an event
   useEffect(() => {
     if (selectedEvent && selectedEvent.tagType === 'sent') {

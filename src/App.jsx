@@ -13,6 +13,7 @@ import TaggedDepartments from "./pages/TaggedDepartments";
 import AdminDashboard from "./pages/admin/Dashboard";
 import EventRequests from "./pages/admin/EventRequests";
 import Users from "./pages/admin/Users";
+import UsersLogs from "./pages/admin/UsersLogs";
 import Departments from "./pages/admin/Departments";
 import Reports from "./pages/admin/Reports";
 import { Toaster } from "./components/ui/sonner";
@@ -91,6 +92,11 @@ function App() {
                 <Route path="/admin/users" element={
                   userData?.role?.toLowerCase() === 'superadmin' ? 
                     <Users /> : 
+                    <Navigate to="/admin/all-events" replace />
+                } />
+                <Route path="/admin/users-logs" element={
+                  userData?.role?.toLowerCase() === 'superadmin' ? 
+                    <UsersLogs /> : 
                     <Navigate to="/admin/all-events" replace />
                 } />
                 <Route path="/admin/departments" element={

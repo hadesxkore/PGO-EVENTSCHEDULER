@@ -4468,7 +4468,7 @@ const RequestEvent = () => {
       <Dialog open={showMultipleLocationsModal} onOpenChange={setShowMultipleLocationsModal}>
         <DialogContent className={cn(
           "max-w-[95vw] w-full sm:max-w-[90vw] lg:max-w-[1000px] p-0 border shadow-lg rounded-lg overflow-hidden",
-          "max-h-[85vh] sm:max-h-[80vh] lg:max-h-[75vh]",
+          "max-h-[90vh] flex flex-col",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -4511,7 +4511,7 @@ const RequestEvent = () => {
           </div>
 
           <div className={cn(
-            "p-4 sm:p-6 lg:p-8 max-h-[55vh] sm:max-h-[60vh] lg:max-h-[65vh] overflow-y-auto",
+            "p-4 sm:p-6 lg:p-8 flex-1 overflow-y-auto",
             isDarkMode ? "bg-slate-950" : "bg-white"
           )}>
             {/* Animated Form Container */}
@@ -5120,7 +5120,7 @@ const RequestEvent = () => {
               
               <Button
                 onClick={() => {
-                  // If there's current form data, add it to drafts first
+                  // Always save current form data if it has required fields
                   let finalLocationDrafts = [...locationDrafts];
                   if (multiLocationForm.location && multiLocationForm.title && multiLocationForm.requestor) {
                     const currentDraft = {
@@ -5130,16 +5130,13 @@ const RequestEvent = () => {
                     finalLocationDrafts = [...locationDrafts, currentDraft];
                     setLocationDrafts(finalLocationDrafts);
                   }
-                  
                   if (finalLocationDrafts.length === 0) {
-                    toast.error("Please add at least one location");
+                    toast.error("Please complete the current location details first");
                     return;
                   }
                   
-                  
                   // Don't populate single event fields when using multiple locations
                   // The validation will check locationDrafts instead of formData
-                  
                   // Enable multiple location mode
                   setIsInMultipleLocationMode(true);
                   setShowMultipleLocationsModal(false);
@@ -5164,7 +5161,7 @@ const RequestEvent = () => {
                     }
                   }, 800);
                   
-                  toast.success(`${locationDrafts.length} locations configured successfully! Please proceed to tag departments.`);
+                  toast.success(`${finalLocationDrafts.length} locations configured successfully! Please proceed to tag departments.`);
                 }}
                 size="sm"
                 className={cn(
@@ -5174,7 +5171,7 @@ const RequestEvent = () => {
                     : "bg-gray-900 hover:bg-gray-800 text-white"
                 )}
               >
-                Done ({locationDrafts.length})
+                Done ({locationDrafts.length + (multiLocationForm.location && multiLocationForm.title && multiLocationForm.requestor ? 1 : 0)})
               </Button>
             </div>
           </div>

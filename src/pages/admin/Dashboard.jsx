@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -11,10 +11,32 @@ import {
   Trophy,
   Activity,
   TrendingUp,
+  Bell,
+  X,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
 import { getDashboardStats } from "@/lib/firebase/dashboard";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  Timestamp,
+  limit,
+  where
+} from 'firebase/firestore';
+import { db } from "@/lib/firebase/firebase";
+import { format } from "date-fns";
 
 const AdminDashboard = () => {
   const { isDarkMode } = useTheme();
@@ -29,9 +51,71 @@ const AdminDashboard = () => {
     topDepartments: []
   });
 
+  // Notification states
+  const [newEvents, setNewEvents] = useState([]);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [viewedNotifications, setViewedNotifications] = useState(new Set());
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
   useEffect(() => {
     fetchStats();
+    setupRealtimeEventListener();
+    
+    // Cleanup listener on unmount
+    return () => {
+      // Cleanup will be handled by the listener itself
+    };
   }, []);
+
+  // Setup real-time listener for new event submissions
+  const setupRealtimeEventListener = () => {
+    setNotificationLoading(true);
+    
+    try {
+      // Get events from the last 24 hours
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      
+      const eventsQuery = query(
+        collection(db, "eventRequests"),
+        where("createdAt", ">=", Timestamp.fromDate(twentyFourHoursAgo)),
+        orderBy("createdAt", "desc"),
+        limit(20) // Limit to latest 20 events
+      );
+      
+      const unsubscribe = onSnapshot(
+        eventsQuery,
+        (snapshot) => {
+          const events = snapshot.docs.map(doc => {
+            const eventData = doc.data();
+            return {
+              id: doc.id,
+              title: eventData.title || eventData.eventTitle || "Untitled Event",
+              department: eventData.department || "Unknown Department",
+              requestor: eventData.requestor || eventData.eventRequestor || "Unknown Requestor",
+              createdAt: eventData.createdAt?.toDate() || new Date(),
+              status: eventData.status || "pending",
+              location: eventData.location || eventData.eventLocation || "TBD"
+            };
+          });
+          
+          setNewEvents(events);
+          setNotificationLoading(false);
+        },
+        (error) => {
+          console.error("Error listening to events:", error);
+          setNotificationLoading(false);
+          toast.error("Failed to load real-time notifications");
+        }
+      );
+      
+      // Return cleanup function
+      return unsubscribe;
+    } catch (error) {
+      console.error("Error setting up event listener:", error);
+      setNotificationLoading(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -48,6 +132,34 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate notification counts
+  const notificationCount = useMemo(() => {
+    return newEvents.filter(event => !viewedNotifications.has(event.id)).length;
+  }, [newEvents, viewedNotifications]);
+
+  // Mark notifications as read
+  const markNotificationsAsRead = () => {
+    const allEventIds = newEvents.map(event => event.id);
+    setViewedNotifications(new Set(allEventIds));
+  };
+
+  // Generate different border colors for each event
+  const getBorderColor = (index) => {
+    const colors = [
+      "border-l-blue-500",
+      "border-l-green-500", 
+      "border-l-purple-500",
+      "border-l-orange-500",
+      "border-l-pink-500",
+      "border-l-indigo-500",
+      "border-l-red-500",
+      "border-l-yellow-500",
+      "border-l-teal-500",
+      "border-l-cyan-500"
+    ];
+    return colors[index % colors.length];
   };
 
   const statsCards = [
@@ -128,22 +240,164 @@ const AdminDashboard = () => {
     >
       {/* Header */}
       <motion.div variants={item} className="mb-8">
-        <h1
-          className={cn(
-            "text-3xl font-bold",
-            isDarkMode ? "text-white" : "text-gray-900"
-          )}
-        >
-          Dashboard
-        </h1>
-        <p
-          className={cn(
-            "text-sm mt-1",
-            isDarkMode ? "text-gray-400" : "text-gray-500"
-          )}
-        >
-          Welcome back, Admin! Here's what's happening.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1
+              className={cn(
+                "text-3xl font-bold",
+                isDarkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              Dashboard
+            </h1>
+            <p
+              className={cn(
+                "text-sm mt-1",
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              )}
+            >
+              Welcome back, Admin! Here's what's happening.
+            </p>
+          </div>
+
+          {/* Real-time Notifications */}
+          <div className="relative">
+            <Popover open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={cn(
+                    "relative",
+                    isDarkMode 
+                      ? "border-slate-700 bg-slate-800 hover:bg-slate-700" 
+                      : "border-gray-200 bg-white hover:bg-gray-50"
+                  )}
+                  onClick={() => {
+                    if (isNotificationOpen) {
+                      markNotificationsAsRead();
+                    }
+                  }}
+                >
+                  <Bell className="h-5 w-5" />
+                  {!notificationLoading && notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className={cn(
+                  "w-80 p-0",
+                  isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
+                )}
+                align="end"
+              >
+                <div className={cn(
+                  "flex items-center justify-between p-4 border-b",
+                  isDarkMode ? "border-slate-700" : "border-gray-200"
+                )}>
+                  <h3 className={cn(
+                    "font-semibold text-sm",
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  )}>
+                    New Event Submissions
+                  </h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {newEvents.length}
+                  </Badge>
+                </div>
+
+                <ScrollArea className="h-[300px]">
+                  <div className="p-4 space-y-3">
+                    {notificationLoading ? (
+                      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                        Loading notifications...
+                      </div>
+                    ) : newEvents.length === 0 ? (
+                      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                        No new events in the last 24 hours
+                      </div>
+                    ) : (
+                      newEvents.map((event, index) => (
+                        <div
+                          key={event.id}
+                          className={cn(
+                            "rounded-lg p-3 transition-colors cursor-pointer border-l-4",
+                            isDarkMode 
+                              ? "hover:bg-slate-700 bg-slate-900" 
+                              : "hover:bg-gray-50 bg-gray-50",
+                            !viewedNotifications.has(event.id) && "ring-1 ring-blue-500",
+                            getBorderColor(index)
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <div className={cn(
+                                "p-1.5 rounded-lg flex-shrink-0",
+                                isDarkMode ? "bg-blue-500/20" : "bg-blue-100"
+                              )}>
+                                <FileText className={cn(
+                                  "h-3 w-3",
+                                  isDarkMode ? "text-blue-400" : "text-blue-600"
+                                )} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                  "text-sm font-medium truncate max-w-[160px]",
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                )}
+                                title={event.title} // Show full title on hover
+                                >
+                                  {event.title}
+                                </p>
+                                <p className={cn(
+                                  "text-xs mt-1 truncate",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  {event.department} • {event.requestor}
+                                </p>
+                                <p className={cn(
+                                  "text-xs mt-1",
+                                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                                )}>
+                                  {format(event.createdAt, "MMM d, h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge 
+                              variant={event.status === 'approved' ? 'default' : 'secondary'}
+                              className="text-xs flex-shrink-0"
+                            >
+                              {event.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {newEvents.length > 0 && (
+                  <div className={cn(
+                    "p-4 border-t",
+                    isDarkMode ? "border-slate-700" : "border-gray-200"
+                  )}>
+                    <Button
+                      size="sm"
+                      className="w-full bg-black hover:bg-gray-800 text-white border-0"
+                      onClick={() => {
+                        // Navigate to Event Requests page
+                        window.location.href = '/admin/event-requests';
+                      }}
+                    >
+                      View All Events
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
       </motion.div>
 
       {/* Stats Grid */}
